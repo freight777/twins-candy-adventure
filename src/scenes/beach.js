@@ -89,7 +89,7 @@ export class BeachScene extends BaseScene {
 
     // dunes, shells and bumps for visual interest
     for (let i = 0; i < 9; i++) {
-      const d = mk(sph(1), 0xffd68a, [rand(-40, 40), -.3, rand(14, 45)], [rand(4, 9), rand(.8, 1.6), rand(3, 6)]); this.scene.add(d);
+      const d = mk(sph(1), 0xffd68a, [rand(-40, 40), -.3, rand(14, 45)], [rand(4, 9), rand(.8, 1.6), rand(3, 6)]); this.scene.add(d); (this.dunes = this.dunes || []).push(d);
     }
     for (let i = 0; i < 30; i++) {
       const s = mk(new THREE.ConeGeometry(.16, .22, 7), pick([0xff9fcb, 0xffffff, 0xffb86b, 0xc79bff]), [rand(-25, 25), .12, rand(0, 20)]);

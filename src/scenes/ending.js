@@ -30,6 +30,7 @@ export class WakeScene extends BeachScene {
     super(game);
     this.phase = 'wake';
     this.woke = false;
+    (this.dunes || []).forEach((d) => (d.visible = false));        // no sand hills in front of the sleeping girls
     this.camera.position.set(-9, 4.2, 15.5);
     this.look = new THREE.Vector3(-9.5, 1, 8);
     this.camera.lookAt(this.look);
@@ -76,7 +77,7 @@ export class WakeScene extends BeachScene {
   truck() {
     const G = this.game, ui = G.ui, P = G.party;
     setStyle('candy');
-    const T = new THREE.Group(); T.position.set(7, 0, 3.4); T.rotation.y = -Math.PI / 2;     // drives toward -x
+    const T = new THREE.Group(); T.position.set(-26, 0, 5.2); T.rotation.y = Math.PI;      // drives in from the left (behind everyone), cab first, and parks on the right
     const box = (w, h, d, col, x, y, z) => { const m = mk(new THREE.BoxGeometry(w, h, d), col, [x, y, z]); T.add(m); return m; };
     box(2.2, 1.9, 2.4, 0xff6fb5, -1.9, 1.35, 0);                    // cab
     box(.1, .9, 1.9, 0xbfeaff, -3.02, 1.7, 0);                      // windscreen
@@ -96,9 +97,9 @@ export class WakeScene extends BeachScene {
     ui.bubble('\u{1F69A} \u{1F36B}', 'Look! The chocolate is here!', 'queen');
     sfx.honk(); this.tm.after(.9, () => sfx.honk());
     this.tm.tween(4.2, (k) => {
-      T.position.x = 7 + (-9 - 7) * k; wheels.forEach((w) => (w.rotation.y -= .25));
+      T.position.x = -26 + (-1.2 + 26) * k; wheels.forEach((w) => (w.rotation.y += .25));
       T.rotation.z = Math.sin(k * 40) * .008;
-      if (Math.random() < .4) this.fx.burst(new THREE.Vector3(T.position.x + 4.5, .6, T.position.z), { count: 1, colors: [0xdddddd, 0xffffff], speed: .5, up: .8, gravity: .5, life: 1.2, size: 1.2 });
+      if (Math.random() < .4) this.fx.burst(new THREE.Vector3(T.position.x - 4.5, .6, T.position.z), { count: 1, colors: [0xdddddd, 0xffffff], speed: .5, up: .8, gravity: .5, life: 1.2, size: 1.2 });
     }, { ease: ease.out, done: () => {
       P.both().forEach((t) => (t.mode = 'cheer'));
       sfx.honk();
@@ -107,11 +108,11 @@ export class WakeScene extends BeachScene {
       for (let i = 0; i < 26; i++) this.tm.after(.5 + i * .09, () => {
         const m = model(`food/${pick(['chocolate', 'candy-bar', 'cookie-chocolate', 'chocolate', 'donut-chocolate', 'popsicle-chocolate'])}`, { size: rand(1.3, 2.0) });
         if (!m) return;
-        m.position.set(T.position.x + 4.4 + rand(-.3, .3), 2.2, T.position.z + rand(-1, 1)); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6));
+        m.position.set(T.position.x - 4.3 + rand(-.3, .3), 2.2, T.position.z + rand(-1, 1)); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6));
         shade(m); this.scene.add(m);
-        this.pieces.push({ m, vy: rand(0, 2), vx: rand(.6, 2.6), vz: rand(-1.2, 1.2), spin: rand(-4, 4), rest: false });
+        this.pieces.push({ m, vy: rand(0, 2), vx: -rand(.6, 2.2), vz: rand(-1.2, 1.2), spin: rand(-4, 4), rest: false });
       });
-      this.tm.after(1.2, () => { sfx.tada(); this.fx.burst(new THREE.Vector3(T.position.x + 6, 3, T.position.z), { count: 100, colors: RAINBOW.concat(CANDY), speed: 8, gravity: -3, life: 2.2, size: 1.2 }); sfx.giggle(); });
+      this.tm.after(1.2, () => { sfx.tada(); this.fx.burst(new THREE.Vector3(T.position.x - 6, 3, T.position.z), { count: 100, colors: RAINBOW.concat(CANDY), speed: 8, gravity: -3, life: 2.2, size: 1.2 }); sfx.giggle(); });
       this.tm.after(5, () => this.theEnd());
     } });
   }
