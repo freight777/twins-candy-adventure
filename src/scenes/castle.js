@@ -42,24 +42,24 @@ export class CastleScene extends BaseScene {
     setStyle('candy');                      // same glossy film look as the candy world
     try { this.build(); } finally { setStyle('toon'); }
     this.scene.environment = game.env('castle'); this.scene.environmentIntensity = 0.35;
-    this.scene.add(new THREE.HemisphereLight(0xfff4e8, 0xffc8e8, 0.45));
-    const d = new THREE.DirectionalLight(0xfff0d6, 1.8); d.position.set(0, 14, 12); this.scene.add(d);
+    this.scene.add(new THREE.HemisphereLight(0xfff4e8, 0xffc8e8, 0.35));
+    const d = new THREE.DirectionalLight(0xfff0d6, 1.4); d.position.set(0, 14, 12); this.scene.add(d);
     this.useShadows(d, 22);
     this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
     this.camera.position.set(0, 5, 14); this.camera.lookAt(0, 3.6, -6);
   }
 
   build() {
-    this.scene.background = new THREE.Color(0xffe9f3);
-    const floor = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#fff4e8'; g.fillRect(0, 0, w, h); g.fillStyle = '#ffd0e6'; g.fillRect(0, 0, w / 2, h / 2); g.fillRect(w / 2, h / 2, w / 2, h / 2); }, [8, 8]);
+    this.scene.background = new THREE.Color(0xe98fb5);
+    const floor = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#e9cfae'; g.fillRect(0, 0, w, h); g.fillStyle = '#e88ab4'; g.fillRect(0, 0, w / 2, h / 2); g.fillRect(w / 2, h / 2, w / 2, h / 2); }, [8, 8]);
     this.scene.add(mk(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), toon(0xffffff, { map: floor }), [0, 0, -4]));
     this.scene.add(mk(new THREE.PlaneGeometry(6, 40).rotateX(-Math.PI / 2), 0xe0405f, [0, .02, -4]));                    // red carpet
     this.scene.add(mk(new THREE.PlaneGeometry(6.6, 40).rotateX(-Math.PI / 2), 0xffc83d, [0, .015, -4]));
     // back wall with stained glass
-    this.scene.add(mk(new THREE.PlaneGeometry(44, 26), 0xffd9ec, [0, 12, -16]));
+    this.scene.add(mk(new THREE.PlaneGeometry(44, 26), 0xe48ab4, [0, 12, -16]));
     [[-12, 0x4db8ff], [-6, 0xff6f91], [0, 0xffd84d], [6, 0x5be37d], [12, 0xb07cff]].forEach(([x, c], i) => {
       const w = mk(sph(2.4, 20, 12), new THREE.MeshBasicMaterial({ color: c }), [x, 13, -15.8], [1, 1.9, .05]); this.scene.add(w);
-      const gl = glowSprite(0xffffff, 8, .35); gl.position.set(x, 13, -15.3); this.scene.add(gl);
+      const gl = glowSprite(0xffffff, 8, .15); gl.position.set(x, 13, -15.3); this.scene.add(gl);
     });
     // pillars and banners
     for (const s of [-1, 1]) for (let i = 0; i < 4; i++) {

@@ -64,13 +64,13 @@ export class CatRoomScene extends BaseScene {
   build() {
     // striped circus-tent dome
     const stripes = canvasTex(1024, 8, (g, w, h) => {
-      const cols = ['#ff9ecb', '#fff4d6', '#8fe3f0', '#fff4d6', '#ffd84d', '#fff4d6']; const n = 24;
+      const cols = ['#f08fbd', '#f2dcc0', '#7dd0e0', '#f2dcc0', '#f0c23d', '#f2dcc0']; const n = 24;
       for (let i = 0; i < n; i++) { g.fillStyle = cols[i % cols.length]; g.fillRect((i * w) / n, 0, w / n + 1, h); }
     });
     this.scene.add(new THREE.Mesh(new THREE.SphereGeometry(24, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ map: stripes, side: THREE.BackSide })));
     // checkerboard floor
     const checker = canvasTex(128, 128, (g, w, h) => {
-      g.fillStyle = '#ff9ecb'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff4d6'; g.fillRect(0, 0, w / 2, h / 2); g.fillRect(w / 2, h / 2, w / 2, h / 2);
+      g.fillStyle = '#ee86b8'; g.fillRect(0, 0, w, h); g.fillStyle = '#f0d9bc'; g.fillRect(0, 0, w / 2, h / 2); g.fillRect(w / 2, h / 2, w / 2, h / 2);
     }, [11, 11]);
     this.scene.add(mk(new THREE.CircleGeometry(24, 64).rotateX(-Math.PI / 2), toon(0xffffff, { map: checker })));
 
