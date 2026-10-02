@@ -33,10 +33,10 @@ export class ChocolateScene extends BaseScene {
       this.buildPad();
       this.buildAtmosphere();
     } finally { setStyle('toon'); }
-    this.scene.environment = game.env('candy'); this.scene.environmentIntensity = 0.55;
+    this.scene.environment = game.env('candy'); this.scene.environmentIntensity = 0.3;
     this.scene.fog = new THREE.Fog(0xffe9f3, 120, 320);
-    this.scene.add(new THREE.HemisphereLight(0xfff6e8, 0xffc0e0, 0.55));
-    const sun = new THREE.DirectionalLight(0xfff0d6, 3.0); sun.position.set(16, 28, 18); this.scene.add(sun);
+    this.scene.add(new THREE.HemisphereLight(0xfff6e8, 0xffc0e0, 0.4));
+    const sun = new THREE.DirectionalLight(0xfff0d6, 2.0); sun.position.set(16, 28, 18); this.scene.add(sun);
     this.useShadows(sun, 26);
     this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
   }
@@ -204,7 +204,7 @@ export class ChocolateScene extends BaseScene {
       const [name, emoji, make] = makers[i % makers.length];
       const [mname, memoji, mh] = FOOD[i % FOOD.length];
       const g = new THREE.Group(); g.position.set(x, 0, z);
-      const real = model(`food/${mname}`, { height: mh * 0.7 / 1.35 });          // real sculpted model if it loaded, else the shape built in code
+      const real = model(`food/${mname}`, { size: mh * 0.7 / 1.35 });          // real sculpted model if it loaded, else the shape built in code
       const item = real || make(); g.add(item); g.scale.setScalar(1.35);
       g.userData = { name: real ? mname : name, emoji: real ? memoji : emoji, eaten: false, idx: i, home: new THREE.Vector3(x, 0, z), item };
       this.scene.add(g); this.edibles.push(g);

@@ -27,10 +27,10 @@ export class BeachScene extends BaseScene {
       this.buildCritters();
       this.buildOrb();
     } finally { setStyle('toon'); }
-    this.scene.environment = game.env('beach', { top: 0x5aa8ff, mid: 0xfff1d8, bottom: 0xffe2b0, sun: [36, 30, -60] }); this.scene.environmentIntensity = 0.5;
+    this.scene.environment = game.env('beach', { top: 0x5aa8ff, mid: 0xfff1d8, bottom: 0xffe2b0, sun: [36, 30, -60] }); this.scene.environmentIntensity = 0.3;
     this.scene.fog = new THREE.Fog(0xcfe9ff, 90, 300);
-    this.scene.add(new THREE.HemisphereLight(0xd8efff, 0xffe2b0, 0.65));
-    const sunLight = new THREE.DirectionalLight(0xfff0d0, 3.0); sunLight.position.set(20, 30, 14); this.scene.add(sunLight);
+    this.scene.add(new THREE.HemisphereLight(0xd8efff, 0xffe2b0, 0.5));
+    const sunLight = new THREE.DirectionalLight(0xfff0d0, 2.2); sunLight.position.set(20, 30, 14); this.scene.add(sunLight);
     this.useShadows(sunLight, 26);
     this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
     shade(this.ball); this.stars.forEach((s) => shade(s));

@@ -41,9 +41,9 @@ export class CastleScene extends BaseScene {
     this.stage = 'walk-in';
     setStyle('candy');                      // same glossy film look as the candy world
     try { this.build(); } finally { setStyle('toon'); }
-    this.scene.environment = game.env('castle'); this.scene.environmentIntensity = 0.7;
-    this.scene.add(new THREE.HemisphereLight(0xfff4e8, 0xffc8e8, 0.6));
-    const d = new THREE.DirectionalLight(0xfff0d6, 2.4); d.position.set(0, 14, 12); this.scene.add(d);
+    this.scene.environment = game.env('castle'); this.scene.environmentIntensity = 0.35;
+    this.scene.add(new THREE.HemisphereLight(0xfff4e8, 0xffc8e8, 0.45));
+    const d = new THREE.DirectionalLight(0xfff0d6, 1.8); d.position.set(0, 14, 12); this.scene.add(d);
     this.useShadows(d, 22);
     this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
     this.camera.position.set(0, 5, 14); this.camera.lookAt(0, 3.6, -6);

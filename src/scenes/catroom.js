@@ -53,9 +53,9 @@ export class CatRoomScene extends BaseScene {
     this.drop = 18;
     setStyle('candy');
     try { this.build(); } finally { setStyle('toon'); }
-    this.scene.environment = game.env('candy'); this.scene.environmentIntensity = 0.6;
-    this.scene.add(new THREE.HemisphereLight(0xfff2ff, 0xffd0f0, 0.7));
-    const d = new THREE.DirectionalLight(0xfff0e0, 2.2); d.position.set(5, 14, 10); this.scene.add(d);
+    this.scene.environment = game.env('candy'); this.scene.environmentIntensity = 0.3;
+    this.scene.add(new THREE.HemisphereLight(0xfff2ff, 0xffd0f0, 0.5));
+    const d = new THREE.DirectionalLight(0xfff0e0, 1.7); d.position.set(5, 14, 10); this.scene.add(d);
     this.useShadows(d, 20);
     this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow && c !== this.cat) shade(c); });
     this.camera.position.set(0, 4.2, 9.5); this.camera.lookAt(0, 3, -6);

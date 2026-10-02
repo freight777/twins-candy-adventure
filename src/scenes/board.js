@@ -48,10 +48,10 @@ export class BoardScene extends BaseScene {
     this.camTarget = new THREE.Vector3();
     setStyle('candy');                      // glossy candy world
     try { this.buildPath(); this.buildWorld(); this.buildDice(); } finally { setStyle('toon'); }
-    this.scene.environment = game.env('candy'); this.scene.environmentIntensity = 0.4;
+    this.scene.environment = game.env('candy'); this.scene.environmentIntensity = 0.25;
     this.scene.fog = new THREE.Fog(0xffe9f3, 140, 360);
-    this.scene.add(new THREE.HemisphereLight(0xfff6e8, 0xffc0e0, 0.4));
-    const d = new THREE.DirectionalLight(0xfff0d6, 2.3); d.position.set(18, 34, 20); this.scene.add(d);
+    this.scene.add(new THREE.HemisphereLight(0xfff6e8, 0xffc0e0, 0.35));
+    const d = new THREE.DirectionalLight(0xfff0d6, 1.7); d.position.set(18, 34, 20); this.scene.add(d);
     this.useShadows(d, 30);
     this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
     this.tileMeshes.forEach((g) => { g.userData.noShadow = false; });
@@ -115,7 +115,7 @@ export class BoardScene extends BaseScene {
     const GIANTS = [['cake-birthday', 8], ['ice-cream-cne', 11], ['donut-sprinkles', 6], ['sundae', 9], ['cupcake', 8], ['lollypop', 11]]; let gi = 0;
     place(6, 9, (x, z) => {
       const [gn, gh] = GIANTS[gi++ % GIANTS.length];
-      const real = model(`food/${gn}`, { height: gh });                       // real sculpted candy if it loaded
+      const real = model(`food/${gn}`, { size: gh });                       // real sculpted candy if it loaded
       if (real) { real.position.set(x, -.6, z); real.rotation.y = rand(0, 6); this.scene.add(real); return; }
       const g = new THREE.Group(); g.position.set(x, -.6, z);                                 // (fallback) giant cupcakes
       g.add(mk(cyl(2.2, 1.7, 2.6, 16), 0xffd9a8, [0, 1.3, 0]), mk(sph(2.4, 16, 10), pick([0xff9ecb, 0x8fe3f0, 0xb89cf8]), [0, 3.2, 0], [1, .8, 1]), mk(sph(1.2, 12, 8), 0xffffff, [0, 4.6, 0], [1, .8, 1]), mk(sph(.55), 0xe8334a, [0, 5.6, 0])); this.scene.add(g); });

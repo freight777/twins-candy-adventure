@@ -23,7 +23,7 @@ const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NeutralToneMapping;      // keeps candy colours vivid but stops bright things clipping
-renderer.toneMappingExposure = 0.9;
+renderer.toneMappingExposure = 0.8;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 loadTier();
@@ -32,16 +32,17 @@ loadTier();
 const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
 const composer = new EffectComposer(renderer, rt);
 const renderPass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
-const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.16, 0.5, 0.95);
-// colour grade: a little more saturation + contrast so pastel models pop (done in linear light, before tone mapping)
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.1, 0.45, 1.05);
+// colour grade: a touch more saturation + contrast so pastels pop. Runs AFTER tone mapping, on ordinary 0-1 screen colours,
+// so very bright light can never skew the hues (that made everything over-bright and tinted on the iPad).
 const grade = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, sat: { value: 1.22 }, con: { value: 1.08 } },
+  uniforms: { tDiffuse: { value: null }, sat: { value: 1.12 }, con: { value: 1.06 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float sat, con; varying vec2 vUv;
     void main(){ vec4 t = texture2D(tDiffuse, vUv); float l = dot(t.rgb, vec3(.2126,.7152,.0722));
-      vec3 c = mix(vec3(l), t.rgb, sat); c = (c - .18)*con + .18; gl_FragColor = vec4(max(c, 0.), t.a); }`,
+      vec3 c = mix(vec3(l), t.rgb, sat); c = (c - .5)*con + .5; gl_FragColor = vec4(clamp(c, 0., 1.), t.a); }`,
 });
-composer.addPass(renderPass); composer.addPass(bloom); composer.addPass(grade); composer.addPass(new OutputPass());
+composer.addPass(renderPass); composer.addPass(bloom); composer.addPass(new OutputPass()); composer.addPass(grade);
 let pixelRatio = 1;
 function applyTier() {
   pixelRatio = Math.min(window.devicePixelRatio, Q.pr);
