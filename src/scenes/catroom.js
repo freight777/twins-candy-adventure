@@ -170,9 +170,19 @@ export class CatRoomScene extends BaseScene {
       ['\u{1F3C6} \u27A1\uFE0F \u{1F36B}\u{1F36B}\u{1F36B}', 'Win, and you get a lifetime supply of chocolate!', () => sfx.babble(9)],
       ['\u{1F984} \u2728 \u{1F9DC}\u200D\u2640\uFE0F', 'First, you must become your characters!', () => { sfx.babble(7); sfx.sparkle(); }],
     ];
+    this.stage = 'dialogue'; this.lines = lines; this.li = -1; this.nextLine();
+  }
+
+  // the cat talks one bubble at a time; it moves on by itself, or when the girls tap the screen
+  nextLine() {
     const ui = this.game.ui;
-    lines.forEach(([e, cap, fn], i) => this.tm.after(i * 3.6, () => { ui.bubble(e, cap); fn(); this.talk = 3; }));
-    this.tm.after(lines.length * 3.6 - .2, () => {
+    this.li++;
+    if (this.li < this.lines.length) {
+      const [e, cap, fn] = this.lines[this.li];
+      ui.bubble(e, cap); fn(); this.talk = 3; this.lineT = 4;
+      return;
+    }
+    {
       this.stage = 'transform';
       ui.bubble('\u{1F446} \u{1F984}   \u{1F446} \u{1F9DC}\u200D\u2640\uFE0F', 'Tap Adalyn and Esmae to transform!');
       this.markers = this.game.party.both().map((t) => {
@@ -181,7 +191,17 @@ export class CatRoomScene extends BaseScene {
       });
       this.game.party.frozen = false;      // free to walk around now
       this.game.ui.hud(true, { swap: true });
-    });
+    }
+  }
+
+  onPointer(ndc) {
+    if (this.stage === 'dialogue') {        // tap anywhere to hear the next bit
+      this.ray.setFromCamera(ndc, this.camera);
+      const hit = this.ray.intersectObjects(this.hits.filter((h) => h.parent === this.cat), false)[0];
+      if (hit) hit.object.userData.onTap(hit); else this.nextLine();
+      return;
+    }
+    super.onPointer(ndc);
   }
 
   tapCat() {
@@ -253,6 +273,7 @@ export class CatRoomScene extends BaseScene {
     super.update(dt);
     const t = this.time, G = this.game, P = G.party;
     P.update(dt, t);
+    if (this.stage === 'dialogue') { this.lineT -= dt; if (this.lineT <= 0) this.nextLine(); }
     this.balloons.forEach((b) => { b.position.y += Math.sin(t * .8 + b.userData.p) * dt * .4; b.rotation.z = Math.sin(t + b.userData.p) * .08; });
     (this.pillars || []).forEach((p, i) => { p.userData.disc.rotation.z += dt * .4 * (i % 2 ? 1 : -1); });
     if (this.cat.visible) {

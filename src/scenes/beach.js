@@ -255,8 +255,11 @@ export class BeachScene extends BaseScene {
       const ray = mk(new THREE.PlaneGeometry(.18, 7), new THREE.MeshBasicMaterial({ color: 0xfff5b0, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
       ray.rotation.z = (i / 4) * Math.PI; g.add(ray);
     }
+    const beam = mk(cyl(.25, 1.1, 40, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff1a0, transparent: true, opacity: .22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), [0, 20, 0]);
+    g.add(beam);                                  // a tall beam of light so the girls can spot it from the sand
     this.orb = g; this.orbCore = core; this.scene.add(g);
-    this.addInteractive(g, () => this.tapOrb(), 3.5);
+    g.scale.setScalar(1.5);
+    this.addInteractive(g, () => this.tapOrb(), 4.5);
   }
 
   // ===================================================================== flow
@@ -404,7 +407,7 @@ export class BeachScene extends BaseScene {
     // shiny thing
     this.orb.position.y = ORB.y + Math.sin(t * 1.6) * .35;
     this.orbCore.rotation.y = t * 1.5; this.orbCore.rotation.x = t * .8;
-    const pulse = 1 + Math.sin(t * 5) * .12; this.orb.scale.setScalar(pulse);
+    const pulse = 1.5 + Math.sin(t * 5) * .18; this.orb.scale.setScalar(pulse);
     if (Math.random() < dt * 3) this.fx.burst(this.orb.position.clone().add(new THREE.Vector3(rand(-1.5, 1.5), rand(-1, 2), rand(-1, 1))), { count: 2, colors: [0xffffff, 0xffe14d], speed: .6, gravity: 0, life: 1.1, size: .6 });
 
     // critters
@@ -441,7 +444,7 @@ export class BeachScene extends BaseScene {
     // idle hint: after a while, make the shiny thing call out to the girls
     if (this.phase === 'play' && !this.autopilot) {
       this.idle += dt;
-      if (this.idle > 45 && !this.hintOn) { this.hintOn = true; sfx.ting(); G.ui.hint('✨'); }
+      if (this.idle > 22 && !this.hintOn) { this.hintOn = true; sfx.ting(); G.ui.hint('✨'); G.ui.bubble('✨ 👆', 'Something shiny in the water!'); this.tm.after(4, () => G.ui.hideBubble()); }
     }
     if (this.hintOn) { const s = this.toScreen(this.orb.position); G.ui.hintAt(s.x, s.y - 70); }
 

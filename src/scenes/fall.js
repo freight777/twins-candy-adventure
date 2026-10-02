@@ -5,7 +5,7 @@ import { sfx, playMusic } from '../audio.js';
 
 const sph = (r, w = 14, h = 10) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
-const TUNNEL_LEN = 170, SPEED = 30, DURATION = 26;
+const TUNNEL_LEN = 170, SPEED = 30, DURATION = 22;
 
 /** Phase 1: the whirlpool pulls the girls under. Phase 2: the crazy Alice-in-Wonderland tunnel fall. */
 export class FallScene extends BaseScene {

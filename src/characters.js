@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, mk, outline, RAINBOW } from './util.js';
+import { toon, mk, outline, glowSprite, RAINBOW } from './util.js';
 
 const SKIN = 0xf3c8a2, HAIR = 0x5b3a24, EYE = 0x3a2315;
 const sph = (r, w = 24, h = 18) => new THREE.SphereGeometry(r, w, h);
@@ -12,6 +12,7 @@ const cyl = (rt, rb, h, s = 16) => new THREE.CylinderGeometry(rt, rb, h, s);
  */
 export function createTwin(name) {
   const isA = name === 'adalyn';
+  let ribbons = null, finG = null, mHair = null;
   const accent = isA ? 0xff8a1f : 0xff5fa8;
   const accent2 = isA ? 0xffc15a : 0xff9fcb;
 
@@ -72,32 +73,42 @@ export function createTwin(name) {
 
   // ---- UNICORN extras ----
   const unicornG = new THREE.Group(); unicornG.visible = false; body.add(unicornG);
-  const horn = mk(new THREE.ConeGeometry(.08, .45, 14), 0xfff3c4, [0, 2.07, .18]); horn.rotation.x = .28;
-  for (let i = 0; i < 3; i++) { const r = mk(new THREE.TorusGeometry(.065 - i * .014, .014, 6, 14), 0xffc83d, [0, -.12 + i * .12, 0]); r.rotation.x = Math.PI / 2; horn.add(r); }
+  const horn = outline(mk(new THREE.ConeGeometry(.11, .68, 16), 0xfffbe6, [0, 2.2, .2]), 1.07); horn.rotation.x = .3;
+  for (let i = 0; i < 5; i++) { const r = mk(new THREE.TorusGeometry(.095 - i * .017, .017, 6, 14), 0xffc83d, [0, -.24 + i * .12, 0]); r.rotation.x = Math.PI / 2; horn.add(r); }
+  const hornGlow = glowSprite(0xfff1a0, .9, .45); hornGlow.position.set(0, .34, 0); horn.add(hornGlow);
   unicornG.add(horn);
   for (const s of [-1, 1]) {
-    const ear = mk(new THREE.ConeGeometry(.1, .27, 10), 0xfff3c4, [s * .3, 1.78, -.02]); ear.rotation.z = -s * .35;
-    unicornG.add(ear, mk(sph(.05), 0xff9fcb, [s * .3, 1.76, .04], [1, 1.5, .5]));
+    const ear = outline(mk(new THREE.ConeGeometry(.14, .4, 10), 0xfffbe6, [s * .34, 1.86, -.02]), 1.06); ear.rotation.z = -s * .4;
+    unicornG.add(ear, mk(sph(.06), 0xff9fcb, [s * .33, 1.84, .05], [1, 1.9, .5]));
+    // flowing rainbow ribbons from the sides of the head
+    const rib = new THREE.Group(); rib.position.set(s * .44, 1.5, -.1); unicornG.add(rib); (ribbons = ribbons || []).push(rib);
+    RAINBOW.forEach((c, i) => rib.add(mk(sph(.075), c, [s * (i * .04), -.06 - i * .13, -.04 - i * .05])));
   }
-  RAINBOW.forEach((c, i) => unicornG.add(mk(sph(.13 - i * .004), c, [0, 1.8 - i * .17, -.34 - Math.sin(i * .5) * .12]))); // rainbow mane
+  RAINBOW.forEach((c, i) => unicornG.add(mk(sph(.17 - i * .006), c, [0, 1.85 - i * .19, -.36 - Math.sin(i * .5) * .14])));   // rainbow mane
   const uTail = new THREE.Group(); uTail.position.set(0, .7, -.3); unicornG.add(uTail);
-  RAINBOW.forEach((c, i) => uTail.add(mk(sph(.12 + i * .012), c, [0, -i * .1 + .1, -.1 - i * .09])));
+  RAINBOW.forEach((c, i) => uTail.add(outline(mk(sph(.15 + i * .02), c, [0, -i * .13 + .15, -.1 - i * .12]), 1.08)));
+  unicornG.add(mk(new THREE.TorusGeometry(.43, .035, 6, 24), 0xffc83d, [0, .43, 0]).rotateX(Math.PI / 2));      // golden hem trim
 
   // ---- MERMAID extras ----
   const mermaidG = new THREE.Group(); mermaidG.visible = false; body.add(mermaidG);
   const tail = new THREE.Group(); tail.position.set(0, .8, 0); mermaidG.add(tail);
-  const tcols = [0x2fd6c8, 0x38dcc4, 0x58d8e8, 0x82c4f4, 0xb89cf8, 0xff8fd0];
+  const tcols = [0x1fd0c0, 0x2fd6c8, 0x3fd8d8, 0x58d8f0, 0x82c4f4, 0xa8a8f8, 0xc88cf8, 0xff8fd0];
   tcols.forEach((c, i) => {
-    const r = .24 - i * .028;
-    tail.add(outline(mk(sph(r, 16, 12), c, [0, -.08 - i * .13, -i * .03], [1, 1.0, .9]), 1.07));
+    const r = .27 - i * .028;
+    const seg = outline(mk(sph(r, 16, 12), c, [0, -.08 - i * .125, -i * .035], [1, 1.0, .9]), 1.07);
+    for (let k = 0; k < 3; k++) seg.add(mk(sph(r * .28, 8, 6), 0xffffff, [(k - 1) * r * .55, r * .25, r * .8], [1, .6, .4]));   // shiny scales
+    tail.add(seg);
   });
-  const fin = new THREE.Group(); fin.position.set(0, -.88, -.18); tail.add(fin);
-  for (const s of [-1, 1]) {
-    const f = mk(sph(.22, 12, 8), 0xff8fd0, [s * .2, -.04, 0], [1, .55, .25]); f.rotation.z = s * .7; fin.add(f);
+  const fin = new THREE.Group(); fin.position.set(0, -1.05, -.26); tail.add(fin); finG = fin;
+  for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
+    const f = mk(sph(.28 - k * .04, 12, 8), k % 2 ? 0xff8fd0 : 0xc88cf8, [s * (.22 + k * .1), -.06 - k * .1, 0], [1.1, .5, .22]); f.rotation.z = s * (.5 + k * .35); fin.add(f);
   }
-  const mHair = mk(sph(.38), HAIR, [0, 1.0, -.4], [.95, 2.4, .5]); mermaidG.add(mHair);
-  mermaidG.add(mk(sph(.07), 0xffa6d5, [.28, 1.7, .22], [1, .7, .6]), mk(sph(.04), 0xffe14d, [.28, 1.74, .27]));
-  for (let i = 0; i < 5; i++) mermaidG.add(mk(sph(.025), 0xffffff, [-.18 + i * .09, 1.88 - Math.abs(i - 2) * .02, .28]));
+  mHair = new THREE.Group(); mHair.position.set(0, 1.5, -.38); mermaidG.add(mHair);
+  for (let i = 0; i < 4; i++) mHair.add(mk(sph(.36 - i * .03), HAIR, [Math.sin(i * 1.3) * .08, -i * .28, -i * .03], [.95, 1.3, .55]));
+  mermaidG.add(mk(sph(.09), 0xff7fb8, [.3, 1.74, .2], [1, .7, .6]), mk(sph(.05), 0xffe14d, [.3, 1.78, .26]));   // starfish clip
+  for (let i = 0; i < 5; i++) mermaidG.add(mk(sph(.028), 0xffffff, [-.18 + i * .09, 1.9 - Math.abs(i - 2) * .02, .28]));   // pearl headband
+  for (let i = 0; i < 9; i++) { const a = (i / 8) * Math.PI - Math.PI / 2; mermaidG.add(mk(sph(.035), 0xfffaf0, [Math.sin(a) * .2, 1.2 - Math.cos(a) * .02 + .07, .17 + Math.cos(a) * .06])); }   // pearl necklace
+  mermaidG.add(mk(sph(.17, 12, 8), 0xff9fd0, [-.1, 1.05, .15], [1, .8, .6]), mk(sph(.17, 12, 8), 0xff9fd0, [.1, 1.05, .15], [1, .8, .6]));   // bigger shell top
 
   // ---- animation state ----
   const fxs = { lift: 0, spin: 0, squash: 1 };
@@ -109,6 +120,7 @@ export function createTwin(name) {
       skirtG.visible = !merm; legsG.visible = !merm; top.visible = !merm; mTorso.visible = merm;
       arms.forEach((a) => (a.children[2].material.color.set(merm ? SKIN : accent)));
       unicornG.visible = f === 'unicorn'; mermaidG.visible = merm;
+      root.scale.setScalar(f === 'girl' ? 1 : 1.12);
       shoes.forEach((s) => s.material.color.set(f === 'unicorn' ? 0xffd34d : 0xffffff));
     },
     lookToward(dx, dz, dt) {
@@ -155,6 +167,9 @@ export function createTwin(name) {
       }
       uTail.rotation.y = Math.sin(t * 3) * .35;
       uTail.rotation.x = Math.sin(t * 2.4) * .12;
+      if (ribbons) ribbons.forEach((r, i) => { r.rotation.z = Math.sin(t * 3 + i * 2) * .16 + (moving ? (i ? -.35 : .35) : 0); r.rotation.x = moving ? .5 : Math.sin(t * 2) * .1; });
+      if (mHair) { mHair.rotation.z = Math.sin(t * 2) * .07; mHair.rotation.x = moving ? .2 : Math.sin(t * 1.5) * .05; }
+      if (finG) finG.rotation.z = Math.sin(t * 5) * .18;
 
       // transformation / special effects
       body.position.y += fxs.lift;

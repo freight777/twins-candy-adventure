@@ -23,7 +23,7 @@ export class Party {
   /** Stand them back up, normal size, no leftover spin/squash from the previous scene. */
   resetPose() {
     this.both().forEach((t) => {
-      t.root.rotation.set(0, 0, 0); t.face = 0; t.root.scale.setScalar(1); t.body.rotation.set(0, 0, 0);
+      t.root.rotation.set(0, 0, 0); t.face = 0; t.root.scale.setScalar(t.form === 'girl' ? 1 : 1.12); t.body.rotation.set(0, 0, 0);
       t.fx.lift = 0; t.fx.spin = 0; t.fx.squash = 1; t.mode = 'idle';
     });
     this.target = null;

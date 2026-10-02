@@ -75,6 +75,16 @@ html, body {
 #progress .dot { position: absolute; left: 50%; width: 30px; height: 30px; border-radius: 50%; border: 4px solid #fff; transform: translate(-50%, 50%); bottom: 0; transition: bottom .4s; box-shadow: 0 3px 0 rgba(0,0,0,.2); }
 #progress .dot.a { background: #ff8a1f; margin-left: -9px; } #progress .dot.e { background: #ff5fa8; margin-left: 9px; }
 
+/* ---------- hidden grown-ups menu (tap the top-right corner 3 times) ---------- */
+#secret { position: fixed; top: 0; right: 0; width: 80px; height: 80px; z-index: 40; }
+#parent { position: fixed; inset: 0; z-index: 60; background: rgba(40,20,60,.6); display: flex; align-items: center; justify-content: center; }
+.parent-card { background: #fff; border-radius: 28px; padding: 22px 26px; max-width: 92vw; max-height: 92vh; overflow: auto; text-align: center; color: #4b2a99; }
+.parent-card h2 { margin: 0 0 4px; } .parent-card p { margin: 0 0 10px; }
+.pgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+.parent-card button { font-family: inherit; font-size: 20px; font-weight: 700; padding: 12px 18px; border-radius: 16px; border: 0; background: #eee3ff; color: #4b2a99; box-shadow: 0 4px 0 #c3aef0; cursor: pointer; }
+.prow { display: flex; gap: 10px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+#pclose { background: #ff4fa0; color: #fff; box-shadow: 0 4px 0 #b02a74; }
+
 @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 @keyframes pop { from { transform: translateX(-50%) scale(.3); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }

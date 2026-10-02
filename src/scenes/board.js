@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+﻿import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic } from '../audio.js';
@@ -146,7 +146,7 @@ export class BoardScene extends BaseScene {
     this.players.forEach((pl) => { pl.tw.root.position.copy(this.slot(0, pl.i)); pl.tw.root.rotation.y = 0; pl.tw.face = 0; pl.tw.root.scale.setScalar(1.15); pl.tw.mode = 'idle'; pl.tw.setForm(pl.tw.form); });
     G.ui.hud(true, { swap: true, stars: false, lockSwap: true });
     G.ui.progress(true);
-    playMusic('beach');
+    playMusic('board');
     this.introT = 0; this.state = 'intro';
     G.ui.bubble('\u{1F36D} \u{1F3B2} \u{1F3C1}', "Let's race to the castle!");
     this.camera.position.set(0, 85, 55); this.camera.lookAt(0, 0, -2);

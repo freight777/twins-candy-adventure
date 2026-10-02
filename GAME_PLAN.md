@@ -92,3 +92,10 @@ Proposed stack (I write the code, you don't need to learn it):
 ## 8. Setup blockers
 - Node.js is not installed on this PC (needed to run the dev server). Git is not installed either (needed to save versions and publish).
 - Publishing the game so the iPad can open it: free hosting on GitHub Pages or Netlify (needs an account, which you would create yourself).
+
+## 9. Progress log
+- **2026-10-02, Phase 1 done:** title, beach (free roam + surprises), whirlpool, tunnel fall (steer + collect stars), cat room, transformations. Live on GitHub Pages and tested on the iPad.
+- **2026-10-02, Phases 2-3 first pass done:** Wonka-style chocolate meadow (eat button, tap surprises, START pad), Mario-Party-style board (40 squares, punched dice, gumdrop jump, rainbow trail, sugar rush, licorice slide, molasses), castle with King and Queen, warp back up the tunnel, nap/wake-up ending.
+- **Board rule:** the twins race but BOTH finish and BOTH get crowns, so nobody "loses".
+- **Dev shortcuts (keyboard):** 1 beach, 2 tunnel, 3 cat room, 4 chocolate, 5 board, 6 castle, 7 warp home, 8 wake-up.
+- **Still to do:** art polish on the unicorn and mermaid, real voice-over (v2), sound polish, a real icon for the home screen, offline play (PWA), playtest with the girls.

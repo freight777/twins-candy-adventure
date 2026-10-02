@@ -60,6 +60,16 @@ export class BaseScene {
     this.time += dt;
     this.tm.update(dt);
     this.fx.update(dt);
+    // magical aura: transformed girls leave a little trail of sparkles (rainbow for the unicorn, bubbles for the mermaid)
+    const P = this.game.party;
+    if (P.group.parent === this.scene && this.auraOn !== false) {
+      for (const tw of P.both()) {
+        if (tw.form === 'girl' || Math.random() > dt * 14) continue;
+        const p = tw.root.position;
+        this.fx.burst(new THREE.Vector3(p.x + (Math.random() - .5) * 1.2, p.y + 0.5 + Math.random() * 1.8, p.z + (Math.random() - .5) * 1.2),
+          { count: 1, colors: tw.form === 'unicorn' ? [0xff4d4d, 0xffe14d, 0x5be37d, 0x4db8ff, 0xb07cff, 0xffffff] : [0x9be7ff, 0xffffff, 0xff9fd0, 0x2fd6c8], speed: .5, gravity: tw.form === 'unicorn' ? -.6 : .8, life: 1.3, size: .5 });
+      }
+    }
   }
 
   dispose() {
