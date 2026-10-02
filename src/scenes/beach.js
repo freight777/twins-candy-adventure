@@ -3,6 +3,7 @@ import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, smooth, ease, glowSprite, stripedGeo, vertexToon, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { createAdult } from '../characters.js';
 import { sfx, playMusic } from '../audio.js';
+import { model } from '../assets.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -128,6 +129,7 @@ export class BeachScene extends BaseScene {
   buildProps() {
     // palm trees
     [[-15, 1, .35, 7], [14, -.5, -.3, 8], [-26, 6, .25, 7.5], [24, 8, -.25, 7], [-30, 14, .2, 8.5]].forEach(([x, z, lean, h]) => this.addPalm(x, z, lean, h));
+    this.addNatureProps();
 
     // umbrella, towels, mom and dad
     const u = new THREE.Group(); u.position.set(-10, 0, 7); this.scene.add(u);
@@ -174,7 +176,29 @@ export class BeachScene extends BaseScene {
     });
   }
 
+  /** Real rocks, bushes, flowers and a canoe from the free Kenney Nature Kit (skipped quietly if they didn't load). */
+  addNatureProps() {
+    const put = (name, x, z, h, ry = rand(0, 6), glossy = false) => {
+      const m = model(`nature/${name}`, { size: h, glossy }); if (!m) return null;
+      m.position.set(x, 0, z); m.rotation.y = ry; this.scene.add(m); return m;
+    };
+    [[-34, -1], [32, -1.5], [-27, 0.5], [27, 1]].forEach(([x, z], i) => put(i % 2 ? 'stone_largeB' : 'rock_largeA', x, z, rand(2.2, 3.4)));
+    for (let i = 0; i < 10; i++) put(pick(['rock_smallA', 'rock_smallB', 'stone_smallA']), rand(-36, 36), rand(-1.4, 1.2), rand(.5, 1));
+    [[-20, 12], [23, 13], [-34, 9], [34, 10], [0, 20]].forEach(([x, z]) => put(pick(['plant_bushLarge', 'plant_bushDetailed']), x, z, rand(2.2, 3)));
+    for (let i = 0; i < 26; i++) put(pick(['grass_large', 'flower_redA', 'flower_purpleA', 'flower_yellowA']), rand(-38, 38), rand(9, 24), rand(.9, 1.4));
+    const canoe = put('canoe', -17, 4.5, 1.3, 0.5); if (canoe) { canoe.scale.multiplyScalar(2.2); const oar = put('canoe_paddle', -15.5, 5.8, 2.2, 1.2); if (oar) oar.rotation.z = .2; }
+  }
+
   addPalm(x, z, lean, h) {
+    const real = model(`nature/${pick(['tree_palmTall', 'tree_palmDetailedTall', 'tree_palmBend'])}`, { height: h * 1.05, glossy: false });
+    if (real) {                             // a sculpted palm from the Kenney Nature Kit
+      const g = new THREE.Group(); g.position.set(x, 0, z); real.rotation.y = rand(0, 6); g.add(real);
+      const top = new THREE.Group(); top.position.set(0, h, 0); g.add(top);
+      g.userData = { trunk: real, top, shake: 0 };
+      this.scene.add(g); (this.palms = this.palms || []).push(g);
+      this.addInteractive(g, () => this.tapPalm(g), 1.8, [0, h * .55, 0]);
+      return;
+    }
     const g = new THREE.Group(); g.position.set(x, 0, z);
     const trunk = new THREE.Group(); g.add(trunk);
     const segs = 7;

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic } from '../audio.js';
+import { model } from '../assets.js';
 
 const sph = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -109,7 +110,12 @@ export class BoardScene extends BaseScene {
       g.add(outline(mk(new THREE.BoxGeometry(5, 3.4, 4.4), 0xc98a4b, [0, 1.7, 0]), 1.02), mk(new THREE.ConeGeometry(3.9, 2.2, 4), 0xff6f91, [0, 4.5, 0]).rotateY(Math.PI / 4), mk(new THREE.BoxGeometry(1.1, 2, .2), 0x6b3a1f, [0, 1, 2.25]));
       for (const s of [-1, 1]) g.add(mk(sph(.25), pick(CANDY), [s * 1.6, 2.2, 2.25]));
       g.add(mk(new THREE.BoxGeometry(5.2, .25, 4.6), 0xffffff, [0, 3.4, 0])); this.scene.add(g); });
-    place(4, 8, (x, z) => { const g = new THREE.Group(); g.position.set(x, -.6, z);                                 // giant cupcakes
+    const GIANTS = [['cake-birthday', 8], ['ice-cream-cne', 11], ['donut-sprinkles', 6], ['sundae', 9], ['cupcake', 8], ['lollypop', 11]]; let gi = 0;
+    place(6, 9, (x, z) => {
+      const [gn, gh] = GIANTS[gi++ % GIANTS.length];
+      const real = model(`food/${gn}`, { height: gh });                       // real sculpted candy if it loaded
+      if (real) { real.position.set(x, -.6, z); real.rotation.y = rand(0, 6); this.scene.add(real); return; }
+      const g = new THREE.Group(); g.position.set(x, -.6, z);                                 // (fallback) giant cupcakes
       g.add(mk(cyl(2.2, 1.7, 2.6, 16), 0xffd9a8, [0, 1.3, 0]), mk(sph(2.4, 16, 10), pick([0xff9ecb, 0x8fe3f0, 0xb89cf8]), [0, 3.2, 0], [1, .8, 1]), mk(sph(1.2, 12, 8), 0xffffff, [0, 4.6, 0], [1, .8, 1]), mk(sph(.55), 0xe8334a, [0, 5.6, 0])); this.scene.add(g); });
     // chocolate pond
     this.scene.add(mk(new THREE.CircleGeometry(7, 32).rotateX(-Math.PI / 2), 0x5a2d17, [-44, -.5, -26]));

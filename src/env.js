@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getHDREnv } from './assets.js';
 
 /**
  * Lighting "environment" for shiny materials to reflect: a soft sky with a bright sun.
@@ -6,6 +7,8 @@ import * as THREE from 'three';
  */
 const cache = {};
 export function skyEnv(renderer, key = 'day', { top = 0x6fb4ff, mid = 0xfff4e6, bottom = 0xffc8de, sun = [25, 30, 15], sunColor = 0xfff0cc, sunPower = 7 } = {}) {
+  const photo = getHDREnv(key);          // a real sky photo, if one was loaded for this scene
+  if (photo) return photo;
   if (cache[key]) return cache[key];
   const s = new THREE.Scene();
   const mat = new THREE.ShaderMaterial({

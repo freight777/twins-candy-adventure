@@ -4,8 +4,10 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { Q, loadTier, setTier, lowerTier } from './quality.js';
 import { skyEnv } from './env.js';
+import { preloadAssets } from './assets.js';
 import { Party } from './party.js';
 import { ui } from './ui.js';
 import { unlock, playMusic, stopMusic, sfx, setMuted, isMuted, setMusicLevel, getMusicLevel } from './audio.js';
@@ -31,7 +33,15 @@ const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, sample
 const composer = new EffectComposer(renderer, rt);
 const renderPass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.16, 0.5, 0.95);
-composer.addPass(renderPass); composer.addPass(bloom); composer.addPass(new OutputPass());
+// colour grade: a little more saturation + contrast so pastel models pop (done in linear light, before tone mapping)
+const grade = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, sat: { value: 1.22 }, con: { value: 1.08 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float sat, con; varying vec2 vUv;
+    void main(){ vec4 t = texture2D(tDiffuse, vUv); float l = dot(t.rgb, vec3(.2126,.7152,.0722));
+      vec3 c = mix(vec3(l), t.rgb, sat); c = (c - .18)*con + .18; gl_FragColor = vec4(max(c, 0.), t.a); }`,
+});
+composer.addPass(renderPass); composer.addPass(bloom); composer.addPass(grade); composer.addPass(new OutputPass());
 let pixelRatio = 1;
 function applyTier() {
   pixelRatio = Math.min(window.devicePixelRatio, Q.pr);
@@ -150,10 +160,14 @@ renderer.setAnimationLoop(() => {
 
 window.game = game; // handy for debugging in the browser console
 if (import.meta.env.PROD && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
-game.current = new BeachScene(game);
-game.current.name = 'beach';
-resize();
-game.current.enter();
+async function boot() {
+  await preloadAssets(renderer);          // models + sky photos; if anything fails the game falls back to shapes built in code
+  game.current = new BeachScene(game);
+  game.current.name = 'beach';
+  resize();
+  game.current.enter();
+}
+boot();
 
 // wire up the Play button (also unlocks audio, which iPads require)
 ui.onPlay(() => { unlock(); game.current.startPlay && game.current.startPlay(); });

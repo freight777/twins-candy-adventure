@@ -2,10 +2,15 @@ import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic } from '../audio.js';
+import { model } from '../assets.js';
 
 const sph = (r, w = 18, h = 12) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
 const PAD = new THREE.Vector3(15, 0, 2);       // the START pad
+// real models to eat: [model name, emoji on the EAT button, height in the world]
+const FOOD = [['lollypop', '\u{1F36D}', 2.8], ['cupcake', '\u{1F9C1}', 2.2], ['donut-sprinkles', '\u{1F369}', 2], ['ice-cream-cne', '\u{1F366}', 2.8], ['cookie', '\u{1F36A}', 2], ['candy-bar', '\u{1F36B}', 1.8],
+  ['sundae', '\u{1F368}', 2.4], ['muffin', '\u{1F9C1}', 2.2], ['ginger-bread', '\u{1F36A}', 2.4], ['cake', '\u{1F370}', 2.2], ['popsicle', '\u{1F367}', 2.8], ['waffle', '\u{1F9C7}', 2],
+  ['strawberry', '\u{1F353}', 1.8], ['donut-chocolate', '\u{1F369}', 2], ['cake-birthday', '\u{1F382}', 2.6]];
 const RIVER_Z = -14;
 
 /** Willy-Wonka-style candy meadow: chocolate river and waterfall, candy to eat, tap surprises, and the START pad. */
@@ -150,10 +155,15 @@ export class ChocolateScene extends BaseScene {
     this.mush = [];
     [[-9, 3], [8, 5], [-22, -2], [23, 3]].forEach(([x, z]) => {
       const g = new THREE.Group(); g.position.set(x, 0, z); this.scene.add(g);
-      g.add(outline(mk(cyl(.5, .7, 2.2, 12), 0xfff4e0, [0, 1.1, 0]), 1.05));
-      const cap = outline(mk(sph(2, 20, 12), 0xff4d6d, [0, 2.4, 0], [1, .6, 1]), 1.03); g.add(cap);
-      for (let k = 0; k < 6; k++) { const a = k * 1.05; g.add(mk(sph(.28, 8, 6), 0xffffff, [Math.cos(a) * 1.2, 3.1 + Math.sin(a * 2) * .1, Math.sin(a) * 1.2], [1, .5, 1])); }
-      g.userData.cap = cap; this.mush.push(g);
+      const real = null;   // (the Kenney mushroom looked too pale next to the candy, so we keep our own red-and-white one)
+      let cap;
+      if (real) { real.rotation.y = rand(0, 6); g.add(real); cap = real; }
+      else {
+        g.add(outline(mk(cyl(.5, .7, 2.2, 12), 0xfff4e0, [0, 1.1, 0]), 1.05));
+        cap = outline(mk(sph(2, 20, 12), 0xff4d6d, [0, 2.4, 0], [1, .6, 1]), 1.03); g.add(cap);
+        for (let k = 0; k < 6; k++) { const a = k * 1.05; g.add(mk(sph(.28, 8, 6), 0xffffff, [Math.cos(a) * 1.2, 3.1 + Math.sin(a * 2) * .1, Math.sin(a) * 1.2], [1, .5, 1])); }
+      }
+      g.userData.cap = cap; g.userData.real = !!real; this.mush.push(g);
       this.addInteractive(g, () => this.tapMush(g), 2, [0, 2.2, 0]);
     });
     // singing daisies
@@ -191,9 +201,11 @@ export class ChocolateScene extends BaseScene {
     const spots = [[-4, 4], [5, 2], [-8, 9], [10, 9], [-14, 3], [14, 12], [-2, 9.5], [0, -2], [-18, 9], [19, 5], [-12, -4], [8, -5], [3, 12], [-24, 8], [24, 7]];
     spots.forEach(([x, z], i) => {
       const [name, emoji, make] = makers[i % makers.length];
+      const [mname, memoji, mh] = FOOD[i % FOOD.length];
       const g = new THREE.Group(); g.position.set(x, 0, z);
-      const item = make(); g.add(item); g.scale.setScalar(1.35);
-      g.userData = { name, emoji, eaten: false, idx: i, home: new THREE.Vector3(x, 0, z), item };
+      const real = model(`food/${mname}`, { height: mh * 0.7 / 1.35 });          // real sculpted model if it loaded, else the shape built in code
+      const item = real || make(); g.add(item); g.scale.setScalar(1.35);
+      g.userData = { name: real ? mname : name, emoji: real ? memoji : emoji, eaten: false, idx: i, home: new THREE.Vector3(x, 0, z), item };
       this.scene.add(g); this.edibles.push(g);
       this.addInteractive(g, () => this.tapEdible(g), 1.5, [0, 1.1, 0]);
     });
@@ -278,7 +290,12 @@ export class ChocolateScene extends BaseScene {
   tapMush(m) {
     this.touch(); sfx.boing();
     this.fx.burst(m.position.clone().add(new THREE.Vector3(0, 3.5, 0)), { count: 24, colors: [0xff4d6d, 0xffffff, 0xffe14d], speed: 4, gravity: -5, life: 1.1 });
-    this.tm.tween(.8, (k) => { m.userData.cap.scale.set(1 + Math.sin(k * Math.PI * 4) * .18 * (1 - k), .6 - Math.sin(k * Math.PI * 4) * .2 * (1 - k), 1 + Math.sin(k * Math.PI * 4) * .18 * (1 - k)); });
+    const cap = m.userData.cap, real = m.userData.real, b = real ? cap.userData.baseScale : 1;
+    this.tm.tween(.8, (k) => {
+      const w = Math.sin(k * Math.PI * 4) * .18 * (1 - k);
+      if (real) cap.scale.set(b * (1 + w), b * (1 - w * 1.2), b * (1 + w));      // squash and stretch the whole mushroom
+      else cap.scale.set(1 + w, .6 - w * 1.1, 1 + w);
+    });
   }
   tapDaisy(d) {
     this.touch(); sfx.note(d.userData.note);
