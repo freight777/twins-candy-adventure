@@ -208,10 +208,13 @@ function buildAdult(kind) {
   g.add(outline(mk(cyl(.3, .36, .8, 14), top, [0, .7, 0]), 1.05));
   const head = outline(mk(sph(.3), skin, [0, 1.4, 0]), 1.05); g.add(head);
   g.add(mk(sph(.32), hair, [0, 1.47, -.06], [1, .9, 1]));
+  const legs = [];
   for (const s of [-1, 1]) {
     g.add(mk(sph(.04), EYE, [s * .1, 1.42, .27], [1, 1.3, .5]));
-    g.add(mk(cyl(.05, .05, .75, 8), skin, [s * .15, .22, .55]).rotateX(Math.PI / 2));
+    const leg = mk(cyl(.05, .05, .75, 8), skin, [s * .15, .22, .55]).rotateX(Math.PI / 2); g.add(leg); legs.push([leg, s]);
   }
+  // sitting on the towel by default; the finale stands them up for the family photo
+  g.userData.setStanding = (on) => legs.forEach(([leg, s]) => { leg.rotation.x = on ? 0 : Math.PI / 2; leg.position.set(s * .15, on ? .375 : .22, on ? 0 : .55); });
   const smile = mk(new THREE.TorusGeometry(.06, .012, 6, 12, Math.PI), 0xc0504d, [0, 1.3, .29]); smile.rotation.z = Math.PI; g.add(smile);
   if (!dad) { g.add(mk(sph(.34), hair, [0, 1.1, -.2], [1, 1.5, .6])); g.add(mk(cyl(.62, .62, .04, 20), 0xfff2c8, [0, 1.62, 0]), mk(cyl(.3, .32, .2, 16), 0xff8fb8, [0, 1.7, 0])); } // sun hat
   // waving arm
@@ -239,3 +242,49 @@ function film(fn, arg) {
 }
 export const createTwin = (name) => film(buildTwin, name);
 export const createAdult = (kind) => film(buildAdult, kind);
+/** Jackson, the twins' 2-year-old little brother: big head, short brown hair, blue shirt, yellow shorts. Always on the go. */
+function buildToddler() {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const shadow = mk(new THREE.CircleGeometry(.4, 18), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .22, depthWrite: false }), [0, .02, 0]);
+  shadow.rotation.x = -Math.PI / 2; shadow.userData.noShadow = true; root.add(shadow);
+  body.add(mk(cyl(.22, .27, .55, 16), 0x4db8ff, [0, .78, 0]), mk(new THREE.TorusGeometry(.245, .03, 6, 18), 0xffffff, [0, .8, 0]).rotateX(Math.PI / 2));   // shirt + stripe
+  body.add(mk(cyl(.285, .285, .26, 16), 0xffd84d, [0, .5, 0]));                                                          // shorts
+  const arms = [], legs = [];
+  for (const s of [-1, 1]) {
+    const a = new THREE.Group(); a.position.set(s * .27, 1.0, 0); a.userData.side = s;
+    a.add(mk(new THREE.CapsuleGeometry(.075, .22, 4, 8), SKIN, [0, -.17, 0]), mk(sph(.09), SKIN, [0, -.36, 0]), mk(sph(.1), 0x4db8ff, [0, 0, 0]));
+    arms.push(a); body.add(a);
+    const l = new THREE.Group(); l.position.set(s * .13, .4, 0);
+    l.add(mk(cyl(.075, .07, .3, 10), SKIN, [0, -.15, 0]), mk(sph(.1, 10, 8), SKIN, [0, -.32, .04], [1, .7, 1.3]));
+    legs.push(l); body.add(l);
+  }
+  const head = new THREE.Group(); head.position.y = 1.32; body.add(head);
+  head.add(mk(sph(.46, 28, 20), SKIN));
+  head.add(mk(sph(.48, 24, 16), HAIR, [0, .1, -.05], [1, .78, 1]), mk(sph(.14), HAIR, [.12, .5, .1], [1, .8, 1]), mk(sph(.12), HAIR, [-.16, .48, .12], [1, .8, 1]));   // short messy hair
+  for (const s of [-1, 1]) {
+    head.add(mk(sph(.07), EYE, [s * .16, -.02, .4], [1, 1.35, .5]), mk(sph(.024), 0xffffff, [s * .16 + .02, .03, .43]), mk(sph(.08), 0xff9a9a, [s * .27, -.14, .32], [1, .6, .4]), mk(sph(.09), SKIN, [s * .45, -.02, 0], [.6, 1, .8]));
+  }
+  const smile = mk(new THREE.TorusGeometry(.09, .016, 6, 16, Math.PI), 0xc0504d, [0, -.15, .42]); smile.rotation.z = Math.PI; head.add(smile);
+  root.scale.setScalar(.7);
+  const T = {
+    name: 'jackson', root, body, face: 0, phase: Math.random() * 6,
+    lookToward(dx, dz, dt) {
+      if (Math.abs(dx) + Math.abs(dz) < 1e-4) return;
+      let d = Math.atan2(dx, dz) - T.face; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      T.face += d * Math.min(1, dt * 10); root.rotation.y = T.face;
+    },
+    /** toddler run: tiny quick steps, flailing arms, leaning forward, bouncing */
+    update(dt, t, moving = true, swim = 0) {
+      T.phase += dt * (moving ? 17 : 3);
+      const p = T.phase, s = Math.sin(p);
+      legs.forEach((l, i) => (l.rotation.x = s * (i ? 1 : -1) * 1.0));
+      arms.forEach((a, i) => { a.rotation.z = a.userData.side * (.9 + Math.abs(Math.sin(p * .5 + i)) * .7); a.rotation.x = s * (i ? -1 : 1) * .5; });
+      body.position.y = (moving ? Math.abs(s) * .1 : 0) - .25 * swim;
+      body.rotation.x = moving ? .18 : 0; body.rotation.z = moving ? Math.sin(p * .5) * .06 : 0;
+      shadow.visible = root.position.y > -.1;
+    },
+  };
+  root.traverse((o) => { if (o.isMesh && !o.userData.noShadow) o.castShadow = true; });
+  return T;
+}
+export const createToddler = () => film(buildToddler);

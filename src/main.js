@@ -72,7 +72,7 @@ export const game = {
     ui.fade(flash, async () => {
       try {
         if (game.current) { game.current.exit(); game.current.dispose(); }
-        stopSpeech(); ui.hideBubble(); ui.hideHint(); ui.title(false); ui.eat(false); ui.roll(false); ui.progress(false);
+        stopSpeech(); ui.hideFinale(); ui.hideBubble(); ui.hideHint(); ui.title(false); ui.eat(false); ui.roll(false); ui.progress(false);
         game.party.resetPose();
         game.current = new SCENES[name](game);
         game.current.name = name;

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, smooth, ease, glowSprite, stripedGeo, vertexToon, canvasTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
-import { createAdult } from '../characters.js';
+import { createAdult, createToddler } from '../characters.js';
 import { sfx, playMusic } from '../audio.js';
 import { model } from '../assets.js';
 
@@ -35,6 +35,7 @@ export class BeachScene extends BaseScene {
     this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
     shade(this.ball); this.stars.forEach((s) => shade(s));
     this.orb.userData.noShadow = true;
+    this.addJackson();
   }
 
   // ===================================================================== build
@@ -211,6 +212,61 @@ export class BeachScene extends BaseScene {
       this.stars.push(s);
       this.addInteractive(s, () => this.tapStar(s, i), 1.1);
     });
+  }
+
+  // ===================================================================== Jackson (little brother, 2) =====================================================================
+  /** Same shoreline rules as the girls: sand is flat, the water gets deeper and slows you down. */
+  groundAt(x, z) {
+    if (z > SHORE) return { y: 0, swim: 0 };
+    const d = clamp((SHORE - z) / 6, 0, 1);
+    return { y: -.6 * smooth(d), swim: smooth(clamp((-z - 4) / 4, 0, 1)) };
+  }
+  addJackson() {
+    const tw = createToddler();
+    tw.root.position.set(6, 0, 3);
+    this.scene.add(tw.root);
+    this.jack = { tw, tx: 8, tz: 3, speed: 4, timer: 0, seed: rand(0, 6), splash: 0 };
+    this.addInteractive(tw.root, () => this.tapJackson(), 1.6, [0, 1.3, 0]);
+  }
+  /** Pick a new place to run to, and a new speed: toddlers go fast, faster, stop-and-go, zoom. */
+  jackPick() {
+    const J = this.jack, r = Math.random();
+    if (this.jackRegion === 'wake') { J.tx = rand(-15, -3.5); J.tz = rand(12.7, 14.2); J.speed = rand(2.4, 7); J.timer = rand(1.2, 3); return; }
+    if (r < .3) { J.tx = rand(-14, 14); J.tz = rand(-4.2, -1.6); }                                   // splash in the ocean
+    else if (r < .55) { const a = rand(0, 6.28); J.tx = 8 + Math.cos(a) * 3.6; J.tz = 6.5 + Math.sin(a) * 3.6; }   // around the sandcastle
+    else if (r < .75) { const L = this.game.party.leader.root.position; J.tx = L.x + rand(-4, 4); J.tz = clamp(L.z + rand(-3, 3), -3.5, 16); }   // chase the big sisters
+    else { J.tx = rand(-22, 22); J.tz = rand(.5, 15); }                                              // anywhere on the sand
+    J.speed = rand(2.2, 7.2); J.timer = rand(1.5, 4.5);
+  }
+  jackUpdate(dt, t) {
+    const J = this.jack; if (!J) return;
+    const tw = J.tw, p = tw.root.position;
+    if (this.jackFinale) {                                // family photo: run to his spot at the front, then bounce
+      const dx = this.jackFinale[0] - p.x, dz = this.jackFinale[1] - p.z, d = Math.hypot(dx, dz);
+      const moving = d > .15;
+      if (moving) { const s = Math.min(d, 6 * dt); p.x += dx / d * s; p.z += dz / d * s; tw.lookToward(dx, dz, dt); } else tw.lookToward(0, 1, dt * 2);
+      p.y = 0; tw.update(dt, t, moving, 0);
+      if (!moving) tw.body.position.y += Math.abs(Math.sin(t * 7)) * .3;
+      return;
+    }
+    J.timer -= dt;
+    if (J.timer <= 0 || Math.hypot(J.tx - p.x, J.tz - p.z) < .7) this.jackPick();
+    const dx = J.tx - p.x, dz = J.tz - p.z, d = Math.hypot(dx, dz) || 1;
+    const g = this.groundAt(p.x, p.z);
+    const sp = J.speed * (1 + Math.sin(t * 6 + J.seed) * .3) * (1 - g.swim * .4);        // never constant: speeds up and slows down
+    p.x += dx / d * sp * dt; p.z += dz / d * sp * dt;
+    p.z = Math.max(p.z, -4.6);                                                            // toddlers stay in the shallows
+    tw.lookToward(dx, dz, dt);
+    const g2 = this.groundAt(p.x, p.z); p.y = g2.y;
+    tw.update(dt, t, true, g2.swim);
+    J.splash -= dt;
+    if (p.z < SHORE + .3 && J.splash <= 0) { J.splash = .09; this.fx.burst(new THREE.Vector3(p.x, p.y + .3, p.z), { count: 3, colors: [0xffffff, 0x9be7ff], speed: 2, up: 2, gravity: -9, life: .6, size: .5 }); }
+  }
+  tapJackson() {
+    this.touch(); sfx.giggle(); this.game.ui.say('Jackson!', 'counter');
+    const J = this.jack, p = J.tw.root.position;
+    this.fx.burst(p.clone().add(new THREE.Vector3(0, 1.8, 0)), { count: 20, colors: [0xff6f91, 0xff9fcb, 0xffd84d], speed: 2.5, gravity: 1, life: 1.4, size: .9 });
+    J.speed = 8; J.timer = 2.5; this.tm.tween(.5, (k) => (J.tw.root.position.y += Math.sin(k * Math.PI) * .05), { ease: ease.linear });
   }
 
   /** Things out on the water and in the sky: a little palm island, a drifting sailboat and a flock of birds. */
@@ -609,7 +665,7 @@ export class BeachScene extends BaseScene {
       c.vy -= 22 * dt; c.m.position.y += c.vy * dt; c.m.position.x += c.vx * dt; c.m.position.z += c.vz * dt;
       if (c.m.position.y < .3) { c.m.position.y = .3; if (c.bounces < 2) { c.vy = 4 / (c.bounces + 1); c.bounces++; sfx.bonk(); } else { c.vy = 0; c.vx = c.vz = 0; } }
     });
-    this.dolphinUpdate(dt); this.fishUpdate(dt);
+    this.dolphinUpdate(dt); this.fishUpdate(dt); this.jackUpdate(dt, t);
     this.horizonUpdate(t, dt);
 
     // idle hint: after a while, make the shiny thing call out to the girls

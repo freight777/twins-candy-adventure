@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { FallScene } from './fall.js';
 import { BeachScene } from './beach.js';
-import { mk, ease, rand, pick, toon, setStyle, shade, RAINBOW, CANDY } from '../util.js';
+import { mk, ease, rand, pick, lerp, toon, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { model } from '../assets.js';
 import { sfx, playMusic } from '../audio.js';
 
@@ -32,6 +32,8 @@ export class WakeScene extends BeachScene {
     this.woke = false;
     (this.dunes || []).forEach((d) => (d.visible = false));        // no sand hills in front of the sleeping girls
     this.camera.position.set(-9, 4.2, 15.5);
+    this.jackRegion = 'wake';                                         // Jackson runs back and forth in front of the towels
+    if (this.jack) this.jack.tw.root.position.set(-4, 0, 13.4);
     this.look = new THREE.Vector3(-9.5, 1, 8);
     this.camera.lookAt(this.look);
   }
@@ -45,9 +47,9 @@ export class WakeScene extends BeachScene {
     this.lying = true;
     P.both().forEach((t) => { t.fx.lift = 0; t.fx.spin = 0; t.fx.squash = 1; t.body.rotation.set(0, 0, 0); t.root.scale.setScalar(1); t.face = 0; });
     // two little towels, girls napping in front of mom and dad
-    this.scene.add(mk(new THREE.BoxGeometry(2.8, .05, 1.6), 0xff9f2e, [-11.2, .03, 10.3]), mk(new THREE.BoxGeometry(2.8, .05, 1.6), 0xff7fb8, [-11.2, .03, 12.1]));
-    P.adalyn.root.position.set(-9.9, 0, 10.3); P.esmae.root.position.set(-9.9, 0, 12.1);
-    P.both().forEach((t) => t.root.rotation.set(0, 0, Math.PI / 2));
+    this.scene.add(mk(new THREE.BoxGeometry(2.0, .05, 3.6), 0xff9f2e, [-11.4, .03, 10.0]), mk(new THREE.BoxGeometry(2.0, .05, 3.6), 0xff7fb8, [-8.2, .03, 10.0]));       // side-by-side towels
+    P.adalyn.root.position.set(-11.4, 0, 11.6); P.esmae.root.position.set(-8.2, 0, 11.6);
+    P.both().forEach((t) => t.root.rotation.set(-Math.PI / 2, 0, 0));        // lying on their backs, heads toward the ocean, side by side
     ui.hud(false); ui.progress(false);
     playMusic('beach');
     ui.bubble('\u{1F634} \u{1F4A4}', '');
@@ -61,7 +63,7 @@ export class WakeScene extends BeachScene {
     const G = this.game, P = G.party, ui = G.ui;
     sfx.giggle();
     this.tm.tween(1.1, (k) => {
-      P.both().forEach((t, i) => { t.root.rotation.z = (Math.PI / 2) * (1 - ease.out(Math.min(1, k * (1 + i * .15)))); });
+      P.both().forEach((t, i) => { t.root.rotation.x = -(Math.PI / 2) * (1 - ease.out(Math.min(1, k * (1 + i * .15)))); });
       this.lying = k < .6;
     }, { ease: ease.linear, done: () => {
       this.lying = false;
@@ -117,11 +119,40 @@ export class WakeScene extends BeachScene {
     } });
   }
 
+  /** The final picture: the whole family of five posed next to the chocolate, confetti falling, "You did it!" banner, small Play again button. */
   theEnd() {
-    const G = this.game;
-    sfx.tada();
-    G.ui.hideBubble();
-    G.ui.message('\u{1F308}\u{1F36B}\u{1F984}\u{1F9DC}‍♀️', 'The End', 'Play again', () => { G.started = false; G.goto('beach'); });
+    const G = this.game, ui = G.ui, P = G.party;
+    ui.hideBubble(); this.finaleOn = true;
+    sfx.fanfare();
+    const spots = { mom: [-14.2, 8.6], adalyn: [-12.4, 9.0], jack: [-10.7, 10.1], esmae: [-9.0, 9.0], dad: [-7.3, 8.6] };
+    // the girls hop over to their spots, side by side
+    const place = (tw, spot) => {
+      const from = tw.root.position.clone(); tw.root.rotation.set(0, 0, 0); tw.mode = 'cheer';
+      this.tm.tween(1.2, (k) => tw.root.position.set(lerp(from.x, spot[0], k), 0, lerp(from.z, spot[1], k)), { ease: ease.inOut });
+    };
+    place(P.adalyn, spots.adalyn); place(P.esmae, spots.esmae);
+    // mom and dad stand up and join in
+    const stand = (adult, spot, sc, ry) => {
+      this.scene.attach(adult); adult.userData.setStanding(true);
+      const from = adult.position.clone(), ry0 = adult.rotation.y;
+      this.tm.tween(1.3, (k) => { adult.position.set(lerp(from.x, spot[0], k), lerp(from.y, 0, k), lerp(from.z, spot[1], k)); adult.scale.setScalar(lerp(1.04, sc, k)); adult.rotation.y = lerp(ry0, ry, k); }, { ease: ease.inOut });
+    };
+    stand(this.mom, spots.mom, 1.3, .12); stand(this.dad, spots.dad, 1.4, -.12);
+    this.jackFinale = spots.jack;                       // little Jackson runs to the front of the group
+    this.finaleCam = true;                              // camera eases back so everyone, the truck and the chocolate fit
+    this.tm.after(1.5, () => {
+      sfx.tada(); sfx.giggle(); ui.say('You did it!', 'narrator');
+      ui.finale('You did it!', 'Play again', () => { G.started = false; G.goto('beach'); });
+      const burst = () => { if (!this.finaleOn) return; this.fx.burst(new THREE.Vector3(rand(-15, -1), rand(9, 13), rand(4, 12)), { count: 40, colors: RAINBOW.concat(CANDY), speed: 2.5, gravity: -2.6, life: 4.5, size: 1.1 }); this.tm.after(.3, burst); };
+      burst();
+      // a shower of chocolate lands in a big pile right next to the family
+      for (let i = 0; i < 34; i++) this.tm.after(i * .06, () => {
+        const m = model(`food/${pick(['chocolate', 'candy-bar', 'cookie-chocolate', 'donut-chocolate', 'popsicle-chocolate', 'cake', 'donut-sprinkles'])}`, { size: rand(1.5, 2.3) });
+        if (!m) return;
+        m.position.set(rand(-5.2, -2.4), rand(9, 14), rand(7.2, 10.6)); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6)); shade(m); this.scene.add(m);
+        this.pieces.push({ m, vy: 0, vx: rand(-.4, .4), vz: rand(-.4, .4), spin: rand(-3, 3), rest: false });
+      });
+    });
   }
 
   update(dt) {
@@ -136,7 +167,15 @@ export class WakeScene extends BeachScene {
         if (Math.abs(p.vy) > 3) { p.vy = -p.vy * .38; p.vx *= .6; } else { p.rest = true; }
       }
     }
-    this.camera.position.x = -9.5 + Math.sin(this.time * .25) * .5;
+    if (this.finaleOn) {                                  // mom and dad wave and everyone bounces while the camera settles on the group
+      const t = this.time;
+      this.mom.userData.arm.rotation.z = -2.4 + Math.sin(t * 5) * .3; this.dad.userData.arm.rotation.z = -2.4 + Math.sin(t * 5 + 1) * .3;
+      this.mom.position.y = Math.abs(Math.sin(t * 4)) * .12; this.dad.position.y = Math.abs(Math.sin(t * 4 + 1)) * .12;
+    }
+    if (this.finaleCam) {
+      const k = 1 - Math.exp(-1.5 * dt);
+      this.camera.position.lerp(new THREE.Vector3(-8.2, 5.6, 19.8), k); this.look.lerp(new THREE.Vector3(-8.4, 1.7, 8), k);
+    } else this.camera.position.x = -9.5 + Math.sin(this.time * .25) * .5;
     this.camera.lookAt(this.look);
   }
 }

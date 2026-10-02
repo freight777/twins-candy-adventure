@@ -60,6 +60,13 @@ export const ui = {
   hideHint() { $('#hint').classList.add('hidden'); },
 
   say,
+  /** The final picture: a big banner across the top and a small button off to the side. */
+  finale(text, button, onClick) {
+    $('#banner .b-text').textContent = text;
+    $('#banner').classList.remove('hidden');
+    const b = $('#again'); b.classList.remove('hidden'); b.lastChild.textContent = ' ' + button; b.onclick = onClick;
+  },
+  hideFinale() { $('#banner').classList.add('hidden'); $('#again').classList.add('hidden'); },
   message(emoji, text, button, onClick, cancel, onCancel) {
     say(text);
     $('#msg').classList.remove('hidden');
