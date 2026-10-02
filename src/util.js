@@ -5,7 +5,21 @@ const gradientMap = new THREE.DataTexture(new Uint8Array([90, 160, 220, 255]), 4
 gradientMap.minFilter = gradientMap.magFilter = THREE.NearestFilter;
 gradientMap.needsUpdate = true;
 
-export const toon = (color, opts = {}) => new THREE.MeshToonMaterial({ color, gradientMap, ...opts });
+// STYLE 'toon' = flat cartoon shading with outlines. STYLE 'candy' = glossy, soft "animated movie" look (no outlines).
+// A scene switches style while it builds itself, so one scene can look like a cartoon and the next like a film.
+let STYLE = 'toon';
+export const setStyle = (s) => { STYLE = s; };
+export const getStyle = () => STYLE;
+export const toon = (color, opts = {}) => STYLE === 'candy'
+  ? new THREE.MeshPhysicalMaterial({ color, roughness: opts.map ? 0.78 : 0.34, clearcoat: opts.map ? 0 : 0.75, clearcoatRoughness: 0.16, ...opts })
+  : new THREE.MeshToonMaterial({ color, gradientMap, ...opts });
+
+// Make raw shader colours (which we wrote in screen colour space) come out right when rendering through the post-processing chain.
+export const linearizeFrag = (src) => src.replace('void main()', 'void origMain()')
+  + '\nvoid main(){ origMain(); gl_FragColor.rgb = pow(max(gl_FragColor.rgb, vec3(0.)), vec3(2.2)); }';
+
+/** Let this object (and everything inside it) cast shadows. */
+export function shade(obj) { obj.traverse((o) => { if (o.isMesh && !o.userData.noShadow) o.castShadow = true; }); return obj; }
 
 // mk(geometry, colorOrMaterial, [x,y,z], [sx,sy,sz]) -> Mesh
 export function mk(geo, color, pos = [0, 0, 0], scale = [1, 1, 1]) {
@@ -18,7 +32,9 @@ export function mk(geo, color, pos = [0, 0, 0], scale = [1, 1, 1]) {
 
 const outlineMat = new THREE.MeshBasicMaterial({ color: 0x4a2c3a, side: THREE.BackSide });
 export function outline(m, s = 1.07) {
+  if (STYLE === 'candy') return m;
   const o = new THREE.Mesh(m.geometry, outlineMat);
+  o.userData.noShadow = true;
   o.scale.setScalar(s);
   m.add(o);
   return m;

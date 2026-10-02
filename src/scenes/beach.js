@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, smooth, ease, glowSprite, stripedGeo, vertexToon, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, smooth, ease, glowSprite, stripedGeo, vertexToon, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { createAdult } from '../characters.js';
 import { sfx, playMusic } from '../audio.js';
 
@@ -17,14 +17,23 @@ export class BeachScene extends BaseScene {
     this.idle = 0;
     this.wander = [];       // things that update every frame
     this.surprises = 0;
-    this.buildSky();
-    this.buildGround();
-    this.buildWater();
-    this.buildProps();
-    this.buildCritters();
-    this.buildOrb();
-    this.scene.add(new THREE.HemisphereLight(0xd8efff, 0xffe2b0, 1.15));
-    const sun = new THREE.DirectionalLight(0xfff0d0, 1.6); sun.position.set(20, 30, 14); this.scene.add(sun);
+    setStyle('candy');                      // world gets the glossy film look; the girls stay classic cartoon
+    try {
+      this.buildSky();
+      this.buildGround();
+      this.buildWater();
+      this.buildProps();
+      this.buildCritters();
+      this.buildOrb();
+    } finally { setStyle('toon'); }
+    this.scene.environment = game.env('beach', { top: 0x5aa8ff, mid: 0xfff1d8, bottom: 0xffe2b0, sun: [36, 30, -60] }); this.scene.environmentIntensity = 0.5;
+    this.scene.fog = new THREE.Fog(0xcfe9ff, 90, 300);
+    this.scene.add(new THREE.HemisphereLight(0xd8efff, 0xffe2b0, 0.65));
+    const sunLight = new THREE.DirectionalLight(0xfff0d0, 3.0); sunLight.position.set(20, 30, 14); this.scene.add(sunLight);
+    this.useShadows(sunLight, 26);
+    this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
+    shade(this.ball); this.stars.forEach((s) => shade(s));
+    this.orb.userData.noShadow = true;
   }
 
   // ===================================================================== build
@@ -38,7 +47,7 @@ export class BeachScene extends BaseScene {
     this.scene.add(sky);
 
     // smiling sun
-    const sunG = new THREE.Group(); sunG.position.set(36, 30, -170); sunG.scale.setScalar(1.6);
+    const sunG = new THREE.Group(); sunG.position.set(36, 30, -170); sunG.scale.setScalar(1.6); sunG.userData.noShadow = true;
     sunG.add(glowSprite(0xffe680, 60, .9), mk(sph(7, 24, 18), new THREE.MeshBasicMaterial({ color: 0xffd84d })));
     const dark = new THREE.MeshBasicMaterial({ color: 0x7a3b10 });
     for (const s of [-1, 1]) {
@@ -56,6 +65,7 @@ export class BeachScene extends BaseScene {
       const c = new THREE.Group();
       const n = 3 + Math.floor(Math.random() * 3);
       for (let k = 0; k < n; k++) c.add(mk(sph(rand(3, 5)), toon(0xffffff), [k * 4 - n * 2, rand(-.5, 1.2), rand(-1, 1)], [1.3, .8, .9]));
+      c.userData.noShadow = true;
       c.position.set(rand(-160, 160), rand(24, 50), rand(-230, -110));
       this.clouds.push(c); this.scene.add(c);
     }
@@ -67,6 +77,7 @@ export class BeachScene extends BaseScene {
     const slope = mk(new THREE.PlaneGeometry(160, 12.2).rotateX(-Math.PI / 2), 0xe3c58c, [0, -.8, SHORE - 6]);
     slope.rotation.x = -Math.PI / 2 * 0 - Math.atan(1.6 / 12);
     const floor = mk(new THREE.PlaneGeometry(500, 320).rotateX(-Math.PI / 2), 0x4aa8c8, [0, -1.6, -170]);
+    sand.receiveShadow = wet.receiveShadow = true;
     this.scene.add(sand, wet, slope, floor);
 
     // dunes, shells and bumps for visual interest
@@ -93,7 +104,12 @@ export class BeachScene extends BaseScene {
           vec3 c = mix(shallow, deep, pow(depth,.55));
           c += .05*sin(vW.x*1.7+uTime*1.3)*sin(vW.z*1.3-uTime*1.1);
           float sp = smoothstep(.92,1., sin(vW.x*7.+uTime*1.8)*sin(vW.z*6.5-uTime*1.5));
-          c += sp*.55;
+          // sky reflection grows toward the horizon; a glittering path of sunlight leads to the sun
+          vec3 V = normalize(cameraPosition - vW);
+          float fres = pow(1. - clamp(V.y, 0., 1.), 3.);
+          c = mix(c, vec3(.8, .93, 1.), fres*.45);
+          float path = exp(-pow((vW.x - 30.)/45., 2.)) * smoothstep(-15., -150., vW.z);
+          c += sp*(.5 + path*2.6) + path*.18*vec3(1., .9, .6);
           float edge = -vW.z-2.;
           float wave = sin(uTime*.9)*.6+.9;
           float foam = smoothstep(.45,0.,abs(edge-wave)) + smoothstep(.2,0.,abs(edge-wave*1.9-.8))*.4;
@@ -255,7 +271,7 @@ export class BeachScene extends BaseScene {
       const ray = mk(new THREE.PlaneGeometry(.18, 7), new THREE.MeshBasicMaterial({ color: 0xfff5b0, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
       ray.rotation.z = (i / 4) * Math.PI; g.add(ray);
     }
-    const beam = mk(cyl(.25, 1.1, 40, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff1a0, transparent: true, opacity: .22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), [0, 20, 0]);
+    const beam = mk(cyl(.25, 1.1, 40, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff1a0, transparent: true, opacity: .12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), [0, 20, 0]);
     g.add(beam);                                  // a tall beam of light so the girls can spot it from the sand
     this.orb = g; this.orbCore = core; this.scene.add(g);
     g.scale.setScalar(1.5);

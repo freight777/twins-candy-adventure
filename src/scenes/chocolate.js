@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic } from '../audio.js';
 
 const sph = (r, w = 18, h = 12) => new THREE.SphereGeometry(r, w, h);
@@ -18,14 +18,39 @@ export class ChocolateScene extends BaseScene {
     this.edibles = [];
     this.idle = 0;
     this.wander = [];
-    this.buildSky();
-    this.buildGround();
-    this.buildRiver();
-    this.buildScenery();
-    this.buildEdibles();
-    this.buildPad();
-    this.scene.add(new THREE.HemisphereLight(0xfff6e0, 0xffc8e8, 1.2));
-    const d = new THREE.DirectionalLight(0xffffff, 1.5); d.position.set(10, 22, 12); this.scene.add(d);
+    setStyle('candy');                      // this room gets the glossy, film-like look
+    try {
+      this.buildSky();
+      this.buildGround();
+      this.buildRiver();
+      this.buildScenery();
+      this.buildEdibles();
+      this.buildPad();
+      this.buildAtmosphere();
+    } finally { setStyle('toon'); }
+    this.scene.environment = game.env('candy'); this.scene.environmentIntensity = 0.55;
+    this.scene.fog = new THREE.Fog(0xffe9f3, 120, 320);
+    this.scene.add(new THREE.HemisphereLight(0xfff6e8, 0xffc0e0, 0.55));
+    const sun = new THREE.DirectionalLight(0xfff0d6, 3.0); sun.position.set(16, 28, 18); this.scene.add(sun);
+    this.useShadows(sun, 26);
+    this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
+  }
+
+  /** Soft shafts of sunlight and drifting sugar sparkles: the "wow" layer. */
+  buildAtmosphere() {
+    const rayTex = canvasTex(64, 256, (g, w, h) => {
+      const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, 'rgba(255,240,200,0)'); gr.addColorStop(.5, 'rgba(255,240,200,1)'); gr.addColorStop(1, 'rgba(255,240,200,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      const fade = g.createLinearGradient(0, 0, 0, h); fade.addColorStop(0, 'rgba(0,0,0,0)'); fade.addColorStop(.75, 'rgba(0,0,0,.6)'); fade.addColorStop(1, 'rgba(0,0,0,1)');
+      g.globalCompositeOperation = 'destination-out'; g.fillStyle = fade; g.fillRect(0, 0, w, h);
+    });
+    rayTex.wrapS = rayTex.wrapT = THREE.ClampToEdgeWrapping;
+    this.rays = new THREE.Group(); this.rays.userData.noShadow = true;
+    for (let i = 0; i < 6; i++) {
+      const r = new THREE.Mesh(new THREE.PlaneGeometry(rand(5, 9), 70), new THREE.MeshBasicMaterial({ map: rayTex, transparent: true, opacity: .08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      r.position.set(-30 + i * 14 + rand(-3, 3), 32, -6 + rand(-6, 6)); r.rotation.set(0, rand(-.5, .5), .38); r.userData.noShadow = true; r.userData.base = r.position.x; this.rays.add(r);
+    }
+    this.scene.add(this.rays);
   }
 
   // ===================================================================== build
@@ -40,13 +65,14 @@ export class ChocolateScene extends BaseScene {
     for (let i = 0; i < 8; i++) {
       const c = new THREE.Group();
       for (let k = 0; k < 4; k++) c.add(mk(sph(rand(3, 5)), toon(pick([0xffffff, 0xffe3f1, 0xe8f4ff])), [k * 4 - 6, rand(-.5, 1), rand(-1, 1)], [1.3, .8, .9]));
-      c.position.set(rand(-150, 150), rand(30, 55), rand(-220, -90)); this.clouds.push(c); this.scene.add(c);
+      c.position.set(rand(-150, 150), rand(30, 55), rand(-220, -90)); c.userData.noShadow = true; this.clouds.push(c); this.scene.add(c);
     }
   }
 
   buildGround() {
     const grass = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#7fe05f'; g.fillRect(0, 0, w, h); g.fillStyle = '#92ea6f'; g.fillRect(0, 0, w / 2, h); }, [40, 40]);
-    this.scene.add(mk(new THREE.CircleGeometry(90, 64).rotateX(-Math.PI / 2), toon(0xffffff, { map: grass })));
+    const ground = mk(new THREE.CircleGeometry(90, 64).rotateX(-Math.PI / 2), toon(0xffffff, { map: grass })); ground.receiveShadow = true;
+    this.scene.add(ground);
     // rolling candy hills in the distance
     [[-40, -26, 14, 0xff9ecb], [-18, -34, 18, 0x8fe3f0], [30, -30, 16, 0xffd84d], [52, -20, 12, 0xb89cf8], [8, -40, 20, 0xff9ecb], [-55, -16, 13, 0xffd84d]].forEach(([x, z, r, c]) => {
       const h = mk(sph(r, 24, 14), c, [x, -r * .35, z], [1.5, 1, 1.2]); this.scene.add(h);
@@ -61,11 +87,16 @@ export class ChocolateScene extends BaseScene {
   buildRiver() {
     this.riverMat = new THREE.ShaderMaterial({
       uniforms: { uTime: { value: 0 } },
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-      fragmentShader: `uniform float uTime; varying vec2 vUv;
+      vertexShader: 'varying vec2 vUv; varying vec3 vW; void main(){ vUv = uv; vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }',
+      fragmentShader: `uniform float uTime; varying vec2 vUv; varying vec3 vW;
         void main(){ float f = sin(vUv.x*38.-uTime*1.6 + sin(vUv.y*12.+uTime)*2.)*.5+.5;
-          vec3 c = mix(vec3(.30,.15,.07), vec3(.5,.27,.12), f);
-          c += smoothstep(.94,1., sin(vUv.x*90.-uTime*3.)*sin(vUv.y*28.))*.4;
+          vec3 c = mix(vec3(.26,.12,.06), vec3(.46,.24,.1), f);
+          // glossy chocolate: sky reflection that grows at grazing angles + bright sun glints
+          vec3 V = normalize(cameraPosition - vW);
+          float fres = pow(1. - clamp(V.y, 0., 1.), 2.5);
+          c = mix(c, vec3(1., .86, .8), fres*.55);
+          float g = smoothstep(.9, 1., sin(vUv.x*70.-uTime*2.5)*sin(vUv.y*26.+uTime*.5));
+          c += g*(.5 + fres);
           gl_FragColor = vec4(c,1.); }`,
     });
     const r = new THREE.Mesh(new THREE.PlaneGeometry(130, 12).rotateX(-Math.PI / 2), this.riverMat); r.position.set(0, .04, RIVER_Z - 4); this.scene.add(r);
@@ -271,6 +302,12 @@ export class ChocolateScene extends BaseScene {
     this.riverMat.uniforms.uTime.value = t; this.fallMat.uniforms.uTime.value = t;
     this.clouds.forEach((c) => { c.position.x += dt * .9; if (c.position.x > 170) c.position.x = -170; });
     this.mist.material.opacity = .45 + Math.sin(t * 2) * .12;
+    this.rays.children.forEach((r, i) => { r.material.opacity = .07 + Math.sin(t * .6 + i * 1.7) * .035; });
+    this.rays.position.x = this.camera.position.x * .6;
+    if (Math.random() < dt * 22) {          // drifting sugar sparkles
+      const c = this.camera.position;
+      this.fx.burst(new THREE.Vector3(c.x + rand(-22, 22), rand(.5, 9), c.z - rand(2, 26)), { count: 1, colors: [0xffffff, 0xffd9ec, 0xfff0a0, 0xd9f0ff], speed: .25, up: .1, gravity: 0, life: 3.2, size: .42 });
+    }
     if (Math.random() < dt * 8) this.fx.burst(new THREE.Vector3(rand(-4, 4), .5, -19.5), { count: 1, colors: [0xffffff, 0xd9a05b], speed: 1, up: 1.5, gravity: -1, life: 1, size: .8 });
     this.pops.forEach((p, i) => { p.userData.disc.rotation.z += dt * .15 * (i % 2 ? 1 : -1); });
     this.daisies.forEach((d) => { const u = d.userData; u.sway = Math.max(0, u.sway - dt); d.rotation.z = Math.sin(t * 2 + u.note) * .04 + Math.sin(t * 25) * .12 * u.sway; u.f.rotation.z = t * (.3 + u.sway * 6); });

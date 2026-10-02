@@ -180,6 +180,8 @@ export function createTwin(name) {
       shadow.scale.setScalar(Math.max(.4, 1 - fxs.lift * .2));
     },
   };
+  shadow.userData.noShadow = true;
+  root.traverse((o) => { if (o.isMesh && !o.userData.noShadow) o.castShadow = true; });
   return T;
 }
 

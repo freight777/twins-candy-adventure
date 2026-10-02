@@ -1,5 +1,11 @@
 import './style.css';
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { Q, loadTier, setTier, lowerTier } from './quality.js';
+import { skyEnv } from './env.js';
 import { Party } from './party.js';
 import { ui } from './ui.js';
 import { unlock, playMusic, stopMusic, sfx, setMuted, isMuted, setMusicLevel, getMusicLevel } from './audio.js';
@@ -12,9 +18,27 @@ import { CastleScene } from './scenes/castle.js';
 import { WarpScene, WakeScene } from './scenes/ending.js';
 
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NeutralToneMapping;      // keeps candy colours vivid but stops bright things clipping
+renderer.toneMappingExposure = 0.9;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+loadTier();
+
+// post-processing: render (multisampled) -> soft glow on bright things -> tone map to the screen
+const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
+const composer = new EffectComposer(renderer, rt);
+const renderPass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.16, 0.5, 0.95);
+composer.addPass(renderPass); composer.addPass(bloom); composer.addPass(new OutputPass());
+let pixelRatio = 1;
+function applyTier() {
+  pixelRatio = Math.min(window.devicePixelRatio, Q.pr);
+  bloom.enabled = Q.bloom;
+  renderer.setPixelRatio(pixelRatio); composer.setPixelRatio(pixelRatio);
+  composer.setSize(window.innerWidth, window.innerHeight);
+}
 
 const SCENES = { beach: BeachScene, fall: FallScene, cat: CatRoomScene, chocolate: ChocolateScene, board: BoardScene, castle: CastleScene, warp: WarpScene, wake: WakeScene };
 
@@ -58,8 +82,12 @@ ui.onPick((who) => game.setActive(who));
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
+  composer.setSize(w, h);
   game.current && game.current.resize(w, h);
 }
+game.renderer = renderer;
+game.env = (key, opts) => skyEnv(renderer, key, opts);
+applyTier();
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 
@@ -98,6 +126,8 @@ document.getElementById('secret').addEventListener('pointerdown', () => {
 document.getElementById('pclose').onclick = () => parentEl.classList.add('hidden');
 const LEVELS = [[0, 'off'], [0.3, 'quiet'], [0.5, 'medium'], [0.8, 'loud']];
 const pmute = document.getElementById('pmute'), pmusic = document.getElementById('pmusic');
+const pgfx = document.getElementById('pgfx'); pgfx.textContent = `Graphics: ${Q.name}`;
+pgfx.onclick = () => { const o = ['high', 'medium', 'low']; setTier(o[(o.indexOf(Q.name) + 1) % 3]); applyTier(); resize(); pgfx.textContent = `Graphics: ${Q.name}`; };
 pmute.onclick = () => { setMuted(!isMuted()); pmute.textContent = `Sound: ${isMuted() ? 'off' : 'on'}`; };
 pmusic.onclick = () => {
   let i = LEVELS.findIndex(([v]) => v === getMusicLevel()); i = (i + 1) % LEVELS.length;
@@ -106,15 +136,16 @@ pmusic.onclick = () => {
 
 // ---- main loop (also quietly lowers resolution if the iPad is struggling) ----
 const clock = new THREE.Clock();
-let slow = 0, frames = 0, pr = renderer.getPixelRatio();
+let slow = 0, frames = 0;
 renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
   const s = game.current;
   if (!s) return;
   s.update(dt);
-  renderer.render(s.scene, s.camera);
-  if (raw > 0.032 && raw < 0.5) slow++;
-  if (++frames === 120) { if (slow > 70 && pr > 1) { pr = Math.max(1, pr - 0.5); renderer.setPixelRatio(pr); resize(); } slow = 0; frames = 0; }
+  renderPass.scene = s.scene; renderPass.camera = s.camera;
+  composer.render(dt);
+  if (raw > 0.03 && raw < 0.5) slow++;
+  if (++frames === 150) { if (slow > 80 && lowerTier()) { applyTier(); resize(); document.getElementById('pgfx').textContent = `Graphics: ${Q.name}`; } slow = 0; frames = 0; }
 });
 
 window.game = game; // handy for debugging in the browser console

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { Timers, Fx, clamp } from './util.js';
+import { Timers, Fx, clamp, linearizeFrag } from './util.js';
+import { Q } from './quality.js';
 
 const hitMat = new THREE.MeshBasicMaterial({ visible: false });
 const visibleChain = (o) => { while (o) { if (!o.visible) return false; o = o.parent; } return true; };
@@ -31,7 +32,7 @@ export class BaseScene {
   addInteractive(obj, onTap, radius = 1, offset = [0, 0, 0]) {
     const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 8, 6), hitMat);
     m.position.set(...offset);
-    m.userData.onTap = onTap;
+    m.userData.onTap = onTap; m.userData.noShadow = true;
     obj.add(m);
     this.hits.push(m);
     return m;
@@ -56,7 +57,30 @@ export class BaseScene {
 
   enter() {}
   exit() {}
+  /** Sun-style light that casts soft shadows around whoever the camera is following. */
+  useShadows(light, extent = 24) {
+    this.shadowSun = light; this.shadowOffset = light.position.clone();
+    light.castShadow = true;
+    const c = light.shadow.camera; c.left = c.bottom = -extent; c.right = c.top = extent; c.near = 1; c.far = 160;
+    light.shadow.bias = -0.0005; light.shadow.normalBias = 0.05; light.shadow.radius = 3;
+    this.scene.add(light.target);
+  }
+
   update(dt) {
+    if (!this.patched) {                    // raw shaders were written in screen colours; fix them up for the post-processing chain
+      this.patched = true;
+      this.scene.traverse((o) => {
+        const m = o.material;
+        if (m && m.isShaderMaterial && !m.userData.lin) { m.fragmentShader = linearizeFrag(m.fragmentShader); m.userData.lin = true; m.needsUpdate = true; }
+      });
+    }
+    if (this.shadowSun) {
+      const f = this.shadowFocus || this.game.party.leader.root.position;
+      this.shadowSun.target.position.copy(f); this.shadowSun.position.copy(f).add(this.shadowOffset);
+      const want = Q.shadow > 0;
+      if (this.shadowSun.castShadow !== want) this.shadowSun.castShadow = want;
+      if (want && this.shadowSun.shadow.mapSize.x !== Q.shadow) { this.shadowSun.shadow.mapSize.set(Q.shadow, Q.shadow); this.shadowSun.shadow.map && this.shadowSun.shadow.map.dispose(); this.shadowSun.shadow.map = null; }
+    }
     this.time += dt;
     this.tm.update(dt);
     this.fx.update(dt);
