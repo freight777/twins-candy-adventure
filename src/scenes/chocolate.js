@@ -1,27 +1,312 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic } from '../audio.js';
 
-/** Placeholder for Phase 3. The real Wonka-style chocolate room goes here. */
+const sph = (r, w = 18, h = 12) => new THREE.SphereGeometry(r, w, h);
+const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
+const PAD = new THREE.Vector3(15, 0, 2);       // the START pad
+const RIVER_Z = -14;
+
+/** Willy-Wonka-style candy meadow: chocolate river and waterfall, candy to eat, tap surprises, and the START pad. */
 export class ChocolateScene extends BaseScene {
   constructor(game) {
     super(game);
-    this.scene.background = new THREE.Color(0x5a2d17);
-    this.scene.add(new THREE.HemisphereLight(0xfff0d0, 0x7a3b1d, 1.3));
-    const ground = mk(new THREE.CircleGeometry(30, 40).rotateX(-Math.PI / 2), 0x4aa84a);
-    this.scene.add(ground);
-    this.camera.position.set(0, 5, 12); this.camera.lookAt(0, 1.6, 0);
+    this.hfov = 78;
+    this.eaten = 0;
+    this.pending = null;
+    this.edibles = [];
+    this.idle = 0;
+    this.wander = [];
+    this.buildSky();
+    this.buildGround();
+    this.buildRiver();
+    this.buildScenery();
+    this.buildEdibles();
+    this.buildPad();
+    this.scene.add(new THREE.HemisphereLight(0xfff6e0, 0xffc8e8, 1.2));
+    const d = new THREE.DirectionalLight(0xffffff, 1.5); d.position.set(10, 22, 12); this.scene.add(d);
   }
+
+  // ===================================================================== build
+  buildSky() {
+    this.scene.add(new THREE.Mesh(new THREE.SphereGeometry(500, 32, 16), new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false,
+      vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+      fragmentShader: `varying vec3 vP; void main(){ float h = clamp(vP.y*1.6+.1,0.,1.);
+        vec3 c = mix(vec3(1.,.92,.9), vec3(.55,.8,1.), pow(h,.7)); gl_FragColor = vec4(c,1.); }`,
+    })));
+    this.clouds = [];
+    for (let i = 0; i < 8; i++) {
+      const c = new THREE.Group();
+      for (let k = 0; k < 4; k++) c.add(mk(sph(rand(3, 5)), toon(pick([0xffffff, 0xffe3f1, 0xe8f4ff])), [k * 4 - 6, rand(-.5, 1), rand(-1, 1)], [1.3, .8, .9]));
+      c.position.set(rand(-150, 150), rand(30, 55), rand(-220, -90)); this.clouds.push(c); this.scene.add(c);
+    }
+  }
+
+  buildGround() {
+    const grass = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#7fe05f'; g.fillRect(0, 0, w, h); g.fillStyle = '#92ea6f'; g.fillRect(0, 0, w / 2, h); }, [40, 40]);
+    this.scene.add(mk(new THREE.CircleGeometry(90, 64).rotateX(-Math.PI / 2), toon(0xffffff, { map: grass })));
+    // rolling candy hills in the distance
+    [[-40, -26, 14, 0xff9ecb], [-18, -34, 18, 0x8fe3f0], [30, -30, 16, 0xffd84d], [52, -20, 12, 0xb89cf8], [8, -40, 20, 0xff9ecb], [-55, -16, 13, 0xffd84d]].forEach(([x, z, r, c]) => {
+      const h = mk(sph(r, 24, 14), c, [x, -r * .35, z], [1.5, 1, 1.2]); this.scene.add(h);
+    });
+    // chocolate-bar stepping fence along the front
+    for (let i = 0; i < 14; i++) {
+      const bar = mk(new THREE.BoxGeometry(1.8, .3, 1), 0x6b3a1f, [-26 + i * 4, .15, 14.5]); this.scene.add(bar);
+      bar.add(mk(new THREE.BoxGeometry(.04, .32, 1.02), 0x4b2a14, [0, 0, 0]));
+    }
+  }
+
+  buildRiver() {
+    this.riverMat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+      fragmentShader: `uniform float uTime; varying vec2 vUv;
+        void main(){ float f = sin(vUv.x*38.-uTime*1.6 + sin(vUv.y*12.+uTime)*2.)*.5+.5;
+          vec3 c = mix(vec3(.30,.15,.07), vec3(.5,.27,.12), f);
+          c += smoothstep(.94,1., sin(vUv.x*90.-uTime*3.)*sin(vUv.y*28.))*.4;
+          gl_FragColor = vec4(c,1.); }`,
+    });
+    const r = new THREE.Mesh(new THREE.PlaneGeometry(130, 12).rotateX(-Math.PI / 2), this.riverMat); r.position.set(0, .04, RIVER_Z - 4); this.scene.add(r);
+    for (let i = 0; i < 34; i++) this.scene.add(mk(sph(rand(.4, .8), 10, 8), pick([0xffffff, 0xffe3f1, 0xffd9a8]), [-60 + i * 3.6, .25, RIVER_Z + 2.4 + rand(-.3, .3)], [1, .6, 1]));
+
+    // cliff + waterfall
+    this.scene.add(mk(sph(18, 20, 12), 0xfff0e0, [0, -4, -34], [1.6, 1, .7]));
+    this.fallMat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } }, transparent: true,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+      fragmentShader: `uniform float uTime; varying vec2 vUv;
+        void main(){ float s = fract(vUv.y*5. + uTime*1.3 + sin(vUv.x*18.+uTime)*.15);
+          vec3 c = mix(vec3(.32,.16,.07), vec3(.58,.32,.15), smoothstep(.0,1.,s));
+          c = mix(c, vec3(.85,.6,.4), smoothstep(.85,1.,s)*.5);
+          float edge = smoothstep(.0,.08,vUv.x)*smoothstep(1.,.92,vUv.x);
+          gl_FragColor = vec4(c, edge); }`,
+    });
+    const fall = new THREE.Mesh(new THREE.PlaneGeometry(10, 15), this.fallMat); fall.position.set(0, 7, -22); this.scene.add(fall);
+    this.fall = fall;
+    // candy pipes feeding the waterfall
+    for (const s of [-1, 1]) { const p = mk(cyl(1.1, 1.1, 8, 14), toon(0xffffff, { map: candyCaneTex() }), [s * 8, 12, -22]); p.rotation.z = Math.PI / 2 * .0; this.scene.add(p); }
+    this.mist = glowSprite(0xfff0dd, 14, .6); this.mist.position.set(0, 1, -21); this.scene.add(this.mist);
+    this.addInteractive(fall, () => this.tapFall(), 8, [0, -1, 2]);
+  }
+
+  buildScenery() {
+    // lollipop trees
+    this.pops = [];
+    [[-20, -5], [-12, -8], [20, -7], [11, -9], [-26, 4], [26, 10], [-7, -9.5]].forEach(([x, z], i) => {
+      const g = new THREE.Group(); g.position.set(x, 0, z); this.scene.add(g);
+      const h = rand(5, 7);
+      g.add(mk(cyl(.2, .26, h, 8), toon(0xffffff, { map: candyCaneTex() }), [0, h / 2, 0]));
+      const disc = mk(sph(1.9, 20, 14), toon(0xffffff, { map: swirlTex(pick(['#ff6fb5', '#ffd84d', '#62e0d0', '#b07cff']), '#fff') }), [0, h + 1.4, 0], [1, 1, .35]);
+      disc.rotation.y = rand(-.4, .4); g.add(disc); g.userData.disc = disc; this.pops.push(g);
+      this.addInteractive(g, () => this.tapPop(g), 2.4, [0, h + 1.2, 0]);
+    });
+    // cotton-candy trees
+    [[-16, 8], [17, 8], [4, -9], [-27, 12]].forEach(([x, z]) => {
+      const g = new THREE.Group(); g.position.set(x, 0, z); this.scene.add(g);
+      g.add(mk(cyl(.25, .35, 3, 8), 0xa8683a, [0, 1.5, 0]));
+      [[0, 4, 0, 1.8], [-1.1, 3.4, .4, 1.2], [1.1, 3.5, -.3, 1.3]].forEach(([a, b, c, r]) => g.add(mk(sph(r, 14, 10), toon(pick([0xffb3d9, 0xb8e8ff, 0xe3c8ff])), [a, b, c])));
+    });
+    // gumdrop bushes
+    for (let i = 0; i < 16; i++) {
+      const g = new THREE.Group(); g.position.set(rand(-30, 30), 0, rand(-11, 15));
+      if (Math.hypot(g.position.x - PAD.x, g.position.z - PAD.z) < 5) continue;
+      const c = pick(CANDY); for (let k = 0; k < 3; k++) g.add(mk(sph(rand(.5, .8), 12, 8), c, [rand(-.7, .7), .35, rand(-.5, .5)], [1, .8, 1]));
+      this.scene.add(g);
+    }
+    // giant mushrooms (bouncy!)
+    this.mush = [];
+    [[-9, 3], [8, 5], [-22, -2], [23, 3]].forEach(([x, z]) => {
+      const g = new THREE.Group(); g.position.set(x, 0, z); this.scene.add(g);
+      g.add(outline(mk(cyl(.5, .7, 2.2, 12), 0xfff4e0, [0, 1.1, 0]), 1.05));
+      const cap = outline(mk(sph(2, 20, 12), 0xff4d6d, [0, 2.4, 0], [1, .6, 1]), 1.03); g.add(cap);
+      for (let k = 0; k < 6; k++) { const a = k * 1.05; g.add(mk(sph(.28, 8, 6), 0xffffff, [Math.cos(a) * 1.2, 3.1 + Math.sin(a * 2) * .1, Math.sin(a) * 1.2], [1, .5, 1])); }
+      g.userData.cap = cap; this.mush.push(g);
+      this.addInteractive(g, () => this.tapMush(g), 2, [0, 2.2, 0]);
+    });
+    // singing daisies
+    this.daisies = [];
+    for (let i = 0; i < 7; i++) {
+      const g = new THREE.Group(); g.position.set(-24 + i * 6 + rand(-1, 1), 0, rand(6, 12)); this.scene.add(g);
+      g.add(mk(cyl(.07, .07, 2, 6), 0x3cc267, [0, 1, 0]));
+      const f = new THREE.Group(); f.position.y = 2.1; g.add(f);
+      const col = pick([0xff6fb5, 0xffffff, 0xffd84d, 0xb89cf8]);
+      for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; f.add(mk(sph(.34, 8, 6), col, [Math.cos(a) * .55, Math.sin(a) * .55, 0], [1.3, .7, .4]).rotateZ(a)); }
+      f.add(mk(sph(.28), 0xffc83d, [0, 0, .1]), mk(sph(.04), 0x5b3a24, [-.1, .05, .35]), mk(sph(.04), 0x5b3a24, [.1, .05, .35]));
+      g.userData = { f, note: i, sway: 0 }; this.daisies.push(g);
+      this.addInteractive(g, () => this.tapDaisy(g), 1.3, [0, 2, 0]);
+    }
+    // giant candy canes
+    for (let i = 0; i < 6; i++) {
+      const g = new THREE.Group(); g.position.set(-28 + i * 11 + rand(-2, 2), 0, rand(-12, -9));
+      const m = toon(0xffffff, { map: candyCaneTex() });
+      g.add(mk(cyl(.3, .3, 4, 10), m, [0, 2, 0]), mk(new THREE.TorusGeometry(.8, .3, 8, 16, Math.PI), m, [.8, 4, 0]));
+      this.scene.add(g);
+    }
+  }
+
+  // --- things to eat ---
+  buildEdibles() {
+    const makers = [
+      ['lollipop', '\u{1F36D}', () => { const g = new THREE.Group(); g.add(new THREE.Mesh(stripedGeo(sph(.8, 18, 12), CANDY, 10), vertexToon()), mk(cyl(.06, .06, 1.7, 6), 0xffffff, [0, -1.2, 0])); g.children[0].position.y = .6; g.position.y = 1.4; return g; }],
+      ['cupcake', '\u{1F9C1}', () => { const g = new THREE.Group(); g.add(mk(cyl(.7, .5, .8, 14), 0xffd9a8, [0, .4, 0]), mk(sph(.8, 14, 10), 0xff9ecb, [0, 1.1, 0], [1, .8, 1]), mk(sph(.5, 12, 8), 0xffffff, [0, 1.6, 0], [1, .8, 1]), mk(sph(.22), 0xe8334a, [0, 2.0, 0])); return g; }],
+      ['gumdrops', '\u{1F36C}', () => { const g = new THREE.Group(); [[0, 0, 0xff4d6d], [.9, .3, 0x5be37d], [-.8, .5, 0xffd84d]].forEach(([x, z, c]) => g.add(mk(sph(.6, 14, 10), c, [x, .5, z], [1, .85, 1]), mk(sph(.07), 0xffffff, [x, 1, z]))); return g; }],
+      ['donut', '\u{1F369}', () => { const g = new THREE.Group(); const t = mk(new THREE.TorusGeometry(.7, .38, 14, 24), 0xe0a060, [0, 1.2, 0]); t.rotation.x = Math.PI / 2 - .5; const ic = mk(new THREE.TorusGeometry(.7, .4, 14, 24), 0xff6fb5, [0, 1.28, 0], [1, 1, .6]); ic.rotation.x = Math.PI / 2 - .5; g.add(t, ic); for (let i = 0; i < 10; i++) { const a = i * .63; const s = mk(new THREE.BoxGeometry(.18, .04, .04), pick(CANDY), [Math.cos(a) * .72, 1.5 - Math.cos(a) * .0, Math.sin(a) * .5 + .2]); g.add(s); } return g; }],
+      ['choc', '\u{1F36B}', () => { const g = new THREE.Group(); g.add(mk(new THREE.BoxGeometry(1.6, .35, 1.1), 0x6b3a1f, [0, .6, 0])); for (let i = 0; i < 4; i++) g.add(mk(new THREE.BoxGeometry(.32, .05, .9), 0x8a4b2a, [-.5 + i * .33, .8, 0])); g.add(mk(new THREE.BoxGeometry(1.7, .3, .55), 0xff4d6d, [0, .55, .3])); g.rotation.x = -.4; g.position.y = .5; return g; }],
+      ['cookie', '\u{1F36A}', () => { const g = new THREE.Group(); g.add(mk(cyl(.9, .9, .3, 20), 0xd9a05b, [0, .8, 0])); g.rotation.x = -.9; g.position.y = .6; for (let i = 0; i < 6; i++) g.add(mk(sph(.14, 6, 5), 0x4b2a14, [Math.cos(i * 1.1) * .5, 1, Math.sin(i * 1.1) * .5])); return g; }],
+      ['cottoncandy', '\u{1F36C}', () => { const g = new THREE.Group(); g.add(mk(cyl(.05, .05, 1.8, 6), 0xffffff, [0, .9, 0])); [[0, 2, 0, .75], [.35, 1.7, .2, .5], [-.35, 1.75, -.1, .5], [0, 2.4, .1, .45]].forEach(([x, y, z, r]) => g.add(mk(sph(r, 12, 8), toon(0xffb3d9), [x, y, z]))); return g; }],
+    ];
+    const spots = [[-4, 4], [5, 2], [-8, 9], [10, 9], [-14, 3], [14, 12], [-2, 9.5], [0, -2], [-18, 9], [19, 5], [-12, -4], [8, -5], [3, 12], [-24, 8], [24, 7]];
+    spots.forEach(([x, z], i) => {
+      const [name, emoji, make] = makers[i % makers.length];
+      const g = new THREE.Group(); g.position.set(x, 0, z);
+      const item = make(); g.add(item); g.scale.setScalar(1.35);
+      g.userData = { name, emoji, eaten: false, idx: i, home: new THREE.Vector3(x, 0, z), item };
+      this.scene.add(g); this.edibles.push(g);
+      this.addInteractive(g, () => this.tapEdible(g), 1.5, [0, 1.1, 0]);
+    });
+  }
+
+  buildPad() {
+    const g = this.pad = new THREE.Group(); g.position.copy(PAD); this.scene.add(g);
+    const tex = canvasTex(256, 256, (c, w, h) => {
+      c.fillStyle = '#ff4fa0'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.beginPath(); c.arc(128, 128, 112, 0, 7); c.fill();
+      c.fillStyle = '#7a4ed1'; c.beginPath(); c.arc(128, 128, 96, 0, 7); c.fill();
+      c.fillStyle = '#fff'; c.font = 'bold 54px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('START', 128, 128);
+    });
+    g.add(mk(new THREE.CircleGeometry(2.8, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex }), [0, .06, 0]));
+    this.padGlow = glowSprite(0xff9fe0, 9, .6); this.padGlow.position.y = 1.5; g.add(this.padGlow);
+    RAINBOW.forEach((c, i) => { const a = mk(new THREE.TorusGeometry(3.6 - i * .28, .14, 8, 28, Math.PI), c, [0, 0, -3.2]); g.add(a); });
+    g.add(mk(cyl(.08, .08, 5, 6), 0xffffff, [3.4, 2.5, 0]), mk(new THREE.PlaneGeometry(1.6, .9), toon(0xff4fa0, { side: THREE.DoubleSide }), [4.2, 4.6, 0]));
+    this.addInteractive(g, () => this.game.party.walkTo(PAD.x, PAD.z), 3.4, [0, 1.5, 0]);
+  }
+
+  // ===================================================================== flow
   enter() {
-    const P = this.game.party;
+    const G = this.game, P = G.party;
     this.scene.add(P.group);
     P.ground = () => ({ y: 0, swim: 0 });
-    P.frozen = false; P.setMode('cheer');
-    P.place(-1.5, 3, 1.5, 3);
-    this.game.ui.hud(false);
+    P.bounds = { xmin: -28, xmax: 28, zmin: -9.5, zmax: 13 };
+    P.speed = 4.8; P.frozen = false; P.target = null; P.setMode('idle');
+    P.leader.root.position.set(0, 0, 9); P.follower.root.position.set(P.active === 'adalyn' ? 1.5 : -1.5, 0, 9.5);
+    G.ui.hud(true, { swap: true, stars: true, icon: '\u{1F36C}' });
+    G.ui.setStars(0);
     playMusic('choc');
-    this.game.ui.message('🍫', 'The chocolate room is coming next!', 'Play again', () => { this.game.started = false; this.game.goto('beach'); });
+    this.camera.position.set(0, 8.5, 22); this.look = new THREE.Vector3(0, 1.2, 6);
+    G.ui.bubble('\u{1F36B} \u{1F36C} \u{1F36D}', 'Tap candy to eat it!');
+    this.tm.after(5, () => G.ui.hideBubble());
   }
-  update(dt) { super.update(dt); this.game.party.update(dt, this.time); }
+
+  // ===================================================================== taps
+  touch() { this.idle = 0; }
+  onGround(p) {
+    if (this.starting) return;
+    this.touch();
+    this.pending = null; this.game.ui.eat(false); this.shownEat = false;
+    this.game.party.walkTo(p.x, p.z);
+  }
+  tapEdible(e) {
+    if (e.userData.eaten || this.starting) return;
+    this.touch(); sfx.pop();
+    const P = this.game.party, side = P.leader.root.position.x < e.position.x ? -1.6 : 1.6;
+    this.pending = e; this.shownEat = false; this.game.ui.eat(false);
+    P.walkTo(e.position.x + side, e.position.z + .6);
+    this.fx.burst(e.position.clone().add(new THREE.Vector3(0, 2.4, 0)), { count: 8, colors: [0xffffff, 0xffe14d], speed: 1.5, gravity: 0, life: .8, size: .6 });
+  }
+  showEat() {
+    this.shownEat = true;
+    this.game.ui.eat(true, this.pending.userData.emoji, () => this.eat(this.pending));
+  }
+  eat(e) {
+    if (!e || e.userData.eaten) return;
+    const G = this.game, P = G.party, L = P.leader;
+    G.ui.eat(false); this.pending = null; e.userData.eaten = true;
+    L.lookToward(e.position.x - L.root.position.x, e.position.z - L.root.position.z, 1);
+    sfx.crunch(); sfx.yum();
+    const crumbs = [0xffffff, 0xff9ecb, 0xffd84d, 0x8a4b2a];
+    const at = e.position.clone().add(new THREE.Vector3(0, 1.6, 0));
+    this.fx.burst(at, { count: 30, colors: crumbs, speed: 3.5, gravity: -9, life: .9, size: .5 });
+    this.tm.tween(.9, (k) => {
+      e.scale.setScalar(1.35 * (1 - ease.in(k)));
+      L.fx.squash = 1 + Math.sin(k * Math.PI * 6) * .12;
+    }, { ease: ease.linear, done: () => {
+      L.fx.squash = 1; e.visible = false;
+      this.eaten++; G.ui.setStars(this.eaten);
+      const hp = L.root.position.clone().add(new THREE.Vector3(0, 2.4, 0));
+      this.fx.burst(hp, { count: 14, colors: [0xff6f91, 0xff9fcb], speed: 2.5, gravity: 1.5, life: 1.5, size: .9 });
+      if (this.eaten % 5 === 0) { sfx.tada(); this.fx.burst(hp, { count: 60, colors: RAINBOW.concat(CANDY), speed: 7, gravity: -4, life: 1.8, size: 1 }); G.ui.bubble('\u{1F36C}\u{1F389}', 'Yum yum!'); this.tm.after(2.5, () => G.ui.hideBubble()); }
+      this.tm.after(9, () => this.respawn(e));
+    } });
+  }
+  respawn(e) {
+    e.visible = true; e.userData.eaten = false;
+    this.tm.tween(.6, (k) => e.scale.setScalar(1.35 * k), { ease: ease.outBack });
+    this.fx.burst(e.position.clone().add(new THREE.Vector3(0, 1.4, 0)), { count: 10, colors: [0xffffff], speed: 1.5, gravity: 0, life: .7, size: .5 });
+  }
+  tapMush(m) {
+    this.touch(); sfx.boing();
+    this.fx.burst(m.position.clone().add(new THREE.Vector3(0, 3.5, 0)), { count: 24, colors: [0xff4d6d, 0xffffff, 0xffe14d], speed: 4, gravity: -5, life: 1.1 });
+    this.tm.tween(.8, (k) => { m.userData.cap.scale.set(1 + Math.sin(k * Math.PI * 4) * .18 * (1 - k), .6 - Math.sin(k * Math.PI * 4) * .2 * (1 - k), 1 + Math.sin(k * Math.PI * 4) * .18 * (1 - k)); });
+  }
+  tapDaisy(d) {
+    this.touch(); sfx.note(d.userData.note);
+    this.fx.burst(d.position.clone().add(new THREE.Vector3(0, 3, 0)), { count: 10, colors: [0xffe14d, 0xff9fcb, 0xffffff], speed: 2.5, gravity: 1, life: 1.1, size: .7 });
+    d.userData.sway = 1;
+  }
+  tapPop(p) {
+    this.touch(); sfx.sparkle();
+    this.tm.tween(1, (k) => { p.userData.disc.rotation.z = k * Math.PI * 6; }, { ease: ease.out });
+    this.fx.burst(p.position.clone().add(new THREE.Vector3(0, 7, 0)), { count: 30, colors: CANDY, speed: 5, gravity: -3, life: 1.3 });
+  }
+  tapFall() {
+    this.touch(); sfx.splash(); sfx.giggle();
+    this.fx.burst(new THREE.Vector3(rand(-2, 2), 2, -19), { count: 60, colors: [0x8a4b2a, 0xffffff, 0xd9a05b], speed: 7, up: 4, gravity: -9, life: 1.4, size: .9 });
+  }
+
+  // ===================================================================== update
+  update(dt) {
+    super.update(dt);
+    const t = this.time, G = this.game, P = G.party;
+    this.riverMat.uniforms.uTime.value = t; this.fallMat.uniforms.uTime.value = t;
+    this.clouds.forEach((c) => { c.position.x += dt * .9; if (c.position.x > 170) c.position.x = -170; });
+    this.mist.material.opacity = .45 + Math.sin(t * 2) * .12;
+    if (Math.random() < dt * 8) this.fx.burst(new THREE.Vector3(rand(-4, 4), .5, -19.5), { count: 1, colors: [0xffffff, 0xd9a05b], speed: 1, up: 1.5, gravity: -1, life: 1, size: .8 });
+    this.pops.forEach((p, i) => { p.userData.disc.rotation.z += dt * .15 * (i % 2 ? 1 : -1); });
+    this.daisies.forEach((d) => { const u = d.userData; u.sway = Math.max(0, u.sway - dt); d.rotation.z = Math.sin(t * 2 + u.note) * .04 + Math.sin(t * 25) * .12 * u.sway; u.f.rotation.z = t * (.3 + u.sway * 6); });
+    this.edibles.forEach((e) => { if (!e.userData.eaten) e.userData.item.rotation.y += dt * .6; });
+    this.padGlow.material.opacity = .45 + Math.sin(t * 3) * .2;
+    this.pad.rotation.y = 0;
+
+    // reach a pending candy -> show the EAT button
+    if (this.pending && !this.shownEat && !P.target) {
+      const L = P.leader.root.position;
+      if (Math.hypot(L.x - this.pending.position.x, L.z - this.pending.position.z) < 3.4) this.showEat();
+    }
+
+    // START pad
+    if (!this.starting && !P.target) {
+      const L = P.leader.root.position;
+      if (Math.hypot(L.x - PAD.x, L.z - PAD.z) < 2.6) this.askStart();
+    }
+    this.idle += dt;
+    if ((this.eaten >= 4 || this.idle > 40) && !this.hintOn && !this.starting) { this.hintOn = true; G.ui.hint('\u{1F449}'); }
+    if (this.hintOn) { const s = this.toScreen(PAD.clone().add(new THREE.Vector3(0, 6, 0))); G.ui.hintAt(s.x, s.y); }
+
+    P.update(dt, t);
+    const L = P.leader.root.position, k = 1 - Math.exp(-3 * dt), gx = clamp(L.x, -26, 26);
+    this.camera.position.lerp(new THREE.Vector3(gx, 8.5, L.z + 13), k);
+    this.look.lerp(new THREE.Vector3(gx, 1.2, L.z - 3), k);
+    this.camera.lookAt(this.look);
+  }
+
+  askStart() {
+    this.starting = true;
+    const G = this.game;
+    G.ui.eat(false); G.ui.hideHint(); this.hintOn = false;
+    sfx.chime();
+    G.ui.message('\u{1F3B2}\u{1F3C1}', 'Ready to play Candyland?', "Let's go!", () => {
+      sfx.tada(); G.party.frozen = true; G.goto('board', { flash: '#ffd9f0' });
+    }, 'Not yet', () => { G.party.walkTo(PAD.x - 6, PAD.z + 3); this.tm.after(1.5, () => (this.starting = false)); });
+  }
 }

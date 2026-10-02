@@ -12,6 +12,9 @@ export class FallScene extends BaseScene {
   constructor(game) {
     super(game);
     this.hfov = 80;
+    this.dir = 1;                 // 1 = falling down the tunnel, -1 = flying back up it
+    this.duration = DURATION;
+    this.next = 'cat';
     this.phase = 'whirl';
     this.pt = 0;
     this.collected = 0;
@@ -51,12 +54,12 @@ export class FallScene extends BaseScene {
   buildTunnel() {
     const g = this.tunnel = new THREE.Group(); this.scene.add(g);
     this.tunnelMat = new THREE.ShaderMaterial({
-      side: THREE.BackSide, uniforms: { uTime: { value: 0 } },
+      side: THREE.BackSide, uniforms: { uTime: { value: 0 }, uDir: { value: 1 } },
       vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-      fragmentShader: `uniform float uTime; varying vec3 vP;
+      fragmentShader: `uniform float uTime, uDir; varying vec3 vP;
         void main(){
           float a = atan(vP.y, vP.x);
-          float zz = vP.z - uTime*${SPEED}.;
+          float zz = vP.z - uDir*uTime*${SPEED}.;
           float k = a*3./3.14159 + zz*.07;
           float st = step(.5, fract(k));
           vec3 c = mix(vec3(1.,.42,.72), vec3(.3,.88,.98), st);
@@ -95,7 +98,7 @@ export class FallScene extends BaseScene {
   }
   respawn(o, first = false) {
     const a = rand(0, Math.PI * 2), r = rand(3.3, 4.5);
-    o.position.set(Math.cos(a) * r, Math.sin(a) * r, first ? -rand(8, TUNNEL_LEN) : -TUNNEL_LEN + rand(-10, 0));
+    o.position.set(Math.cos(a) * r, Math.sin(a) * r, first ? -rand(8, TUNNEL_LEN) : this.dir > 0 ? -TUNNEL_LEN + rand(-10, 0) : -rand(0, 4));
   }
   mkClock() { const g = new THREE.Group(); g.add(mk(new THREE.TorusGeometry(.6, .09, 8, 20), 0xffc83d), mk(new THREE.CircleGeometry(.58, 20), 0xffffff, [0, 0, .01]), mk(new THREE.BoxGeometry(.05, .4, .03), 0x333333, [0, .15, .03]), mk(new THREE.BoxGeometry(.3, .05, .03), 0x333333, [.12, 0, .03])); return g; }
   mkCup() { const g = new THREE.Group(); g.add(mk(cyl(.5, .3, .5, 14), 0xff9fcb), mk(new THREE.TorusGeometry(.2, .05, 6, 12), 0xff9fcb, [.55, 0, 0]), mk(cyl(.55, .55, .05, 14), 0xffffff, [0, -.3, 0])); return g; }
@@ -111,7 +114,9 @@ export class FallScene extends BaseScene {
   enter() {
     const P = this.game.party;
     this.scene.add(P.group);
-    P.frozen = true; P.target = null; P.setForm('girl'); P.setMode('idle');
+    P.frozen = true; P.target = null; P.setMode('idle');
+    if (this.dir > 0) P.setForm('girl');      // (flying home, they keep their unicorn / mermaid forms)
+    P.both().forEach((t) => { t.fx.spin = 0; t.fx.lift = 0; t.fx.squash = 1; t.root.scale.setScalar(1); });
     P.ground = () => ({ y: 0, swim: 1 });
     P.adalyn.root.rotation.y = 0; P.esmae.root.rotation.y = 0;
     this.game.ui.hud(false);
@@ -127,12 +132,14 @@ export class FallScene extends BaseScene {
     P.ground = () => ({ y: 0, swim: 0 });
     P.setMode('fall');
     this.camera.position.set(0, 0, 3); this.camera.rotation.set(0, 0, 0);
-    this.game.ui.hud(true, { swap: false, stars: true });
-    this.game.ui.setStars(this.collected);
     sfx.whoosh(2.5);
-    this.hintShown = true;
-    this.game.ui.hint('👆');
-    this.hintTime = 4;
+    if (this.dir > 0) {
+      this.game.ui.hud(true, { swap: false, stars: true });
+      this.game.ui.setStars(this.collected);
+      this.hintShown = true;
+      this.game.ui.hint('👆');
+      this.hintTime = 4;
+    } else this.game.ui.hud(false);
   }
 
   onPointer(ndc) { this.pointer.copy(ndc); }
@@ -180,12 +187,14 @@ export class FallScene extends BaseScene {
     });
 
     // objects rush by
+    this.tunnelMat.uniforms.uDir.value = this.dir;
     for (const o of this.items) {
-      o.position.z += SPEED * dt;
+      o.position.z += SPEED * dt * this.dir;
       o.rotation.x += o.userData.spin.x * dt * 2; o.rotation.y += o.userData.spin.y * dt * 2; o.rotation.z += o.userData.spin.z * dt * 2;
-      if (o.position.z > 6) this.respawn(o);
+      if (this.dir > 0 ? o.position.z > 6 : o.position.z < -TUNNEL_LEN) this.respawn(o);
     }
     for (const c of this.coins) {
+      if (this.dir < 0) { c.visible = false; break; }
       c.position.z += SPEED * dt; c.rotation.y += dt * 3;
       if (c.position.z > 6) { c.position.set(rand(-2.6, 2.6), rand(-1.8, 1.8), -TUNNEL_LEN + rand(-10, 0)); }
       if (Math.abs(c.position.z + 4.2) < 1.4) {
@@ -203,10 +212,10 @@ export class FallScene extends BaseScene {
     this.camera.rotation.z = Math.sin(t * .5) * .18;
     this.camera.position.x = this.center.x * .25; this.camera.position.y = this.center.y * .25;
 
-    if (this.pt > DURATION && !this.leaving) {
+    if (this.pt > this.duration && !this.leaving) {
       this.leaving = true;
       sfx.magic();
-      G.goto('cat', { flash: '#fff6c8' });
+      G.goto(this.next, { flash: '#fff6c8' });
     }
   }
 

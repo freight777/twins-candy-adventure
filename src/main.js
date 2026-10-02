@@ -7,13 +7,16 @@ import { BeachScene } from './scenes/beach.js';
 import { FallScene } from './scenes/fall.js';
 import { CatRoomScene } from './scenes/catroom.js';
 import { ChocolateScene } from './scenes/chocolate.js';
+import { BoardScene } from './scenes/board.js';
+import { CastleScene } from './scenes/castle.js';
+import { WarpScene, WakeScene } from './scenes/ending.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-const SCENES = { beach: BeachScene, fall: FallScene, cat: CatRoomScene, chocolate: ChocolateScene };
+const SCENES = { beach: BeachScene, fall: FallScene, cat: CatRoomScene, chocolate: ChocolateScene, board: BoardScene, castle: CastleScene, warp: WarpScene, wake: WakeScene };
 
 export const game = {
   party: new Party(),
@@ -34,7 +37,8 @@ export const game = {
     ui.fade(flash, async () => {
       try {
         if (game.current) { game.current.exit(); game.current.dispose(); }
-        ui.hideBubble(); ui.hideHint(); ui.title(false);
+        ui.hideBubble(); ui.hideHint(); ui.title(false); ui.eat(false); ui.roll(false); ui.progress(false);
+        game.party.resetPose();
         game.current = new SCENES[name](game);
         game.current.name = name;
         resize();
@@ -69,7 +73,7 @@ canvas.addEventListener('pointermove', (e) => { game.current && game.current.onP
 
 // Developer shortcuts (keyboard only): 1 beach, 2 tunnel, 3 cat room, 4 chocolate room
 window.addEventListener('keydown', (e) => {
-  const map = { 1: 'beach', 2: 'fall', 3: 'cat', 4: 'chocolate' };
+  const map = { 1: 'beach', 2: 'fall', 3: 'cat', 4: 'chocolate', 5: 'board', 6: 'castle', 7: 'warp', 8: 'wake' };
   if (map[e.key]) { unlock(); game.started = true; game.goto(map[e.key]); }
 });
 

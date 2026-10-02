@@ -56,6 +56,25 @@ html, body {
   background: linear-gradient(#ff7fbf, #ff4fa0); box-shadow: 0 6px 0 #b02a74; }
 #msg-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #b02a74; }
 
+/* ---------- eat & roll buttons ---------- */
+#eat, #roll { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); border: 8px solid #fff; border-radius: 50%;
+  width: clamp(120px, 20vw, 190px); height: clamp(120px, 20vw, 190px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 35% 30%, #ffe08a, #ff9f2e 75%); box-shadow: 0 10px 0 #b0661a, 0 16px 28px rgba(0,0,0,.3); animation: pulseb 1s ease-in-out infinite; }
+#eat .eat-item { font-size: clamp(34px, 6vw, 56px); line-height: 1; }
+#eat .eat-mouth, #roll span { font-size: clamp(54px, 9vw, 90px); line-height: 1; }
+#roll { background: radial-gradient(circle at 35% 30%, #c9b0ff, #7a4ed1 75%); box-shadow: 0 10px 0 #4b2a99, 0 16px 28px rgba(0,0,0,.3); }
+#eat:active, #roll:active { margin-bottom: -6px; filter: brightness(1.1); }
+@keyframes pulseb { 0%,100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.08); } }
+.msg-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+#msg-cancel { font-size: clamp(22px, 3.6vw, 36px); font-weight: 700; color: #7a4ed1; border: 0; padding: 14px 36px; border-radius: 40px; background: #eee3ff; box-shadow: 0 6px 0 #c3aef0; }
+
+/* ---------- board progress track ---------- */
+#progress { position: absolute; right: max(16px, env(safe-area-inset-right)); top: 50%; transform: translateY(-50%); }
+#progress .track { position: relative; width: 22px; height: min(52vh, 380px); border-radius: 14px; background: rgba(255,255,255,.85); box-shadow: 0 4px 0 rgba(0,0,0,.15); }
+#progress .flag { position: absolute; top: -34px; left: 50%; transform: translateX(-50%); font-size: 30px; }
+#progress .dot { position: absolute; left: 50%; width: 30px; height: 30px; border-radius: 50%; border: 4px solid #fff; transform: translate(-50%, 50%); bottom: 0; transition: bottom .4s; box-shadow: 0 3px 0 rgba(0,0,0,.2); }
+#progress .dot.a { background: #ff8a1f; margin-left: -9px; } #progress .dot.e { background: #ff5fa8; margin-left: 9px; }
+
 @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 @keyframes pop { from { transform: translateX(-50%) scale(.3); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }

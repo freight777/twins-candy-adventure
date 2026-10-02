@@ -60,6 +60,11 @@ export const sfx = {
   babble: (n = 6) => { for (let i = 0; i < n; i++) tone(320 + Math.random() * 360, 0.07, { type: 'triangle', vol: 0.16, delay: i * 0.1 }); },
   tada: () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.5, { type: 'triangle', vol: 0.25, delay: i * 0.1 })),
   magic: () => { PENTA.concat(PENTA.map((f) => f * 2)).forEach((f, i) => tone(f, 0.4, { delay: i * 0.07, vol: 0.14, type: i % 2 ? 'sine' : 'triangle' })); },
+  crunch: () => { noise(0.09, { vol: 0.5, from: 2500, to: 700, q: 0.7 }); noise(0.08, { vol: 0.4, from: 3000, to: 900, q: 0.7, delay: 0.11 }); noise(0.07, { vol: 0.3, from: 2000, to: 600, q: 0.7, delay: 0.21 }); },
+  yum: () => { tone(523.25, 0.14, { type: 'triangle', vol: 0.25, delay: 0.3 }); tone(784, 0.3, { type: 'triangle', vol: 0.25, delay: 0.42 }); },
+  dice: () => { for (let i = 0; i < 6; i++) tone(300 + Math.random() * 500, 0.05, { type: 'square', vol: 0.1, delay: i * 0.07 }); },
+  hop: () => tone(330, 0.12, { slide: 2, vol: 0.25, type: 'triangle' }),
+  womp: () => { tone(300, 0.25, { type: 'sawtooth', slide: 0.5, vol: 0.18 }); tone(220, 0.4, { type: 'sawtooth', slide: 0.5, vol: 0.18, delay: 0.25 }); },
   creak: () => tone(70, 1.6, { type: 'sawtooth', slide: 1.8, vol: 0.12 }),
   collect: (i = 0) => tone(784 * Math.pow(1.122, i % 6), 0.25, { vol: 0.22, type: 'triangle' }),
 };

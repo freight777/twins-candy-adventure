@@ -25,11 +25,22 @@ export const ui = {
   onPlay(fn) { $('#play').addEventListener('click', fn); },
   setActive(who) { document.querySelectorAll('.portrait').forEach((b) => b.classList.toggle('active', b.dataset.who === who)); },
   title(show) { $('#title').classList.toggle('hidden', !show); },
-  hud(show, { swap = true, stars = false } = {}) {
+  progress(show) { $('#progress').classList.toggle('hidden', !show); },
+  progressSet([a, e]) {
+    $('#progress .dot.a').style.bottom = `${a * 100}%`; $('#progress .dot.e').style.bottom = `${e * 100}%`;
+  },
+  hud(show, { swap = true, stars = false, icon = '⭐', lockSwap = false } = {}) {
     $('#hud').classList.toggle('hidden', !show);
+    document.querySelectorAll('.swap').forEach((b) => (b.style.pointerEvents = lockSwap ? 'none' : 'auto'));
     $('#swap').style.display = swap ? 'flex' : 'none';
     $('#stars').classList.toggle('hidden', !stars);
+    $('#staricon').textContent = icon;
   },
+  eat(show, item = '', fn) {
+    const b = $('#eat'); b.classList.toggle('hidden', !show);
+    if (show) { b.querySelector('.eat-item').textContent = item; b.onclick = fn; }
+  },
+  roll(show, fn) { const b = $('#roll'); b.classList.toggle('hidden', !show); if (show) b.onclick = fn; },
   setStars(n) { $('#starcount').textContent = n; },
 
   bubble(emoji, caption = '') {
@@ -45,10 +56,12 @@ export const ui = {
   hintAt(x, y) { const h = $('#hint'); h.style.left = x + 'px'; h.style.top = y + 'px'; },
   hideHint() { $('#hint').classList.add('hidden'); },
 
-  message(emoji, text, button, onClick) {
+  message(emoji, text, button, onClick, cancel, onCancel) {
     $('#msg').classList.remove('hidden');
     $('.msg-emoji').textContent = emoji; $('.msg-text').textContent = text;
     const b = $('#msg-btn'); b.textContent = button; b.onclick = () => { $('#msg').classList.add('hidden'); onClick && onClick(); };
+    const c = $('#msg-cancel'); c.classList.toggle('hidden', !cancel);
+    if (cancel) { c.textContent = cancel; c.onclick = () => { $('#msg').classList.add('hidden'); onCancel && onCancel(); }; }
   },
 
   async fade(color = '#fff', fn) {

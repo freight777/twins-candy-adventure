@@ -111,7 +111,7 @@ export class BeachScene extends BaseScene {
 
   buildProps() {
     // palm trees
-    [[-15, 1, .35, 7], [14, -.5, -.3, 8], [-26, 6, .25, 7.5], [24, 8, -.25, 7], [3, 17, .2, 8.5]].forEach(([x, z, lean, h]) => this.addPalm(x, z, lean, h));
+    [[-15, 1, .35, 7], [14, -.5, -.3, 8], [-26, 6, .25, 7.5], [24, 8, -.25, 7], [-30, 14, .2, 8.5]].forEach(([x, z, lean, h]) => this.addPalm(x, z, lean, h));
 
     // umbrella, towels, mom and dad
     const u = new THREE.Group(); u.position.set(-10, 0, 7); this.scene.add(u);
@@ -450,7 +450,7 @@ export class BeachScene extends BaseScene {
     if (this.phase === 'title') {
       this.camera.position.x = Math.sin(t * .3) * 1.2;
       this.camera.lookAt(0, 2.4, 0);
-    } else {
+    } else if (this.phase === 'play') {
       const L = P.leader.root.position;
       const k = 1 - Math.exp(-3 * dt);
       const gx = clamp(L.x, -26, 26);

@@ -160,5 +160,14 @@ export class Fx {
   }
 }
 
-export const RAINBOW = [0xff4d4d, 0xff9f2e, 0xffe14d, 0x5be37d, 0x4db8ff, 0xb07cff];
+export const candyCaneTex = () => canvasTex(64, 128, (g, w, h) => {
+  g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.fillStyle = '#ff4d6d';
+  for (let i = -2; i < 4; i++) { g.beginPath(); g.moveTo(0, i * 32); g.lineTo(w, i * 32 - 16); g.lineTo(w, i * 32 + 16); g.lineTo(0, i * 32 + 32); g.fill(); }
+});
+export const swirlTex = (a, b) => canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = a; g.fillRect(0, 0, w, h); g.strokeStyle = b; g.lineWidth = 26; g.lineCap = 'round'; g.beginPath();
+  for (let t = 0; t < 14; t += .05) { const r = t * 8; g.lineTo(w / 2 + Math.cos(t) * r, h / 2 + Math.sin(t) * r); } g.stroke();
+});
+
+export const RAINBOW =[0xff4d4d, 0xff9f2e, 0xffe14d, 0x5be37d, 0x4db8ff, 0xb07cff];
 export const CANDY = [0xff6fb5, 0xffd84d, 0x62e0d0, 0xb07cff, 0xff9f4d, 0xffffff];

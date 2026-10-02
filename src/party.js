@@ -20,6 +20,15 @@ export class Party {
   get follower() { return this.active === 'adalyn' ? this.esmae : this.adalyn; }
   both() { return [this.adalyn, this.esmae]; }
 
+  /** Stand them back up, normal size, no leftover spin/squash from the previous scene. */
+  resetPose() {
+    this.both().forEach((t) => {
+      t.root.rotation.set(0, 0, 0); t.face = 0; t.root.scale.setScalar(1); t.body.rotation.set(0, 0, 0);
+      t.fx.lift = 0; t.fx.spin = 0; t.fx.squash = 1; t.mode = 'idle';
+    });
+    this.target = null;
+  }
+
   place(lx, lz, fx, fz) {
     this.leader.root.position.set(lx, 0, lz);
     this.follower.root.position.set(fx ?? lx + 1.5, 0, fz ?? lz);

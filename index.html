@@ -33,14 +33,18 @@
         <button class="portrait swap" data-who="adalyn" aria-label="Play as Adalyn"></button>
         <button class="portrait swap" data-who="esmae" aria-label="Play as Esmae"></button>
       </div>
-      <div id="stars" class="hidden">&#11088; <span id="starcount">0</span></div>
+      <div id="stars" class="hidden"><span id="staricon">&#11088;</span> <span id="starcount">0</span></div>
     </div>
 
+    <div id="progress" class="hidden"><div class="track"><span class="flag">&#127984;</span><i class="dot a"></i><i class="dot e"></i></div></div>
     <div id="bubble" class="hidden"><div class="emoji"></div><div class="caption"></div></div>
     <div id="hint" class="hidden"></div>
+    <button id="eat" class="hidden" aria-label="Eat"><span class="eat-item"></span><span class="eat-mouth">&#128523;</span></button>
+    <button id="roll" class="hidden" aria-label="Roll"><span>&#127922;</span></button>
 
     <div id="msg" class="hidden">
-      <div class="msg-card"><div class="msg-emoji"></div><div class="msg-text"></div><button id="msg-btn"></button></div>
+      <div class="msg-card"><div class="msg-emoji"></div><div class="msg-text"></div>
+        <div class="msg-row"><button id="msg-btn"></button><button id="msg-cancel" class="hidden"></button></div></div>
     </div>
   </div>
   <div id="fade"></div>
