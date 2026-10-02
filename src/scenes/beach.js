@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, smooth, ease, glowSprite, stripedGeo, vertexToon, setStyle, shade, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, smooth, ease, glowSprite, stripedGeo, vertexToon, canvasTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { createAdult } from '../characters.js';
 import { sfx, playMusic } from '../audio.js';
 import { model } from '../assets.js';
@@ -73,7 +73,13 @@ export class BeachScene extends BaseScene {
   }
 
   buildGround() {
-    const sand = mk(new THREE.PlaneGeometry(160, 70).rotateX(-Math.PI / 2), 0xffdf9e, [0, 0, SHORE + 35]);
+    const sandTex = canvasTex(256, 256, (g, w, h) => {
+      g.fillStyle = '#ffe2a6'; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 1800; i++) { g.fillStyle = Math.random() < .5 ? 'rgba(255,255,255,.35)' : 'rgba(205,160,95,.28)'; g.fillRect(Math.random() * w, Math.random() * h, 1.6, 1.6); }
+      g.strokeStyle = 'rgba(214,172,110,.25)'; g.lineWidth = 2;
+      for (let y = 12; y < h; y += 32) { g.beginPath(); for (let x = 0; x <= w; x += 8) g.lineTo(x, y + Math.sin(x * .09 + y) * 3); g.stroke(); }
+    }, [26, 12]);
+    const sand = mk(new THREE.PlaneGeometry(160, 70).rotateX(-Math.PI / 2), toon(0xffffff, { map: sandTex }), [0, 0, SHORE + 35]);
     const wet = mk(new THREE.PlaneGeometry(160, 3.5).rotateX(-Math.PI / 2), 0xe9c27f, [0, .01, SHORE + .6]);
     const slope = mk(new THREE.PlaneGeometry(160, 12.2).rotateX(-Math.PI / 2), 0xe3c58c, [0, -.8, SHORE - 6]);
     slope.rotation.x = -Math.PI / 2 * 0 - Math.atan(1.6 / 12);
@@ -128,8 +134,9 @@ export class BeachScene extends BaseScene {
 
   buildProps() {
     // palm trees
-    [[-15, 1, .35, 7], [14, -.5, -.3, 8], [-26, 6, .25, 7.5], [24, 8, -.25, 7], [-30, 14, .2, 8.5]].forEach(([x, z, lean, h]) => this.addPalm(x, z, lean, h));
+    [[-11.5, -.8, .3, 8.5], [13, -1.6, -.25, 9.5], [-24, 3, .25, 8], [25, 5, -.25, 8], [-33, 12, .2, 9], [6, -3, .1, 7]].forEach(([x, z, lean, h]) => this.addPalm(x, z, lean, h));
     this.addNatureProps();
+    this.addHorizon();
 
     // umbrella, towels, mom and dad
     const u = new THREE.Group(); u.position.set(-10, 0, 7); this.scene.add(u);
@@ -173,6 +180,41 @@ export class BeachScene extends BaseScene {
       s.userData.home = s.position.clone();
       this.stars.push(s);
       this.addInteractive(s, () => this.tapStar(s, i), 1.1);
+    });
+  }
+
+  /** Things out on the water and in the sky: a little palm island, a drifting sailboat and a flock of birds. */
+  addHorizon() {
+    const isle = new THREE.Group(); isle.position.set(-62, -.2, -110); isle.userData.noShadow = true; this.scene.add(isle);
+    isle.add(mk(sph(16, 24, 12), 0xffe2a6, [0, -4, 0], [1.6, .55, 1.1]), mk(sph(11, 20, 10), 0x5fd47a, [-2, -1, 0], [1.5, .6, 1]));
+    for (let i = 0; i < 6; i++) { const p = model(`nature/${pick(['tree_palmTall', 'tree_palmBend', 'tree_palmDetailedTall'])}`, { height: rand(11, 16), glossy: false }); if (p) { p.position.set(rand(-14, 12), 2.2, rand(-5, 5)); p.rotation.y = rand(0, 6); isle.add(p); } }
+    const isle2 = isle.clone(); isle2.scale.setScalar(.55); isle2.position.set(70, -.2, -135); this.scene.add(isle2);
+
+    const boat = this.boat = new THREE.Group(); boat.position.set(-30, 0, -62); boat.userData.noShadow = true; this.scene.add(boat);
+    boat.add(mk(new THREE.BoxGeometry(5, 1.1, 1.9), 0xff4d6d, [0, .3, 0]), mk(new THREE.BoxGeometry(5.1, .25, 2), 0xffffff, [0, .85, 0]), mk(cyl(.07, .07, 6, 6), 0xffffff, [0, 4, 0]));
+    const sail = (pts, col) => { const s = new THREE.Shape(); s.moveTo(...pts[0]); pts.slice(1).forEach((p) => s.lineTo(...p)); return mk(new THREE.ShapeGeometry(s), toon(col, { side: THREE.DoubleSide })); };
+    const sailA = sail([[0, 1], [0, 6.5], [2.8, 1]], 0xffffff); sailA.position.x = .2;
+    const sailB = sail([[0, 1], [0, 5], [-2, 1]], 0xff9fcb); sailB.position.x = -.2;
+    boat.add(sailA, sailB);
+
+    this.birds = [];
+    for (let i = 0; i < 7; i++) {
+      const b = new THREE.Group(); b.userData.wings = [];
+      for (const s of [-1, 1]) { const w = mk(new THREE.PlaneGeometry(1.4, .45), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), [s * .7, 0, 0]); w.rotation.x = Math.PI / 2 * .1; const pv = new THREE.Group(); pv.add(w); b.add(pv); b.userData.wings.push(pv); w.userData.noShadow = true; }
+      b.userData.p = { a: rand(0, 6), r: rand(25, 55), h: rand(16, 28), sp: rand(.12, .25), cz: rand(-90, -50), cx: rand(-20, 20) };
+      b.userData.noShadow = true; this.birds.push(b); this.scene.add(b);
+    }
+  }
+
+  horizonUpdate(t, dt) {
+    if (!this.boat) return;
+    this.boat.position.x += dt * .9; if (this.boat.position.x > 70) this.boat.position.x = -70;
+    this.boat.position.y = Math.sin(t * 1.3) * .22; this.boat.rotation.z = Math.sin(t * 1.1) * .06; this.boat.rotation.x = Math.sin(t * .9) * .03;
+    this.birds.forEach((b) => {
+      const p = b.userData.p; p.a += dt * p.sp;
+      b.position.set(p.cx + Math.cos(p.a) * p.r, p.h + Math.sin(p.a * 2) * 1.5, p.cz + Math.sin(p.a) * p.r * .5);
+      b.rotation.y = -p.a + Math.PI / 2 + (p.sp > 0 ? 0 : Math.PI);
+      b.userData.wings.forEach((w, i) => { w.rotation.z = (i ? -1 : 1) * Math.sin(t * 7 + p.a * 9) * .6; });
     });
   }
 
@@ -480,6 +522,7 @@ export class BeachScene extends BaseScene {
       if (c.m.position.y < .3) { c.m.position.y = .3; if (c.bounces < 2) { c.vy = 4 / (c.bounces + 1); c.bounces++; sfx.bonk(); } else { c.vy = 0; c.vx = c.vz = 0; } }
     });
     this.dolphinUpdate(dt);
+    this.horizonUpdate(t, dt);
 
     // idle hint: after a while, make the shiny thing call out to the girls
     if (this.phase === 'play' && !this.autopilot) {

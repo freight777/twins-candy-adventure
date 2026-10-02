@@ -228,10 +228,10 @@ export class BoardScene extends BaseScene {
     const y0 = dp.y;
     this.spinning = true;
     const down = this.anim(.4, (k) => { tw.fx.lift = 2.6 * (1 - ease.in(k)); }, ease.linear);
-    await this.anim(.7, (k) => { this.dice.position.y = y0 + Math.sin(k * Math.PI * .5) * 4; }, ease.linear);
+    await this.anim(.7, (k) => { this.dice.position.y = y0 + Math.sin(k * Math.PI * .5) * 2.4; }, ease.linear);
     await down;
     tw.fx.lift = 0; sfx.pop();
-    await this.anim(.5, (k) => { this.dice.position.y = y0 + 4 + Math.sin(k * Math.PI) * 1.2; }, ease.linear);
+    await this.anim(.5, (k) => { this.dice.position.y = y0 + 2.4 + Math.sin(k * Math.PI) * .6; }, ease.linear);
     this.spinning = false;
     // settle to the rolled face, turned toward the camera
     const n = new THREE.Vector3(...FACE_N[v]);
@@ -372,6 +372,11 @@ export class BoardScene extends BaseScene {
         this.dice.rotation.y += dt * 1.2; this.dice.rotation.x = Math.sin(t * 2) * .25;
       } else if (this.spinning) { this.dice.rotation.x += dt * 14; this.dice.rotation.y += dt * 11; this.dice.rotation.z += dt * 7; }
       this.diceGlow.material.opacity = .4 + Math.sin(t * 5) * .15;
+    }
+    // keep the dice on screen (and below the speech bubble) no matter the screen shape: nudge it down if it climbs too high
+    if (this.dice.visible) {
+      const limit = innerHeight * 0.27;
+      for (let i = 0; i < 24; i++) { if (this.toScreen(this.dice.position).y >= limit) break; this.dice.position.y -= 0.4; }
     }
     if (this.rollResolve) {
       this.rollIdle = (this.rollIdle || 0) + dt;
