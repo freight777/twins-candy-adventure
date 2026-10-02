@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, mk, outline, glowSprite, RAINBOW } from './util.js';
+import { toon, mk, outline, glowSprite, setStyle, getStyle, RAINBOW } from './util.js';
 
 const SKIN = 0xf3c8a2, HAIR = 0x5b3a24, EYE = 0x3a2315;
 const sph = (r, w = 24, h = 18) => new THREE.SphereGeometry(r, w, h);
@@ -10,7 +10,7 @@ const cyl = (rt, rb, h, s = 16) => new THREE.CylinderGeometry(rt, rb, h, s);
  * forms: 'girl' | 'unicorn' | 'mermaid'
  * modes: 'idle' (walk/stand), 'fall' (tunnel pose), 'cheer'
  */
-export function createTwin(name) {
+function buildTwin(name) {
   const isA = name === 'adalyn';
   let ribbons = null, finG = null, mHair = null;
   const accent = isA ? 0xff8a1f : 0xff5fa8;
@@ -186,7 +186,7 @@ export function createTwin(name) {
 }
 
 /** Grown-ups sitting on towels: mom and dad. */
-export function createAdult(kind) {
+function buildAdult(kind) {
   const g = new THREE.Group();
   const dad = kind === 'dad';
   const top = dad ? 0x4d9be6 : 0xffd84d, hair = dad ? 0x3b2a20 : 0x7a4a2a, skin = dad ? 0xe8b88e : 0xf1c9a5;
@@ -207,3 +207,20 @@ export function createAdult(kind) {
   g.userData.arm = arm;
   return g;
 }
+
+// ---- "film" look: soft, slightly glossy materials and no outlines, so the girls match the movie-like worlds ----
+function polishFilm(root) {
+  root.traverse((o) => {
+    if (!o.isMesh || !o.material || !o.material.color) return;
+    const hex = o.material.color.getHexString();
+    if (hex === SKIN.toString(16)) { o.material.roughness = 0.5; o.material.emissive = new THREE.Color(0xff9a6a); o.material.emissiveIntensity = 0.07; }   // warm glow, like light passing through skin
+    else if (hex === HAIR.toString(16).padStart(6, '0')) { o.material.roughness = 0.34; o.material.clearcoat = 0.55; o.material.clearcoatRoughness = 0.25; o.material.sheen = 0; }
+    else if (hex === EYE.toString(16)) { o.material.roughness = 0.1; o.material.clearcoat = 1; o.material.clearcoatRoughness = 0.05; o.material.sheen = 0; }
+  });
+}
+function film(fn, arg) {
+  const prev = getStyle(); setStyle('film');
+  try { const r = fn(arg); polishFilm(r.root || r); return r; } finally { setStyle(prev); }
+}
+export const createTwin = (name) => film(buildTwin, name);
+export const createAdult = (kind) => film(buildAdult, kind);

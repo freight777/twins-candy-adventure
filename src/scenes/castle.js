@@ -1,6 +1,6 @@
-﻿import * as THREE from 'three';
+import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, candyCaneTex, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, candyCaneTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic } from '../audio.js';
 
 const sph = (r, w = 18, h = 12) => new THREE.SphereGeometry(r, w, h);
@@ -39,9 +39,13 @@ export class CastleScene extends BaseScene {
     super(game);
     this.hfov = 80;
     this.stage = 'walk-in';
-    this.build();
-    this.scene.add(new THREE.HemisphereLight(0xfff4e8, 0xffc8e8, 1.3));
-    const d = new THREE.DirectionalLight(0xffffff, 1.2); d.position.set(0, 14, 12); this.scene.add(d);
+    setStyle('candy');                      // same glossy film look as the candy world
+    try { this.build(); } finally { setStyle('toon'); }
+    this.scene.environment = game.env('castle'); this.scene.environmentIntensity = 0.7;
+    this.scene.add(new THREE.HemisphereLight(0xfff4e8, 0xffc8e8, 0.6));
+    const d = new THREE.DirectionalLight(0xfff0d6, 2.4); d.position.set(0, 14, 12); this.scene.add(d);
+    this.useShadows(d, 22);
+    this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
     this.camera.position.set(0, 5, 14); this.camera.lookAt(0, 3.6, -6);
   }
 

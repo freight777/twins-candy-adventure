@@ -100,11 +100,15 @@ export class BeachScene extends BaseScene {
   buildWater() {
     this.waterMat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, uniforms: { uTime: { value: 0 } },
-      vertexShader: `uniform float uTime; varying vec3 vW;
+      vertexShader: `uniform float uTime; varying vec3 vW; varying float vH;
         void main(){ vec4 w = modelMatrix*vec4(position,1.);
-          w.y += sin(w.x*.5+uTime*1.2)*.05 + sin(w.z*.45+uTime*1.1)*.05; vW = w.xyz;
+          // rolling waves: swells travel toward the beach, steepen as the water gets shallow, then fade out at the sand
+          float d = -w.z - 2.;
+          float ph = d*.3 + uTime*1.35 + w.x*.04;
+          float swell = pow(sin(ph)*.5 + .5, 3.) * smoothstep(1.5, 9., d) * (1. - smoothstep(22., 55., d)) * .8;
+          w.y += swell + sin(w.x*.5+uTime*1.2)*.04 + sin(w.z*.45+uTime*1.1)*.04; vW = w.xyz; vH = swell;
           gl_Position = projectionMatrix*viewMatrix*w; }`,
-      fragmentShader: `uniform float uTime; varying vec3 vW;
+      fragmentShader: `uniform float uTime; varying vec3 vW; varying float vH;
         void main(){
           float depth = clamp((-vW.z-2.)/30.,0.,1.);
           vec3 shallow = vec3(.45,.95,.9), deep = vec3(.08,.45,.85);
@@ -120,16 +124,42 @@ export class BeachScene extends BaseScene {
           float edge = -vW.z-2.;
           float wave = sin(uTime*.9)*.6+.9;
           float foam = smoothstep(.45,0.,abs(edge-wave)) + smoothstep(.2,0.,abs(edge-wave*1.9-.8))*.4;
+          float crest = smoothstep(.34, .6, vH);        // white water on the top of each wave
+          foam = max(foam, crest*.9);
           c = mix(c, vec3(1.), clamp(foam,0.,1.)*.85);
           float a = mix(.55,.93,pow(depth,.5)); a = max(a, foam*.9);
           if (edge < 0.) a = 0.;
           gl_FragColor = vec4(c, a);
         }`,
     });
-    this.water = new THREE.Mesh(new THREE.PlaneGeometry(500, 320, 60, 40).rotateX(-Math.PI / 2), this.waterMat);
+    this.water = new THREE.Mesh(new THREE.PlaneGeometry(500, 320, 220, 200).rotateX(-Math.PI / 2), this.waterMat);
     this.water.position.set(0, -.04, SHORE - 160);
     this.water.renderOrder = 5;
     this.scene.add(this.water);
+
+    // the wash: each wave runs up the sand in a lacy line of foam, then slides back and leaves the sand wet
+    this.washMat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, uniforms: { uTime: { value: 0 } },
+      vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }',
+      fragmentShader: `uniform float uTime; varying vec3 vW;
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+        float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
+          return mix(mix(hash(i), hash(i+vec2(1.,0.)), f.x), mix(hash(i+vec2(0.,1.)), hash(i+vec2(1.,1.)), f.x), f.y); }
+        void main(){
+          float zz = vW.z + 2.;
+          float run = pow(sin(uTime*1.35 + vW.x*.04)*.5 + .5, 1.5);
+          float lace = noise(vec2(vW.x*1.2, zz*2.4 - uTime*.5));
+          float front = -.1 + run*3.3 + (lace - .5)*.5;
+          float foam = smoothstep(.6, .0, abs(zz - front + .25)) * smoothstep(.15, .55, lace + .2);
+          float sheet = step(zz, front) * smoothstep(-.5, .2, zz);
+          vec3 col = mix(vec3(.5, .38, .22), vec3(1.), foam);
+          float a = (sheet*.3 + foam*.9) * smoothstep(4.4, 3.2, zz);
+          gl_FragColor = vec4(col, a);
+        }`,
+    });
+    const wash = new THREE.Mesh(new THREE.PlaneGeometry(160, 6).rotateX(-Math.PI / 2), this.washMat);
+    wash.position.set(0, .05, SHORE + 1.5); wash.renderOrder = 6; wash.userData.noShadow = true;
+    this.scene.add(wash);
   }
 
   buildProps() {
@@ -482,7 +512,9 @@ export class BeachScene extends BaseScene {
   update(dt) {
     super.update(dt);
     const t = this.time, G = this.game, P = G.party;
-    this.waterMat.uniforms.uTime.value = t;
+    this.waterMat.uniforms.uTime.value = t; this.washMat.uniforms.uTime.value = t;
+    this.waveT = (this.waveT ?? 1) - dt;
+    if (this.waveT <= 0) { this.waveT = 4.65; if (this.phase !== 'wake') sfx.wave(); }      // a soft "shhhh" each time a wave arrives
     this.clouds.forEach((c) => { c.position.x += dt * 1.2; if (c.position.x > 190) c.position.x = -190; });
     this.sun.rotation.y = Math.sin(t * .3) * .08;
 

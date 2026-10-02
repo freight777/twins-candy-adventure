@@ -10,7 +10,9 @@ gradientMap.needsUpdate = true;
 let STYLE = 'toon';
 export const setStyle = (s) => { STYLE = s; };
 export const getStyle = () => STYLE;
-export const toon = (color, opts = {}) => STYLE === 'candy'
+export const toon = (color, opts = {}) => STYLE === 'film'
+  ? new THREE.MeshPhysicalMaterial({ color, roughness: 0.6, clearcoat: 0.1, clearcoatRoughness: 0.4, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.5), ...opts })
+  : STYLE === 'candy'
   ? new THREE.MeshPhysicalMaterial({ color, roughness: opts.map ? 0.78 : 0.34, clearcoat: opts.map ? 0 : 0.75, clearcoatRoughness: 0.16, ...opts })
   : new THREE.MeshToonMaterial({ color, gradientMap, ...opts });
 
@@ -32,7 +34,7 @@ export function mk(geo, color, pos = [0, 0, 0], scale = [1, 1, 1]) {
 
 const outlineMat = new THREE.MeshBasicMaterial({ color: 0x4a2c3a, side: THREE.BackSide });
 export function outline(m, s = 1.07) {
-  if (STYLE === 'candy') return m;
+  if (STYLE !== 'toon') return m;
   const o = new THREE.Mesh(m.geometry, outlineMat);
   o.userData.noShadow = true;
   o.scale.setScalar(s);

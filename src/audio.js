@@ -65,6 +65,7 @@ export const sfx = {
   boing: () => { tone(180, 0.35, { type: 'sine', slide: 3.2, vol: 0.35 }); tone(360, 0.3, { slide: 2.2, vol: 0.1, delay: .02 }); },
   bonk: () => { tone(220, 0.18, { slide: 0.4, vol: 0.4 }); noise(0.08, { vol: 0.15, from: 900, to: 300 }); },
   splash: () => { noise(0.7, { vol: 0.35, from: 3000, to: 600, q: 0.6 }); tone(300, 0.2, { slide: 0.5, vol: 0.1 }); },
+  wave: () => { noise(3.2, { vol: 0.07, from: 350, to: 1600, q: 0.35, type: 'bandpass' }); },
   whoosh: (d = 1.2) => noise(d, { vol: 0.35, from: 300, to: 3000, q: 1.2 }),
   squeak: () => { tone(1500, 0.08, { slide: 0.7, vol: 0.2 }); tone(1900, 0.1, { slide: 0.6, vol: 0.2, delay: 0.1 }); },
   squawk: () => { tone(700, 0.18, { type: 'sawtooth', slide: 0.5, vol: 0.12 }); tone(800, 0.2, { type: 'sawtooth', slide: 0.45, vol: 0.12, delay: 0.2 }); },

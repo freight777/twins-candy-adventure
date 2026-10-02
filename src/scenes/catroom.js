@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic } from '../audio.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
@@ -51,9 +51,13 @@ export class CatRoomScene extends BaseScene {
     this.stage = 'landing';
     this.done = { adalyn: false, esmae: false };
     this.drop = 18;
-    this.build();
-    this.scene.add(new THREE.HemisphereLight(0xfff2ff, 0xffd0f0, 1.35));
-    const d = new THREE.DirectionalLight(0xffffff, 1.2); d.position.set(5, 14, 10); this.scene.add(d);
+    setStyle('candy');
+    try { this.build(); } finally { setStyle('toon'); }
+    this.scene.environment = game.env('candy'); this.scene.environmentIntensity = 0.6;
+    this.scene.add(new THREE.HemisphereLight(0xfff2ff, 0xffd0f0, 0.7));
+    const d = new THREE.DirectionalLight(0xfff0e0, 2.2); d.position.set(5, 14, 10); this.scene.add(d);
+    this.useShadows(d, 20);
+    this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow && c !== this.cat) shade(c); });
     this.camera.position.set(0, 4.2, 9.5); this.camera.lookAt(0, 3, -6);
   }
 
