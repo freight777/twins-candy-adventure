@@ -226,6 +226,7 @@ export class BeachScene extends BaseScene {
     const sailA = sail([[0, 1], [0, 6.5], [2.8, 1]], 0xffffff); sailA.position.x = .2;
     const sailB = sail([[0, 1], [0, 5], [-2, 1]], 0xff9fcb); sailB.position.x = -.2;
     boat.add(sailA, sailB);
+    this.addInteractive(boat, () => this.tapBoat(), 7, [0, 3, 0]);
 
     this.birds = [];
     for (let i = 0; i < 7; i++) {
@@ -239,7 +240,7 @@ export class BeachScene extends BaseScene {
   horizonUpdate(t, dt) {
     if (!this.boat) return;
     this.boat.position.x += dt * .9; if (this.boat.position.x > 70) this.boat.position.x = -70;
-    this.boat.position.y = Math.sin(t * 1.3) * .22; this.boat.rotation.z = Math.sin(t * 1.1) * .06; this.boat.rotation.x = Math.sin(t * .9) * .03;
+    this.boat.position.y = Math.sin(t * 1.3) * .22; this.boat.rotation.z = Math.sin(t * 1.1) * .06 + (this.boat.userData.rock || 0); this.boat.rotation.x = Math.sin(t * .9) * .03;
     this.birds.forEach((b) => {
       const p = b.userData.p; p.a += dt * p.sp;
       b.position.set(p.cx + Math.cos(p.a) * p.r, p.h + Math.sin(p.a * 2) * 1.5, p.cz + Math.sin(p.a) * p.r * .5);
@@ -257,7 +258,7 @@ export class BeachScene extends BaseScene {
     [[-34, -1], [32, -1.5], [-27, 0.5], [27, 1]].forEach(([x, z], i) => put(i % 2 ? 'stone_largeB' : 'rock_largeA', x, z, rand(2.2, 3.4)));
     for (let i = 0; i < 10; i++) put(pick(['rock_smallA', 'rock_smallB', 'stone_smallA']), rand(-36, 36), rand(-1.4, 1.2), rand(.5, 1));
     [[-20, 12], [23, 13], [-34, 9], [34, 10], [0, 20]].forEach(([x, z]) => put(pick(['plant_bushLarge', 'plant_bushDetailed']), x, z, rand(2.2, 3)));
-    for (let i = 0; i < 26; i++) put(pick(['grass_large', 'flower_redA', 'flower_purpleA', 'flower_yellowA']), rand(-38, 38), rand(9, 24), rand(.9, 1.4));
+    for (let i = 0; i < 26; i++) { const x = rand(-38, 38), z = rand(13, 26); if (Math.abs(x + 9) < 8 && z < 20) continue; put(pick(['grass_large', 'flower_redA', 'flower_purpleA', 'flower_yellowA']), x, z, rand(.6, 1)); }
     const canoe = put('canoe', -17, 4.5, 1.3, 0.5); if (canoe) { canoe.scale.multiplyScalar(2.2); const oar = put('canoe_paddle', -15.5, 5.8, 2.2, 1.2); if (oar) oar.rotation.z = .2; }
   }
 
@@ -311,7 +312,61 @@ export class BeachScene extends BaseScene {
     // dolphin
     this.dolphin = this.makeDolphin(); this.dolphin.visible = false; this.scene.add(this.dolphin);
     this.dolphinT = 8; this.dolphinJumping = false;
-    this.addInteractive(this.dolphin, () => {}, 2.2);
+    this.addInteractive(this.dolphin, () => { this.touch(); sfx.giggle(); sfx.splash(); this.fx.burst(this.dolphin.position, { count: 40, colors: [0xffffff, 0x9be7ff, 0xffd9ec], speed: 5, gravity: -5, life: 1.2, size: .9 }); }, 2.4);
+    this.addSurprises();
+  }
+
+  /** Extra things to discover: singing shells, rainbow fish that leap out of the waves. */
+  addSurprises() {
+    this.shells = [];
+    [[-6, 1.4], [2.5, 8.5], [11, 3], [-13, 6.5], [7, 13], [-3, 15]].forEach(([x, z], i) => {
+      const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rand(0, 6); this.scene.add(g);
+      const col = [0xffc4d8, 0xffe3a8, 0xd9c8ff, 0xb9ecff, 0xffd0b0, 0xffc4d8][i];
+      const body = mk(new THREE.ConeGeometry(.55, 1.2, 12), col, [0, .55, 0]); body.rotation.x = -.5; g.add(body);
+      for (let k = 0; k < 4; k++) { const r = mk(new THREE.TorusGeometry(.5 - k * .1, .05, 6, 14), 0xffffff, [0, .3 + k * .22, -.1 - k * .08]); r.rotation.x = Math.PI / 2 - .5; g.add(r); }
+      g.add(mk(sph(.22, 10, 8), 0xffffff, [0, .15, .45]));
+      g.userData.note = i; this.shells.push(g);
+      this.addInteractive(g, () => this.tapShell(g), 1.5, [0, .6, 0]);
+    });
+    this.fishes = [0, 1, 2].map((i) => {
+      const f = new THREE.Group(); f.visible = false;
+      const c = [0xff6fb5, 0xffd84d, 0x62e0d0][i];
+      f.add(mk(sph(.5, 12, 8), c, [0, 0, 0], [1.6, .8, .5]), mk(new THREE.ConeGeometry(.4, .7, 4), c, [-1, 0, 0]).rotateZ(Math.PI / 2), mk(sph(.07), 0x222222, [.55, .12, .22]), mk(sph(.07), 0x222222, [.55, .12, -.22]));
+      f.add(mk(new THREE.ConeGeometry(.25, .5, 4), 0xffffff, [0, .55, 0]));
+      this.scene.add(f);
+      const o = { m: f, wait: 3 + i * 3, jumping: false, t: 0, x0: 0, z0: 0 };
+      this.addInteractive(f, () => this.tapFish(o), 1.8);
+      return o;
+    });
+  }
+  tapShell(g) {                                 // shells sing a note and release musical sparkles
+    this.touch(); sfx.note(g.userData.note); sfx.sparkle();
+    this.fx.burst(g.position.clone().add(new THREE.Vector3(0, 1.4, 0)), { count: 22, colors: [0xffffff, 0xffe14d, 0xff9fcb, 0x9be7ff], speed: 2.5, up: 1.5, gravity: .5, life: 1.8, size: .9 });
+    this.tm.tween(.6, (k) => { g.rotation.z = Math.sin(k * Math.PI * 6) * .2 * (1 - k); g.position.y = Math.sin(k * Math.PI) * .6; }, { ease: ease.linear, done: () => { g.rotation.z = 0; g.position.y = 0; } });
+  }
+  tapFish(o) {
+    if (!o.jumping) return;
+    this.touch(); sfx.giggle(); sfx.splash();
+    this.fx.burst(o.m.position, { count: 40, colors: [0xffffff, 0x9be7ff, 0xffd9ec, 0xffe14d], speed: 4, gravity: -4, life: 1.3, size: .9 });
+    o.spin = 1;
+  }
+  tapBoat() {
+    this.touch(); sfx.honk();
+    this.fx.burst(this.boat.position.clone().add(new THREE.Vector3(0, 6, 0)), { count: 30, colors: [0xffffff, 0xff9fcb, 0xffe14d], speed: 6, gravity: -1, life: 1.6, size: 2 });
+    this.tm.tween(1, (k) => { this.boat.userData.rock = Math.sin(k * 20) * .15 * (1 - k); }, { ease: ease.linear });
+  }
+  fishUpdate(dt) {
+    for (const o of this.fishes || []) {
+      if (!o.jumping) {
+        o.wait -= dt;
+        if (o.wait <= 0) { o.jumping = true; o.t = 0; o.x0 = rand(-11, 9); o.z0 = rand(-12, -6); o.m.visible = true; o.spin = 0; sfx.splash(); this.fx.burst(new THREE.Vector3(o.x0, 0, o.z0), { count: 14, colors: [0xffffff, 0x9be7ff], speed: 3, up: 2, gravity: -8, life: .8, size: .6 }); }
+        continue;
+      }
+      o.t += dt / 1.3; const k = o.t;
+      if (k >= 1) { o.jumping = false; o.m.visible = false; o.wait = rand(5, 10); this.fx.burst(new THREE.Vector3(o.x0 + 4, 0, o.z0), { count: 14, colors: [0xffffff, 0x9be7ff], speed: 3, up: 2, gravity: -8, life: .8, size: .6 }); continue; }
+      o.m.position.set(o.x0 + k * 4, -.5 + 3.4 * 4 * k * (1 - k), o.z0);
+      o.m.rotation.z = Math.atan2(3.4 * 4 * (1 - 2 * k), 4) + (o.spin ? k * Math.PI * 4 : 0);
+    }
   }
 
   makeCrab() {
@@ -388,6 +443,7 @@ export class BeachScene extends BaseScene {
     P.setForm('girl');
     if (!G.started) {
       this.phase = 'title';
+      P.both().forEach((t) => t.setOutfit('dress'));
       P.active = P.active || 'adalyn';
       P.place(-1.5, 7, 1.5, 7);
       P.setMode('cheer');
@@ -553,7 +609,7 @@ export class BeachScene extends BaseScene {
       c.vy -= 22 * dt; c.m.position.y += c.vy * dt; c.m.position.x += c.vx * dt; c.m.position.z += c.vz * dt;
       if (c.m.position.y < .3) { c.m.position.y = .3; if (c.bounces < 2) { c.vy = 4 / (c.bounces + 1); c.bounces++; sfx.bonk(); } else { c.vy = 0; c.vx = c.vz = 0; } }
     });
-    this.dolphinUpdate(dt);
+    this.dolphinUpdate(dt); this.fishUpdate(dt);
     this.horizonUpdate(t, dt);
 
     // idle hint: after a while, make the shiny thing call out to the girls
@@ -564,6 +620,7 @@ export class BeachScene extends BaseScene {
     if (this.hintOn) { const s = this.toScreen(this.orb.position); G.ui.hintAt(s.x, s.y - 70); }
 
     P.update(dt, t);
+    if (this.phase === 'play') this.checkSwimOutfit();
 
     if (this.phase === 'title') {
       this.camera.position.x = Math.sin(t * .3) * 1.2;
@@ -577,6 +634,32 @@ export class BeachScene extends BaseScene {
       this.camera.lookAt(this.look);
       if (this.autopilot && !this.diving && Math.hypot(L.x - ORB.x, L.z - ORB.z) < 2.8) this.dive();
     }
+  }
+
+  /** Wade into the ocean and both girls twirl into swimsuits; walk back onto the sand and they twirl back into dresses. */
+  checkSwimOutfit() {
+    if (this.changing) return;
+    const P = this.game.party, z = P.leader.root.position.z, now = P.adalyn.outfit;
+    if (z < SHORE - 1.0 && now !== 'swim') this.changeOutfits('swim');
+    else if (z > SHORE + 1.2 && now === 'swim' && !this.autopilot) this.changeOutfits('dress');
+  }
+  changeOutfits(to) {
+    this.changing = true;
+    const P = this.game.party;
+    sfx.sparkle();
+    P.both().forEach((tw, i) => {
+      let swapped = false;
+      this.tm.tween(1.0, (k) => {
+        tw.fx.spin = ease.inOut(k) * Math.PI * 4;                       // two full twirls
+        tw.fx.lift = Math.sin(k * Math.PI) * 1.2;                       // little hop
+        if (k >= .5 && !swapped) {
+          swapped = true; tw.setOutfit(to);
+          const p = tw.root.position.clone(); p.y += 1.1;
+          this.fx.burst(p, { count: 45, colors: [tw.accent, 0xffffff, 0x9be7ff, 0xffe14d], speed: 4, gravity: -2, life: 1.2, size: .8 });
+          if (i === 0) sfx.chime();
+        }
+      }, { delay: i * .15, ease: ease.linear, done: () => { tw.fx.spin = 0; tw.fx.lift = 0; if (i === 1) this.changing = false; } });
+    });
   }
 
   dive() {

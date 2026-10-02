@@ -10,7 +10,7 @@ import { skyEnv } from './env.js';
 import { preloadAssets } from './assets.js';
 import { Party } from './party.js';
 import { ui } from './ui.js';
-import { unlock, playMusic, stopMusic, sfx, setMuted, isMuted, setMusicLevel, getMusicLevel } from './audio.js';
+import { unlock, playMusic, stopMusic, sfx, setMuted, isMuted, setMusicLevel, getMusicLevel, stopSpeech, setVoices, voicesEnabled } from './audio.js';
 import { BeachScene } from './scenes/beach.js';
 import { FallScene } from './scenes/fall.js';
 import { CatRoomScene } from './scenes/catroom.js';
@@ -71,7 +71,7 @@ export const game = {
     ui.fade(flash, async () => {
       try {
         if (game.current) { game.current.exit(); game.current.dispose(); }
-        ui.hideBubble(); ui.hideHint(); ui.title(false); ui.eat(false); ui.roll(false); ui.progress(false);
+        stopSpeech(); ui.hideBubble(); ui.hideHint(); ui.title(false); ui.eat(false); ui.roll(false); ui.progress(false);
         game.party.resetPose();
         game.current = new SCENES[name](game);
         game.current.name = name;
@@ -136,6 +136,8 @@ document.getElementById('secret').addEventListener('pointerdown', () => {
 document.getElementById('pclose').onclick = () => parentEl.classList.add('hidden');
 const LEVELS = [[0, 'off'], [0.3, 'quiet'], [0.5, 'medium'], [0.8, 'loud']];
 const pmute = document.getElementById('pmute'), pmusic = document.getElementById('pmusic');
+const pvoice = document.getElementById('pvoice'); pvoice.textContent = `Voices: ${voicesEnabled() ? 'on' : 'off'}`;
+pvoice.onclick = () => { setVoices(!voicesEnabled()); pvoice.textContent = `Voices: ${voicesEnabled() ? 'on' : 'off'}`; };
 const pgfx = document.getElementById('pgfx'); pgfx.textContent = `Graphics: ${Q.name}`;
 pgfx.onclick = () => { const o = ['high', 'medium', 'low']; setTier(o[(o.indexOf(Q.name) + 1) % 3]); applyTier(); resize(); pgfx.textContent = `Graphics: ${Q.name}`; };
 pmute.onclick = () => { setMuted(!isMuted()); pmute.textContent = `Sound: ${isMuted() ? 'off' : 'on'}`; };

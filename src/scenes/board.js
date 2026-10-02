@@ -8,6 +8,7 @@ const sph = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
 const N = 40;                                      // squares on the board (0 = start, N-1 = castle gate)
 const TILE_COLS = [0xff4d6d, 0xb07cff, 0xffd84d, 0x4db8ff, 0xff9f2e, 0x5be37d];   // candyland colours
+const WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
 const KEYCAP = (n) => `${n}️⃣`;
 
 // ---- what each square does ----
@@ -76,6 +77,7 @@ export class BoardScene extends BaseScene {
       if (ICON[type]) { const s = emojiSprite(ICON[type], 3); s.position.y = 3.2; g.add(s); g.userData.icon = s; }
       if (p.y > .6) g.add(mk(cyl(.3, .3, p.y + .7, 8), toon(0xffffff, { map: candyCaneTex() }), [0, -(p.y + .7) / 2 - .3, 0]));
       this.tileMeshes.push(g);
+      if (ICON[type]) this.addInteractive(g, () => this.tapTile(type, g), 2.4, [0, 2.4, 0]);
     });
     const start = this.tileMeshes[0]; const s = emojiSprite('\u{1F3C1}', 4); s.position.y = 4; start.add(s);
   }
@@ -241,6 +243,7 @@ export class BoardScene extends BaseScene {
     sfx.chime();
     await this.anim(.4, (k) => this.dice.quaternion.slerpQuaternions(startQ, target, k), ease.out);
     G.ui.bubble(KEYCAP(v), '');
+    G.ui.say(WORDS[v] + '!', 'counter');
     this.fx.burst(this.dice.position, { count: 24, colors: RAINBOW, speed: 4, gravity: 0, life: 1, size: .8 });
     await this.sleep(1.1);
     await this.anim(.3, (k) => this.dice.scale.setScalar(1 - ease.in(k)), ease.linear);
@@ -266,7 +269,8 @@ export class BoardScene extends BaseScene {
     const ui = this.game.ui;
     for (let s = steps; s > 0; s--) {
       if (pl.idx >= N - 1) break;
-      ui.bubble(KEYCAP(s), '');
+      const n = steps - s + 1;                         // count UP as they hop: 1, 2, 3...
+      ui.bubble(KEYCAP(n), ''); ui.say(WORDS[n], 'counter');
       await this.hop(pl, pl.idx + 1);
     }
     ui.hideBubble();
@@ -344,6 +348,20 @@ export class BoardScene extends BaseScene {
     G.ui.bubble('\u{1F3F0} \u{1F451}\u{1F451}', 'You both made it!');
     await this.sleep(2.4);
     G.goto('castle', { flash: '#fff2c8' });
+  }
+
+  /** Tap any special square while you wait: it wiggles, makes its sound and tells you what it does. */
+  tapTile(type, g) {
+    const say = {
+      gum: 'Gumdrop jump! Bounce ahead three!', rainbow: 'Rainbow trail! Zoom way ahead!', rush: 'Sugar rush! Roll again!',
+      licorice: 'Licorice slide! Whee, back you go!', molasses: 'Sticky molasses! You get stuck for a turn!',
+    }[type];
+    ({ gum: sfx.boing, rainbow: sfx.magic, rush: sfx.sparkle, licorice: sfx.womp, molasses: sfx.womp })[type]();
+    this.game.ui.say(say, 'narrator');
+    const icon = g.userData.icon;
+    if (icon) { const s = icon.scale.x; this.tm.tween(.8, (k) => icon.scale.setScalar(s * (1 + Math.sin(k * Math.PI * 4) * .35 * (1 - k))), { ease: ease.linear, done: () => icon.scale.setScalar(s) }); }
+    const col = { gum: [0xffd84d, 0xff6fb5, 0x62e0d0], rainbow: RAINBOW, rush: [0x62e0d0, 0xffffff, 0xffe14d], licorice: [0x2b2b3a, 0x7a4ed1, 0xffffff], molasses: [0x8a4b2a, 0xd9a05b, 0xffffff] }[type];
+    this.fx.burst(g.position.clone().add(new THREE.Vector3(0, 3, 0)), { count: 30, colors: col, speed: 4, gravity: -3, life: 1.3, size: .9 });
   }
 
   updateProgress() { this.game.ui.progressSet(this.players.map((p) => p.idx / (N - 1))); }

@@ -70,7 +70,7 @@ export class ChocolateScene extends BaseScene {
     for (let i = 0; i < 8; i++) {
       const c = new THREE.Group();
       for (let k = 0; k < 4; k++) c.add(mk(sph(rand(3, 5)), toon(pick([0xffffff, 0xffe3f1, 0xe8f4ff])), [k * 4 - 6, rand(-.5, 1), rand(-1, 1)], [1.3, .8, .9]));
-      c.position.set(rand(-150, 150), rand(30, 55), rand(-220, -90)); c.userData.noShadow = true; this.clouds.push(c); this.scene.add(c);
+      c.position.set(rand(-150, 150), rand(30, 55), rand(-220, -90)); c.userData.noShadow = true; this.clouds.push(c); this.scene.add(c); this.addInteractive(c, () => this.tapCloud(c), 11);
     }
   }
 
@@ -80,11 +80,11 @@ export class ChocolateScene extends BaseScene {
     this.scene.add(ground);
     // rolling candy hills in the distance
     [[-40, -26, 14, 0xff9ecb], [-18, -34, 18, 0x8fe3f0], [30, -30, 16, 0xffd84d], [52, -20, 12, 0xb89cf8], [8, -40, 20, 0xff9ecb], [-55, -16, 13, 0xffd84d]].forEach(([x, z, r, c]) => {
-      const h = mk(sph(r, 24, 14), c, [x, -r * .35, z], [1.5, 1, 1.2]); this.scene.add(h);
+      const h = mk(sph(r, 24, 14), c, [x, -r * .35, z], [1.5, 1, 1.2]); this.scene.add(h); this.addInteractive(h, () => this.tapHill(h), r * 1.3, [0, r * .6, 0]);
     });
     // chocolate-bar stepping fence along the front
     for (let i = 0; i < 14; i++) {
-      const bar = mk(new THREE.BoxGeometry(1.8, .3, 1), 0x6b3a1f, [-26 + i * 4, .15, 14.5]); this.scene.add(bar);
+      const bar = mk(new THREE.BoxGeometry(1.8, .3, 1), 0x6b3a1f, [-26 + i * 4, .15, 14.5]); this.scene.add(bar); this.addInteractive(bar, () => this.tapBar(bar, i), 1.5, [0, .5, 0]);
       bar.add(mk(new THREE.BoxGeometry(.04, .32, 1.02), 0x4b2a14, [0, 0, 0]));
     }
   }
@@ -143,13 +143,14 @@ export class ChocolateScene extends BaseScene {
       const g = new THREE.Group(); g.position.set(x, 0, z); this.scene.add(g);
       g.add(mk(cyl(.25, .35, 3, 8), 0xa8683a, [0, 1.5, 0]));
       [[0, 4, 0, 1.8], [-1.1, 3.4, .4, 1.2], [1.1, 3.5, -.3, 1.3]].forEach(([a, b, c, r]) => g.add(mk(sph(r, 14, 10), toon(pick([0xffb3d9, 0xb8e8ff, 0xe3c8ff])), [a, b, c])));
+      this.addInteractive(g, () => this.tapCotton(g), 2.4, [0, 3.6, 0]);
     });
     // gumdrop bushes
     for (let i = 0; i < 16; i++) {
       const g = new THREE.Group(); g.position.set(rand(-30, 30), 0, rand(-11, 15));
       if (Math.hypot(g.position.x - PAD.x, g.position.z - PAD.z) < 5) continue;
       const c = pick(CANDY); for (let k = 0; k < 3; k++) g.add(mk(sph(rand(.5, .8), 12, 8), c, [rand(-.7, .7), .35, rand(-.5, .5)], [1, .8, 1]));
-      this.scene.add(g);
+      this.scene.add(g); this.addInteractive(g, () => this.tapBush(g), 1.5, [0, .6, 0]);
     }
     // giant mushrooms (bouncy!)
     this.mush = [];
@@ -183,7 +184,7 @@ export class ChocolateScene extends BaseScene {
       const g = new THREE.Group(); g.position.set(-28 + i * 11 + rand(-2, 2), 0, rand(-12, -9));
       const m = toon(0xffffff, { map: candyCaneTex() });
       g.add(mk(cyl(.3, .3, 4, 10), m, [0, 2, 0]), mk(new THREE.TorusGeometry(.8, .3, 8, 16, Math.PI), m, [.8, 4, 0]));
-      this.scene.add(g);
+      this.scene.add(g); this.addInteractive(g, () => this.tapCane(g), 1.7, [.4, 2.4, 0]);
     }
   }
 
@@ -221,6 +222,7 @@ export class ChocolateScene extends BaseScene {
     g.add(mk(new THREE.CircleGeometry(2.8, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex }), [0, .06, 0]));
     this.padGlow = glowSprite(0xff9fe0, 9, .6); this.padGlow.position.y = 1.5; g.add(this.padGlow);
     RAINBOW.forEach((c, i) => { const a = mk(new THREE.TorusGeometry(3.6 - i * .28, .14, 8, 28, Math.PI), c, [0, 0, -3.2]); g.add(a); });
+    this.addInteractive(g, () => this.tapRainbow(), 2.8, [0, 3.4, -3.2]);
     g.add(mk(cyl(.08, .08, 5, 6), 0xffffff, [3.4, 2.5, 0]), mk(new THREE.PlaneGeometry(1.6, .9), toon(0xff4fa0, { side: THREE.DoubleSide }), [4.2, 4.6, 0]));
     this.addInteractive(g, () => this.game.party.walkTo(PAD.x, PAD.z), 3.4, [0, 1.5, 0]);
   }
@@ -307,6 +309,43 @@ export class ChocolateScene extends BaseScene {
     this.tm.tween(1, (k) => { p.userData.disc.rotation.z = k * Math.PI * 6; }, { ease: ease.out });
     this.fx.burst(p.position.clone().add(new THREE.Vector3(0, 7, 0)), { count: 30, colors: CANDY, speed: 5, gravity: -3, life: 1.3 });
   }
+  // ---- more things that react when tapped ----
+  tapHill(h) {                       // hills wobble like jelly and giggle
+    this.touch(); sfx.boing(); sfx.giggle();
+    const s = h.scale.clone();
+    this.tm.tween(1.1, (k) => { const w = Math.sin(k * Math.PI * 5) * .12 * (1 - k); h.scale.set(s.x * (1 + w), s.y * (1 - w * 1.4), s.z * (1 + w)); }, { ease: ease.linear, done: () => h.scale.copy(s) });
+    this.fx.burst(h.position.clone().add(new THREE.Vector3(0, h.scale.y * 14, 6)), { count: 24, colors: CANDY, speed: 6, gravity: -3, life: 1.4, size: 1 });
+  }
+  tapBar(bar, i) {                   // the chocolate-bar fence is a piano: every bar has its own note
+    this.touch(); sfx.note(i);
+    const y = bar.position.y;
+    this.tm.tween(.35, (k) => { bar.position.y = y + Math.sin(k * Math.PI) * .9; bar.rotation.z = Math.sin(k * Math.PI * 2) * .12; }, { ease: ease.linear, done: () => { bar.position.y = y; bar.rotation.z = 0; } });
+    this.fx.burst(bar.position.clone().add(new THREE.Vector3(0, 1, 0)), { count: 8, colors: [0xffd84d, 0xffffff, 0xff9fcb], speed: 2.5, gravity: -2, life: .9, size: .6 });
+  }
+  tapCotton(g) {                     // cotton candy trees puff out a cloud of sweet fluff
+    this.touch(); sfx.pop(); sfx.sparkle();
+    this.fx.burst(g.position.clone().add(new THREE.Vector3(0, 4, 0)), { count: 70, colors: [0xffb3d9, 0xb8e8ff, 0xe3c8ff, 0xffffff], speed: 5, up: 2, gravity: -1, life: 2, size: 1.3 });
+    this.tm.tween(.7, (k) => { const w = Math.sin(k * Math.PI * 4) * .12 * (1 - k); g.scale.set(1 + w, 1 - w, 1 + w); }, { ease: ease.linear, done: () => g.scale.set(1, 1, 1) });
+  }
+  tapBush(g) {                       // gumdrop bushes are trampolines
+    this.touch(); sfx.boing();
+    this.tm.tween(.7, (k) => { g.position.y = Math.abs(Math.sin(k * Math.PI)) * 2.6 * (1 - k * .3); const sq = 1 + Math.sin(k * Math.PI * 2) * .12; g.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq)); }, { ease: ease.linear, done: () => { g.position.y = 0; g.scale.set(1, 1, 1); } });
+    this.fx.burst(g.position.clone().add(new THREE.Vector3(0, 1.5, 0)), { count: 22, colors: CANDY, speed: 4, gravity: -5, life: 1, size: .8 });
+  }
+  tapCane(g) {                       // candy canes ring like bells
+    this.touch(); sfx.chime(); sfx.note(2 + Math.floor(Math.random() * 3));
+    this.tm.tween(1, (k) => { g.rotation.z = Math.sin(k * 26) * .1 * (1 - k); }, { ease: ease.linear, done: () => (g.rotation.z = 0) });
+    this.fx.burst(g.position.clone().add(new THREE.Vector3(.8, 4.2, 0)), { count: 24, colors: [0xff4d6d, 0xffffff], speed: 3.5, gravity: -3, life: 1.2, size: .8 });
+  }
+  tapRainbow() {                     // the rainbow shimmers
+    this.touch(); sfx.tada(); sfx.magic();
+    for (let i = 0; i < 8; i++) this.tm.after(i * .06, () => this.fx.burst(PAD.clone().add(new THREE.Vector3(Math.cos(i / 7 * Math.PI) * 3.4, Math.sin(i / 7 * Math.PI) * 3.4, -3.2)), { count: 10, colors: RAINBOW, speed: 2, gravity: -1, life: 1.4, size: 1 }));
+  }
+  tapCloud(c) {                      // tap a cloud and it sprinkles candy
+    this.touch(); sfx.giggle(); sfx.sparkle();
+    for (let i = 0; i < 5; i++) this.tm.after(i * .12, () => this.fx.burst(c.position.clone().add(new THREE.Vector3(rand(-8, 8), -2, rand(-2, 2))), { count: 40, colors: CANDY.concat(RAINBOW), speed: 2, gravity: -9, life: 3, size: 2.6 }));
+  }
+
   tapFall() {
     this.touch(); sfx.splash(); sfx.giggle();
     this.fx.burst(new THREE.Vector3(rand(-2, 2), 2, -19), { count: 60, colors: [0x8a4b2a, 0xffffff, 0xd9a05b], speed: 7, up: 4, gravity: -9, life: 1.4, size: .9 });

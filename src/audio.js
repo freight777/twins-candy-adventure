@@ -17,7 +17,52 @@ export function unlock() {
     reverbIn = ctx.createGain(); reverbIn.gain.value = 0.28; reverbIn.connect(conv); conv.connect(master);
   }
   if (ctx.state !== 'running') ctx.resume();
+  if (hasTTS && !unlock.spoke) {            // iPads only allow speech after a tap: "prime" it with a silent word
+    unlock.spoke = true;
+    const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u);
+  }
 }
+// ================= talking: the device's own text-to-speech, one voice "profile" per character =================
+// (Later we can swap any of these for your own recordings.)
+let voicesOn = true;
+try { voicesOn = localStorage.getItem('candyVoices') !== 'off'; } catch { /* ignore */ }
+let voiceList = [];
+const hasTTS = typeof window !== 'undefined' && 'speechSynthesis' in window;
+if (hasTTS) { const load = () => { voiceList = window.speechSynthesis.getVoices() || []; }; load(); window.speechSynthesis.onvoiceschanged = load; }
+
+const FEMALE = ['Samantha', 'Ava', 'Allison', 'Zoe', 'Karen', 'Moira', 'Tessa', 'Serena', 'Aria', 'Jenny', 'Zira', 'Google US English', 'Google UK English Female'];
+const MALE = ['Daniel', 'Arthur', 'Fred', 'Alex', 'Aaron', 'Guy', 'David', 'Google UK English Male'];
+const PROFILES = {
+  narrator: { pitch: 1.12, rate: 0.95, prefer: FEMALE },
+  cat:      { pitch: 1.75, rate: 1.05, prefer: FEMALE },
+  queen:    { pitch: 1.3,  rate: 0.92, prefer: ['Moira', 'Tessa', 'Serena', ...FEMALE] },
+  king:     { pitch: 0.55, rate: 0.82, prefer: MALE },
+  counter:  { pitch: 1.35, rate: 1.1,  prefer: FEMALE },
+};
+function pickVoice(prefer) {
+  const en = voiceList.filter((v) => /^en/i.test(v.lang));
+  for (const name of prefer) { const v = en.find((x) => x.name.includes(name)); if (v) return v; }
+  return en.find((v) => v.default) || en[0] || null;
+}
+function duck(on) { if (musicBus && ctx) musicBus.gain.setTargetAtTime(on ? musicLevel * 0.35 : musicLevel, ctx.currentTime, 0.15); }
+
+/** Speak a line out loud as one of the characters ('narrator' | 'cat' | 'king' | 'queen' | 'counter'). */
+export function say(text, who = 'narrator') {
+  if (!hasTTS || !voicesOn || muted || !text) return;
+  const clean = text.replace(/[^\p{L}\p{N}\s.,!?'-]/gu, ' ').replace(/\s+/g, ' ').trim();
+  if (!clean) return;
+  const synth = window.speechSynthesis;
+  synth.cancel();
+  const p = PROFILES[who] || PROFILES.narrator, u = new SpeechSynthesisUtterance(clean);
+  const v = pickVoice(p.prefer); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
+  u.pitch = p.pitch; u.rate = p.rate; u.volume = 1;
+  u.onstart = () => duck(true); u.onend = u.onerror = () => duck(false);
+  synth.speak(u);
+}
+export function stopSpeech() { if (hasTTS) { window.speechSynthesis.cancel(); duck(false); } }
+export function setVoices(on) { voicesOn = on; try { localStorage.setItem('candyVoices', on ? 'on' : 'off'); } catch { /* ignore */ } if (!on) stopSpeech(); }
+export function voicesEnabled() { return voicesOn; }
+
 export function setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.8; }
 export function isMuted() { return muted; }
 export function setMusicLevel(v) { musicLevel = v; if (musicBus) musicBus.gain.value = v; }
@@ -65,6 +110,7 @@ export const sfx = {
   boing: () => { tone(180, 0.35, { type: 'sine', slide: 3.2, vol: 0.35 }); tone(360, 0.3, { slide: 2.2, vol: 0.1, delay: .02 }); },
   bonk: () => { tone(220, 0.18, { slide: 0.4, vol: 0.4 }); noise(0.08, { vol: 0.15, from: 900, to: 300 }); },
   splash: () => { noise(0.7, { vol: 0.35, from: 3000, to: 600, q: 0.6 }); tone(300, 0.2, { slide: 0.5, vol: 0.1 }); },
+  honk: () => { for (const d of [0, 0.38]) { tone(233, 0.3, { type: 'sawtooth', vol: 0.16, delay: d }); tone(311, 0.3, { type: 'sawtooth', vol: 0.13, delay: d }); } },
   wave: () => { noise(3.2, { vol: 0.07, from: 350, to: 1600, q: 0.35, type: 'bandpass' }); },
   whoosh: (d = 1.2) => noise(d, { vol: 0.35, from: 300, to: 3000, q: 1.2 }),
   squeak: () => { tone(1500, 0.08, { slide: 0.7, vol: 0.2 }); tone(1900, 0.1, { slide: 0.6, vol: 0.2, delay: 0.1 }); },

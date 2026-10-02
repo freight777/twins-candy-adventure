@@ -183,12 +183,12 @@ export class CatRoomScene extends BaseScene {
     this.li++;
     if (this.li < this.lines.length) {
       const [e, cap, fn] = this.lines[this.li];
-      ui.bubble(e, cap); fn(); this.talk = 3; this.lineT = 4;
+      ui.bubble(e, cap, 'cat'); fn(); this.talk = 3; this.lineT = 4;
       return;
     }
     {
       this.stage = 'transform';
-      ui.bubble('\u{1F446} \u{1F984}   \u{1F446} \u{1F9DC}\u200D\u2640\uFE0F', 'Tap Adalyn and Esmae to transform!');
+      ui.bubble('\u{1F446} \u{1F984}   \u{1F446} \u{1F9DC}\u200D\u2640\uFE0F', 'Tap Adalyn and Esmae to transform!', 'cat');
       this.markers = this.game.party.both().map((t) => {
         const m = new THREE.Group(); m.add(new THREE.Mesh(new THREE.OctahedronGeometry(.28, 0), new THREE.MeshBasicMaterial({ color: 0xffe14d })), glowSprite(0xffd84d, 1.8));
         m.position.y = 2.7; t.root.add(m); return m;
@@ -238,7 +238,7 @@ export class CatRoomScene extends BaseScene {
     }, { ease: ease.linear, done: () => {
       tw.fx.lift = 0; tw.fx.spin = 0; tw.fx.squash = 1;
       sfx.chime(); this.tapCat();
-      this.game.ui.bubble(isA ? '\u{1F984} \u2728' : '\u{1F9DC}\u200D\u2640\uFE0F \u2728', isA ? 'Adalyn is a Unicorn!' : 'Esmae is a Mermaid!');
+      this.game.ui.bubble(isA ? '\u{1F984} \u2728' : '\u{1F9DC}\u200D\u2640\uFE0F \u2728', isA ? 'Adalyn is a Unicorn!' : 'Esmae is a Mermaid!', 'cat');
       if (this.done.adalyn && this.done.esmae) this.tm.after(2.2, () => this.openDoors());
     } });
   }
@@ -246,7 +246,7 @@ export class CatRoomScene extends BaseScene {
   openDoors() {
     this.stage = 'doors';
     const ui = this.game.ui;
-    ui.bubble('\u{1F6AA} \u{1F36B}', 'The chocolate room awaits!');
+    ui.bubble('\u{1F6AA} \u{1F36B}', 'The chocolate room awaits!', 'cat');
     sfx.babble(8); sfx.creak();
     const cx0 = this.cat.position.x;
     this.tm.tween(2.5, (k) => { this.cat.position.x = lerp(cx0, -8, k); });   // cat floats aside so the doorway is clear
@@ -257,7 +257,7 @@ export class CatRoomScene extends BaseScene {
       if (Math.random() < .5) this.fx.burst(new THREE.Vector3(rand(-3, 3), rand(1, 9), DOOR_Z + 2), { count: 3, colors: [0xffe14d, 0xffffff, 0xff9f4d], speed: 2, gravity: 0, life: 1.2, size: .9 });
     }, { ease: ease.inOut, done: () => {
       this.stage = 'free'; sfx.tada();
-      ui.bubble('\u{1F36B} \u{1F3C3}\u200D\u2640\uFE0F\u{1F3C3}\u200D\u2640\uFE0F', 'Walk through the big doors!');
+      ui.bubble('\u{1F36B} \u{1F3C3}\u200D\u2640\uFE0F\u{1F3C3}\u200D\u2640\uFE0F', 'Walk through the big doors!', 'cat');
       ui.hint('\u{1F447}'); this.hintOn = true;
     } });
   }

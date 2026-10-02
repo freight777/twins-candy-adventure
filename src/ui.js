@@ -1,4 +1,5 @@
 // Thin wrapper around the HTML overlay (title screen, who-is-playing buttons, speech bubbles, hints).
+import { say } from './audio.js';
 const $ = (s) => document.querySelector(s);
 
 function portraitSVG(who) {
@@ -43,7 +44,9 @@ export const ui = {
   roll(show, fn) { const b = $('#roll'); b.classList.toggle('hidden', !show); if (show) b.onclick = fn; },
   setStars(n) { $('#starcount').textContent = n; },
 
-  bubble(emoji, caption = '') {
+  /** Show a speech bubble (emoji + short caption). The caption is also spoken aloud, in the voice of `who`. */
+  bubble(emoji, caption = '', who = 'narrator', speak = true) {
+    if (caption && speak) say(caption, who);
     const b = $('#bubble');
     b.classList.remove('hidden');
     b.firstElementChild.textContent = emoji;
@@ -56,7 +59,9 @@ export const ui = {
   hintAt(x, y) { const h = $('#hint'); h.style.left = x + 'px'; h.style.top = y + 'px'; },
   hideHint() { $('#hint').classList.add('hidden'); },
 
+  say,
   message(emoji, text, button, onClick, cancel, onCancel) {
+    say(text);
     $('#msg').classList.remove('hidden');
     $('.msg-emoji').textContent = emoji; $('.msg-text').textContent = text;
     const b = $('#msg-btn'); b.textContent = button; b.onclick = () => { $('#msg').classList.add('hidden'); onClick && onClick(); };

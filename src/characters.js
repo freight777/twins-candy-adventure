@@ -32,6 +32,13 @@ function buildTwin(name) {
   const top = outline(mk(sph(.25), accent, [0, 1.0, 0], [1, 1.1, .85]), 1.08);
   body.add(top);
 
+  // swimsuit extras (shown instead of the skirt when the girls go in the ocean): bottoms, ruffle, polka dots
+  const swimG = new THREE.Group(); swimG.visible = false; body.add(swimG);
+  swimG.add(mk(cyl(.2, .25, .3, 18), accent, [0, .66, 0]));
+  const ruffle = mk(new THREE.TorusGeometry(.27, .05, 8, 24), 0xffffff, [0, .5, 0]); ruffle.rotation.x = Math.PI / 2; swimG.add(ruffle);
+  for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; swimG.add(mk(sph(.035, 8, 6), 0xffffff, [Math.cos(a) * .245, .7, Math.sin(a) * .245])); }
+  for (const s of [-1, 1]) swimG.add(mk(sph(.04, 8, 6), 0xffffff, [s * .1, 1.12, .2]));
+
   // mermaid torso (skin + shell top), hidden until transformation
   const mTorso = new THREE.Group(); mTorso.visible = false; body.add(mTorso);
   mTorso.add(mk(cyl(.18, .2, .36, 16), SKIN, [0, .95, 0]));
@@ -113,15 +120,23 @@ function buildTwin(name) {
   // ---- animation state ----
   const fxs = { lift: 0, spin: 0, squash: 1 };
   const T = {
-    name, root, body, form: 'girl', mode: 'idle', fx: fxs, accent, phase: Math.random() * 6, face: 0,
+    name, root, body, form: 'girl', outfit: 'dress', mode: 'idle', fx: fxs, accent, phase: Math.random() * 6, face: 0,
     setForm(f) {
       T.form = f;
+      if (f !== 'girl') T.outfit = 'dress';          // unicorn and mermaid have their own outfits
       const merm = f === 'mermaid';
-      skirtG.visible = !merm; legsG.visible = !merm; top.visible = !merm; mTorso.visible = merm;
+      mTorso.visible = merm;
       arms.forEach((a) => (a.children[2].material.color.set(merm ? SKIN : accent)));
       unicornG.visible = f === 'unicorn'; mermaidG.visible = merm;
       root.scale.setScalar(f === 'girl' ? 1 : 1.12);
-      shoes.forEach((s) => s.material.color.set(f === 'unicorn' ? 0xffd34d : 0xffffff));
+      T.applyOutfit();
+    },
+    /** 'dress' or 'swim' (swimsuit, bare feet). Only matters while she is a regular girl. */
+    setOutfit(o) { T.outfit = o; T.applyOutfit(); },
+    applyOutfit() {
+      const merm = T.form === 'mermaid', swim = T.outfit === 'swim' && T.form === 'girl';
+      skirtG.visible = !merm && !swim; legsG.visible = !merm; top.visible = !merm; swimG.visible = swim;
+      shoes.forEach((s) => s.material.color.set(T.form === 'unicorn' ? 0xffd34d : swim ? SKIN : 0xffffff));
     },
     lookToward(dx, dz, dt) {
       if (Math.abs(dx) + Math.abs(dz) < 1e-4) return;
