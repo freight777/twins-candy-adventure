@@ -11,8 +11,8 @@ export const SIGHT = [
 // Short 3-letter (consonant-vowel-consonant) words, each with a picture.
 export const CVC = [
   ['cat', '\u{1F431}'], ['dog', '\u{1F436}'], ['sun', '☀️'], ['hat', '\u{1F3A9}'], ['pig', '\u{1F437}'], ['bus', '\u{1F68C}'], ['cup', '\u{1F964}'], ['pen', '\u{1F58A}️'],
-  ['bed', '\u{1F6CF}️'], ['fox', '\u{1F98A}'], ['bug', '\u{1F41B}'], ['hen', '\u{1F414}'], ['van', '\u{1F690}'], ['jet', '✈️'], ['web', '\u{1F578}️'], ['log', '\u{1FAB5}'],
-  ['mop', '\u{1F9F9}'], ['net', '\u{1F945}'], ['rat', '\u{1F400}'], ['pot', '\u{1F372}'], ['bat', '\u{1F987}'], ['map', '\u{1F5FA}️'], ['ram', '\u{1F40F}'], ['sit', '\u{1FA91}'],
+  ['bed', '\u{1F6CF}️'], ['fox', '\u{1F98A}'], ['bug', '\u{1F41B}'], ['jet', '✈️'], ['web', '\u{1F578}️'], ['log', '\u{1FAB5}'],
+  ['rat', '\u{1F400}'], ['bat', '\u{1F987}'], ['map', '\u{1F5FA}️'], ['cap', '\u{1F9E2}'], ['pin', '\u{1F4CC}'], ['tub', '\u{1F6C1}'], ['gem', '\u{1F48E}'], ['mom', '\u{1F469}'], ['dad', '\u{1F468}'], ['nut', '\u{1F95C}'], ['hut', '\u{1F6D6}'],
 ];
 
 // How to say a letter so the voice reads its NAME ("em") instead of a word.

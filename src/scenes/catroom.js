@@ -102,7 +102,7 @@ export class CatRoomScene extends BaseScene {
     this.buildDoors();
 
     // the cat (starts hidden)
-    this.cat = makeCat(); this.cat.position.set(0, 4.2, -6); this.cat.scale.setScalar(1.15); this.cat.visible = false; this.scene.add(this.cat);
+    this.cat = makeCat(); this.cat.position.set(0, 2.4, -5); this.cat.scale.setScalar(.62); this.cat.visible = false; this.scene.add(this.cat);
     this.addInteractive(this.cat, () => this.tapCat(), 2.3, [0, 1, 0]);
   }
 
@@ -240,7 +240,7 @@ export class CatRoomScene extends BaseScene {
       tw.fx.lift = 0; tw.fx.spin = 0; tw.fx.squash = 1;
       sfx.chime(); this.tapCat();
       this.game.ui.bubble(isA ? '\u{1F984} \u2728' : '\u{1F9DC}\u200D\u2640\uFE0F \u2728', isA ? 'Adalyn is a Unicorn!' : 'Esmae is a Mermaid!', 'cat');
-      if (this.done.adalyn && this.done.esmae) this.tm.after(2.2, () => this.openDoors());
+      if (this.done.adalyn && this.done.esmae && !this.doorsQueued) { this.doorsQueued = true; this.tm.after(2.2, () => this.openDoors()); }   // (only once, even if both transformations overlap)
     } });
   }
 
@@ -283,7 +283,7 @@ export class CatRoomScene extends BaseScene {
     (this.pillars || []).forEach((p, i) => { p.userData.disc.rotation.z += dt * .4 * (i % 2 ? 1 : -1); });
     if (this.cat.visible) {
       const u = this.cat.userData;
-      this.cat.position.y = 4.2 + Math.sin(t * 1.4) * .35;
+      this.cat.position.y = 2.4 + Math.sin(t * 1.4) * .2;
       u.head.rotation.z = Math.sin(t * 1.1) * .08;
       u.tailBalls.forEach((b, i) => b.position.set(Math.sin(t * 2 + i * .5) * .35 * (i / 8), -.2 + i * .28, -.95 - Math.sin(i * .3) * .2));
       this.talk = Math.max(0, (this.talk || 0) - dt);
