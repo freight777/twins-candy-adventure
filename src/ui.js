@@ -1,5 +1,5 @@
 // Thin wrapper around the HTML overlay (title screen, who-is-playing buttons, speech bubbles, hints).
-import { say } from './audio.js';
+import { say, sfx } from './audio.js';
 const $ = (s) => document.querySelector(s);
 
 function portraitSVG(who) {
@@ -60,6 +60,32 @@ export const ui = {
   hideHint() { $('#hint').classList.add('hidden'); },
 
   say,
+  /**
+   * Ask a reading question. `q` = { prompt: {say, big}, choices: [{text|emoji, correct}], answerSay }.
+   * Resolves { correct, first }: first = right on the first try. With retry on, one wrong tap gets a second chance.
+   */
+  quiz(q, { retry = true } = {}) {
+    return new Promise((resolve) => {
+      const root = $('#quiz'), box = $('#quiz .q-choices');
+      root.classList.remove('hidden'); $('#quiz .q-big').textContent = q.prompt.big; box.innerHTML = '';
+      const speak = () => say(q.prompt.say, 'narrator');
+      $('#q-say').onclick = speak; speak();
+      let wrong = 0, done = false;
+      const finish = (correct, delay) => { done = true; setTimeout(() => { root.classList.add('hidden'); resolve({ correct, first: correct && wrong === 0 }); }, delay); };
+      q.choices.forEach((ch) => {
+        const b = document.createElement('button'); b.className = 'q-choice' + (ch.text ? ' word' : ''); b.textContent = ch.text ?? ch.emoji; box.appendChild(b); ch.el = b;
+        b.onclick = () => {
+          if (done) return;
+          if (ch.correct) { b.classList.add('right'); sfx.chime(); say(wrong ? 'You got it!' : 'Yes! Great job!', 'counter'); return finish(true, 1500); }
+          wrong++; b.classList.add('wrong'); sfx.pop();
+          if (retry && wrong === 1) { setTimeout(() => say('Not quite. Try again!', 'counter'), 150); return; }
+          q.choices.find((c) => c.correct).el.classList.add('reveal');                          // show the right answer and say it
+          setTimeout(() => say(q.answerSay, 'narrator'), 250);
+          finish(false, 3000);
+        };
+      });
+    });
+  },
   /** The final picture: a big banner across the top and a small button off to the side. */
   finale(text, button, onClick) {
     $('#banner .b-text').textContent = text;

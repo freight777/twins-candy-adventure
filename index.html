@@ -45,6 +45,12 @@
     <button id="eat" class="hidden" aria-label="Eat"><span class="eat-item"></span><span class="eat-mouth">&#128523;</span></button>
     <button id="roll" class="hidden" aria-label="Roll"><span>&#127922;</span></button>
 
+    <div id="quiz" class="hidden">
+      <div class="q-card">
+        <div class="q-top"><div class="q-big"></div><button id="q-say" aria-label="Hear it again">&#128266;</button></div>
+        <div class="q-choices"></div>
+      </div>
+    </div>
     <div id="banner" class="hidden"><span class="confetti l">&#127881;</span><div class="b-text">You did it!</div><span class="confetti r">&#127881;</span></div>
     <button id="again" class="hidden"><span>&#8635;</span> Play again</button>
 
@@ -59,7 +65,7 @@
       <h2>Grown-ups menu</h2>
       <p>Jump to a scene:</p>
       <div class="pgrid" id="pscenes"></div>
-      <div class="prow"><button id="pmute">Sound: on</button><button id="pvoice">Voices: on</button><button id="pmusic">Music: medium</button><button id="pgfx">Graphics: high</button></div>
+      <div class="prow"><button id="pmute">Sound: on</button><button id="pquiz">Questions: on</button><button id="plevel">Level: auto</button><button id="pretry">Wrong answer: try again</button><button id="pvoice">Voices: on</button><button id="pmusic">Music: medium</button><button id="pgfx">Graphics: high</button></div>
       <button id="pclose">Close</button>
     </div>
   </div>
