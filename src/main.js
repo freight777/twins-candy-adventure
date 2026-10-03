@@ -110,14 +110,14 @@ canvas.addEventListener('pointerdown', (e) => { unlock(); game.current && !game.
 canvas.addEventListener('pointermove', (e) => { game.current && game.current.onPointerMove(ndcOf(e), e.buttons > 0 || e.pointerType === 'touch'); });
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
 
-// Developer shortcuts (keyboard only): 1 beach, 2 tunnel, 3 cat room, 4 chocolate room
+// Developer shortcuts (keyboard only): 1 beach, 2 tunnel, 3 cat room, 4 candy room
 window.addEventListener('keydown', (e) => {
   const map = { 1: 'beach', 2: 'fall', 3: 'cat', 4: 'chocolate', 5: 'board', 6: 'castle', 7: 'warp', 8: 'wake' };
   if (map[e.key]) { unlock(); game.started = true; game.goto(map[e.key]); }
 });
 
 // ---- hidden grown-ups menu: tap the top-right corner 3 times ----
-const SCENE_LIST = [['Beach', 'beach'], ['Tunnel fall', 'fall'], ['Cat room', 'cat'], ['Chocolate room', 'chocolate'], ['Board game', 'board'], ['Castle', 'castle'], ['Home again', 'wake']];
+const SCENE_LIST = [['Beach', 'beach'], ['Tunnel fall', 'fall'], ['Cat room', 'cat'], ['Candy room', 'chocolate'], ['Board game', 'board'], ['Castle', 'castle'], ['Home again', 'wake']];
 const pscenes = document.getElementById('pscenes'), parentEl = document.getElementById('parent');
 SCENE_LIST.forEach(([label, name]) => {
   const b = document.createElement('button'); b.textContent = label;

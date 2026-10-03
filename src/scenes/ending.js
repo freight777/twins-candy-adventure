@@ -3,7 +3,20 @@ import { FallScene } from './fall.js';
 import { BeachScene } from './beach.js';
 import { mk, ease, rand, pick, lerp, toon, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { model } from '../assets.js';
+import { makeCandy, makeGift, makeTeddy, makeBalloon } from '../candies.js';
 import { sfx, playMusic } from '../audio.js';
+
+/** A random surprise from the truck: sour or gummy candy, a present, a teddy bear, or a treat. */
+function goodie(size) {
+  const r = Math.random();
+  let m;
+  if (r < .45) m = makeCandy(pick(['gummyBear', 'sourKid', 'nerds', 'gummyWorm', 'sourRing', 'sourStraw']));
+  else if (r < .65) m = makeGift();
+  else if (r < .8) m = makeTeddy(pick([0xc98a4b, 0xf4b6d0, 0x9ad0ff]));
+  else m = model(`food/${pick(['cake', 'donut-sprinkles', 'ice-cream-cne', 'cupcake', 'lollypop', 'popsicle', 'sundae'])}`, { size: 1.8 }) || makeGift();
+  m.scale.multiplyScalar(size / 2);
+  return m;
+}
 
 /** Whoosh! Back up the tunnel to the beach. Same tunnel as the fall, flowing the other way. */
 export class WarpScene extends FallScene {
@@ -88,15 +101,16 @@ export class WakeScene extends BeachScene {
     const bed = new THREE.Group(); bed.position.set(3.7, .7, 0); T.add(bed);                  // tipping bed (pivot at the back)
     const bm = (w, h, d, col, x, y, z) => { const m = mk(new THREE.BoxGeometry(w, h, d), col, [x, y, z]); bed.add(m); return m; };
     bm(4.2, .2, 2.5, 0xfff4e0, -2.1, 0, 0); bm(.2, 1.4, 2.5, 0x8a4b2a, -4.1, .8, 0); bm(4.2, 1.4, .2, 0x8a4b2a, -2.1, .8, 1.2); bm(4.2, 1.4, .2, 0x8a4b2a, -2.1, .8, -1.2);
-    for (let i = 0; i < 9; i++) { const p = model(`food/${pick(['chocolate', 'candy-bar', 'cookie-chocolate', 'chocolate'])}`, { size: 1.3 }); if (p) { p.position.set(-.6 - (i % 3) * 1.2, .55 + Math.floor(i / 3) * .2, (Math.floor(i / 3) - 1) * .7); p.rotation.y = rand(0, 6); bed.add(p); } }
+    for (let i = 0; i < 9; i++) { const p = goodie(1.3); p.position.set(-.6 - (i % 3) * 1.2, .55 + Math.floor(i / 3) * .2, (Math.floor(i / 3) - 1) * .7); p.rotation.y = rand(0, 6); bed.add(p); }
+    for (let i = 0; i < 6; i++) { const b = makeBalloon(); b.position.set(-.4 - (i % 3) * 1.3, .8, i < 3 ? -.9 : .9); bed.add(b); }       // balloons tied to the load
     const wheels = [];
     for (const [x, z] of [[-2.2, 1.25], [-2.2, -1.25], [2.4, 1.25], [2.4, -1.25]]) { const w = mk(new THREE.CylinderGeometry(.55, .55, .4, 16), 0x2b2b3a, [x, .55, z]); w.rotation.x = Math.PI / 2; w.add(mk(new THREE.CylinderGeometry(.25, .25, .42, 12), 0xffd84d)); T.add(w); wheels.push(w); }
-    const sign = mk(new THREE.BoxGeometry(2.6, .8, .12), 0xffffff, [1.6, 2.6, 1.28]); T.add(sign, mk(new THREE.SphereGeometry(.22, 10, 8), 0x6b3a1f, [1.2, 2.6, 1.36]), mk(new THREE.SphereGeometry(.22, 10, 8), 0x6b3a1f, [1.6, 2.6, 1.36]), mk(new THREE.SphereGeometry(.22, 10, 8), 0x6b3a1f, [2.0, 2.6, 1.36]));
+    const sign = mk(new THREE.BoxGeometry(2.6, .8, .12), 0xffffff, [1.6, 2.6, 1.28]); T.add(sign, mk(new THREE.SphereGeometry(.22, 10, 8), 0xff3b5c, [1.2, 2.6, 1.36]), mk(new THREE.SphereGeometry(.22, 10, 8), 0xffd32a, [1.6, 2.6, 1.36]), mk(new THREE.SphereGeometry(.22, 10, 8), 0x4ddc5a, [2.0, 2.6, 1.36]));
     setStyle('toon');
     shade(T); this.scene.add(T); this.truckG = T;
     this.pieces = [];
 
-    ui.bubble('\u{1F69A} \u{1F36B}', 'Look! The chocolate is here!', 'queen');
+    ui.bubble('\u{1F69A} \u{1F36C}\u{1F381}\u{1F9F8}', 'Look! Candy, presents and toys are here!', 'queen');
     sfx.honk(); this.tm.after(.9, () => sfx.honk());
     this.tm.tween(4.2, (k) => {
       T.position.x = -26 + (-1.2 + 26) * k; wheels.forEach((w) => (w.rotation.y += .25));
@@ -108,8 +122,7 @@ export class WakeScene extends BeachScene {
       // tip the bed and let the chocolate pour out
       this.tm.tween(1.4, (k) => { bed.rotation.z = -k * .6; });
       for (let i = 0; i < 26; i++) this.tm.after(.5 + i * .09, () => {
-        const m = model(`food/${pick(['chocolate', 'candy-bar', 'cookie-chocolate', 'chocolate', 'donut-chocolate', 'popsicle-chocolate'])}`, { size: rand(1.3, 2.0) });
-        if (!m) return;
+        const m = goodie(rand(1.3, 2.0));
         m.position.set(T.position.x - 4.3 + rand(-.3, .3), 2.2, T.position.z + rand(-1, 1)); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6));
         shade(m); this.scene.add(m);
         this.pieces.push({ m, vy: rand(0, 2), vx: -rand(.6, 2.2), vz: rand(-1.2, 1.2), spin: rand(-4, 4), rest: false });
@@ -145,10 +158,11 @@ export class WakeScene extends BeachScene {
       ui.finale('You did it!', 'Play again', () => { G.started = false; G.goto('beach'); });
       const burst = () => { if (!this.finaleOn) return; this.fx.burst(new THREE.Vector3(rand(-15, -1), rand(9, 13), rand(4, 12)), { count: 40, colors: RAINBOW.concat(CANDY), speed: 2.5, gravity: -2.6, life: 4.5, size: 1.1 }); this.tm.after(.3, burst); };
       burst();
-      // a shower of chocolate lands in a big pile right next to the family
+      this.floaters = [];                                                  // party balloons drifting up behind the family
+      for (let i = 0; i < 10; i++) { const b = makeBalloon(); b.position.set(rand(-15, -2), rand(-1, 6), rand(5.5, 8)); b.userData.sp = rand(.5, 1); b.userData.ph = rand(0, 6); this.scene.add(b); this.floaters.push(b); }
+      // a shower of candy, presents and teddy bears lands in a big pile right next to the family
       for (let i = 0; i < 34; i++) this.tm.after(i * .06, () => {
-        const m = model(`food/${pick(['chocolate', 'candy-bar', 'cookie-chocolate', 'donut-chocolate', 'popsicle-chocolate', 'cake', 'donut-sprinkles'])}`, { size: rand(1.5, 2.3) });
-        if (!m) return;
+        const m = goodie(rand(1.5, 2.3));
         m.position.set(rand(-5.2, -2.4), rand(9, 14), rand(7.2, 10.6)); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6)); shade(m); this.scene.add(m);
         this.pieces.push({ m, vy: 0, vx: rand(-.4, .4), vz: rand(-.4, .4), spin: rand(-3, 3), rest: false });
       });
@@ -167,6 +181,7 @@ export class WakeScene extends BeachScene {
         if (Math.abs(p.vy) > 3) { p.vy = -p.vy * .38; p.vx *= .6; } else { p.rest = true; }
       }
     }
+    for (const b of this.floaters || []) { b.position.y += dt * b.userData.sp; b.position.x += Math.sin(this.time * 1.2 + b.userData.ph) * dt * .3; if (b.position.y > 9) b.position.y = -4; }
     if (this.finaleOn) {                                  // mom and dad wave and everyone bounces while the camera settles on the group
       const t = this.time;
       this.mom.userData.arm.rotation.z = -2.4 + Math.sin(t * 5) * .3; this.dad.userData.arm.rotation.z = -2.4 + Math.sin(t * 5 + 1) * .3;

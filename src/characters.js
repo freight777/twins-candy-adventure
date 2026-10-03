@@ -204,19 +204,20 @@ function buildTwin(name) {
 function buildAdult(kind) {
   const g = new THREE.Group();
   const dad = kind === 'dad';
-  const top = dad ? 0x4d9be6 : 0xffd84d, hair = dad ? 0x3b2a20 : 0x7a4a2a, skin = dad ? 0xe8b88e : 0xf1c9a5;
+  const top = dad ? 0x4d9be6 : 0xffd84d, hair = dad ? 0x3b2a20 : 0x14100e, skin = dad ? 0xe8b88e : 0xf3d3b2;       // mom: straight black hair, fair warm skin
   g.add(outline(mk(cyl(.3, .36, .8, 14), top, [0, .7, 0]), 1.05));
   const head = outline(mk(sph(.3), skin, [0, 1.4, 0]), 1.05); g.add(head);
   g.add(mk(sph(.32), hair, [0, 1.47, -.06], [1, .9, 1]));
   const legs = [];
   for (const s of [-1, 1]) {
-    g.add(mk(sph(.04), EYE, [s * .1, 1.42, .27], [1, 1.3, .5]));
+    const eye = mk(sph(.04), EYE, [s * .1, 1.42, .27], dad ? [1, 1.3, .5] : [1.5, .85, .5]); if (!dad) eye.rotation.z = -s * .16; g.add(eye);        // mom: softly almond-shaped dark eyes
     const leg = mk(cyl(.05, .05, .75, 8), skin, [s * .15, .22, .55]).rotateX(Math.PI / 2); g.add(leg); legs.push([leg, s]);
   }
   // sitting on the towel by default; the finale stands them up for the family photo
   g.userData.setStanding = (on) => legs.forEach(([leg, s]) => { leg.rotation.x = on ? 0 : Math.PI / 2; leg.position.set(s * .15, on ? .375 : .22, on ? 0 : .55); });
   const smile = mk(new THREE.TorusGeometry(.06, .012, 6, 12, Math.PI), 0xc0504d, [0, 1.3, .29]); smile.rotation.z = Math.PI; g.add(smile);
-  if (!dad) { g.add(mk(sph(.34), hair, [0, 1.1, -.2], [1, 1.5, .6])); g.add(mk(cyl(.62, .62, .04, 20), 0xfff2c8, [0, 1.62, 0]), mk(cyl(.3, .32, .2, 16), 0xff8fb8, [0, 1.7, 0])); } // sun hat
+  if (!dad) { g.add(mk(sph(.34), hair, [0, 1.1, -.2], [1, 1.5, .6]), mk(sph(.31), hair, [0, 1.59, .1], [1.05, .42, .75]));          // long straight hair + neat bangs
+    for (const s of [-1, 1]) g.add(mk(sph(.13), hair, [s * .3, 1.32, .02], [.9, 2.3, .8])); g.add(mk(cyl(.62, .62, .04, 20), 0xfff2c8, [0, 1.62, 0]), mk(cyl(.3, .32, .2, 16), 0xff8fb8, [0, 1.7, 0])); } // sun hat
   // waving arm
   const arm = new THREE.Group(); arm.position.set(.36, 1.0, 0);
   arm.add(mk(new THREE.CapsuleGeometry(.07, .4, 4, 8), skin, [0, .25, 0]), mk(sph(.09), skin, [0, .55, 0]));

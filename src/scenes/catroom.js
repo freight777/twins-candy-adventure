@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic } from '../audio.js';
+import { makeCat } from '../cat.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 14) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -17,7 +18,7 @@ const swirlTex = (a, b) => canvasTex(256, 256, (g, w, h) => {
 });
 
 /** The Cheshire-style talking cat. Grin first, then the rest of him fades in. */
-function makeCat() {
+function makeCatOld() {      // (the old purple grinning cat, replaced by the friendlier gray tabby in ../cat.js)
   const g = new THREE.Group(), body = [], grin = [];
   const purple = 0xb07cff, dark = 0x7a4ed1, cream = 0xfff0f8;
   const reg = (m, list = body) => { m.material.transparent = true; m.material.opacity = 0; list.push(m.material); return m; };
@@ -171,7 +172,7 @@ export class CatRoomScene extends BaseScene {
     const lines = [
       ['\u{1F431}\u{1F44B}', 'Hello Adalyn and Esmae! Welcome to Candy Land!', () => sfx.meow()],
       ['\u{1F3B2} \u{1F36D} \u{1F3F0}', "Let's play a game of Candyland!", () => sfx.babble(7)],
-      ['\u{1F3C6} \u27A1\uFE0F \u{1F36B}\u{1F36B}\u{1F36B}', 'Win, and you get a lifetime supply of chocolate!', () => sfx.babble(9)],
+      ['\u{1F3C6} \u27A1\uFE0F \u{1F36C}\u{1F36D}\u{1F43B}', 'Win, and you get a lifetime supply of candy!', () => sfx.babble(9)],
       ['\u{1F984} \u2728 \u{1F9DC}\u200D\u2640\uFE0F', 'First, you must become your characters!', () => { sfx.babble(7); sfx.sparkle(); }],
     ];
     this.stage = 'dialogue'; this.lines = lines; this.li = -1; this.nextLine();
@@ -246,7 +247,7 @@ export class CatRoomScene extends BaseScene {
   openDoors() {
     this.stage = 'doors';
     const ui = this.game.ui;
-    ui.bubble('\u{1F6AA} \u{1F36B}', 'The chocolate room awaits!', 'cat');
+    ui.bubble('\u{1F6AA} \u{1F36C}', 'The candy room awaits!', 'cat');
     sfx.babble(8); sfx.creak();
     const cx0 = this.cat.position.x;
     this.tm.tween(2.5, (k) => { this.cat.position.x = lerp(cx0, -8, k); });   // cat floats aside so the doorway is clear

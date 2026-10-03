@@ -3,10 +3,13 @@ import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic } from '../audio.js';
 import { model } from '../assets.js';
+import { makeCandy, CANDY_KINDS } from '../candies.js';
 
 const sph = (r, w = 18, h = 12) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
 const PAD = new THREE.Vector3(15, 0, 2);       // the START pad
+// what's out on the meadow, in order (c: = candy built in code, m: = real food model)
+const ORDER = ['c:gummyBear', 'c:sourKid', 'c:nerds', 'm:lollypop', 'c:gummyWorm', 'c:sourRing', 'c:gummyBear', 'm:ice-cream-cne', 'c:sourKid', 'c:sourStraw', 'c:nerds', 'm:donut-sprinkles', 'c:gummyBear', 'c:sourKid', 'c:gummyWorm'];
 // real models to eat: [model name, emoji on the EAT button, height in the world]
 const FOOD = [['lollypop', '\u{1F36D}', 2.8], ['cupcake', '\u{1F9C1}', 2.2], ['donut-sprinkles', '\u{1F369}', 2], ['ice-cream-cne', '\u{1F366}', 2.8], ['cookie', '\u{1F36A}', 2], ['candy-bar', '\u{1F36B}', 1.8],
   ['sundae', '\u{1F368}', 2.4], ['muffin', '\u{1F9C1}', 2.2], ['ginger-bread', '\u{1F36A}', 2.4], ['cake', '\u{1F370}', 2.2], ['popsicle', '\u{1F367}', 2.8], ['waffle', '\u{1F9C7}', 2],
@@ -29,6 +32,7 @@ export class ChocolateScene extends BaseScene {
       this.buildGround();
       this.buildRiver();
       this.buildScenery();
+      this.buildGiantGummies();
       this.buildEdibles();
       this.buildPad();
       this.buildAtmosphere();
@@ -202,11 +206,15 @@ export class ChocolateScene extends BaseScene {
     const spots = [[-4, 4], [5, 2], [-8, 9], [10, 9], [-14, 3], [14, 12], [-2, 9.5], [0, -2], [-18, 9], [19, 5], [-12, -4], [8, -5], [3, 12], [-24, 8], [24, 7]];
     spots.forEach(([x, z], i) => {
       const [name, emoji, make] = makers[i % makers.length];
-      const [mname, memoji, mh] = FOOD[i % FOOD.length];
       const g = new THREE.Group(); g.position.set(x, 0, z);
-      const real = model(`food/${mname}`, { size: mh * 0.7 / 1.35 });          // real sculpted model if it loaded, else the shape built in code
-      const item = real || make(); g.add(item); g.scale.setScalar(1.35);
-      g.userData = { name: real ? mname : name, emoji: real ? memoji : emoji, eaten: false, idx: i, home: new THREE.Vector3(x, 0, z), item };
+      // the girls' favourites first: gummies, sour kids, nerd-style boxes, gummy worms, sour rings and straws, with a few treats from the real models mixed in
+      const pickIt = ORDER[i % ORDER.length];
+      let item, ename, eemoji;
+      if (pickIt.startsWith('c:')) { const k = pickIt.slice(2); item = makeCandy(k); ename = k; eemoji = CANDY_KINDS[k].emoji; }
+      else { const [mname, memoji, mh] = FOOD.find((f) => f[0] === pickIt.slice(2)) || FOOD[0]; item = model(`food/${mname}`, { size: mh * 0.7 / 1.35 }); ename = mname; eemoji = memoji; }
+      if (!item) { item = make(); ename = name; eemoji = emoji; }
+      g.add(item); g.scale.setScalar(1.35);
+      g.userData = { name: ename, emoji: eemoji, eaten: false, idx: i, home: new THREE.Vector3(x, 0, z), item };
       this.scene.add(g); this.edibles.push(g);
       this.addInteractive(g, () => this.tapEdible(g), 1.5, [0, 1.1, 0]);
     });
@@ -239,7 +247,7 @@ export class ChocolateScene extends BaseScene {
     G.ui.setStars(0);
     playMusic('choc');
     this.camera.position.set(0, 8.5, 22); this.look = new THREE.Vector3(0, 1.2, 6);
-    G.ui.bubble('\u{1F36B} \u{1F36C} \u{1F36D}', 'Tap candy to eat it!');
+    G.ui.bubble('\u{1F43B} \u{1F36C} \u{1F36D}', 'Tap candy to eat it!');
     this.tm.after(5, () => G.ui.hideBubble());
   }
 
@@ -289,6 +297,23 @@ export class ChocolateScene extends BaseScene {
     this.tm.tween(.6, (k) => e.scale.setScalar(1.35 * k), { ease: ease.outBack });
     this.fx.burst(e.position.clone().add(new THREE.Vector3(0, 1.4, 0)), { count: 10, colors: [0xffffff], speed: 1.5, gravity: 0, life: .7, size: .5 });
   }
+  /** Giant gummy bears sitting around the meadow: tap one and it jiggles like jelly. */
+  buildGiantGummies() {
+    this.gummies = [];
+    [[-21, -6, 0xff3b5c], [22, -4, 0x4ddc5a], [-6, -8.8, 0xffd32a], [12, -9.2, 0x36a8ff], [-27, 6, 0xb35cff]].forEach(([x, z, c]) => {
+      const g = makeCandy('gummyBear'); g.position.set(x, 0, z); g.scale.setScalar(2.6); g.rotation.y = rand(-.6, .6);
+      g.traverse((o) => { if (o.isMesh && o.material && o.material.clearcoat && o.material.emissive) { o.material = o.material.clone(); o.material.color.set(c); o.material.emissive.set(c); } });
+      this.scene.add(g); this.gummies.push(g);
+      this.addInteractive(g, () => this.tapGummy(g), 1.3, [0, 1.1, 0]);
+    });
+  }
+  tapGummy(g) {
+    this.touch(); sfx.boing(); sfx.giggle();
+    const s = g.scale.x;
+    this.tm.tween(1.1, (k) => { const w = Math.sin(k * Math.PI * 5) * .14 * (1 - k); g.scale.set(s * (1 + w), s * (1 - w * 1.3), s * (1 + w)); }, { ease: ease.linear, done: () => g.scale.setScalar(s) });
+    this.fx.burst(g.position.clone().add(new THREE.Vector3(0, 6, 0)), { count: 26, colors: [0xff3b5c, 0xffd32a, 0x4ddc5a, 0x36a8ff, 0xffffff], speed: 4, gravity: -3, life: 1.4, size: 1 });
+  }
+
   tapMush(m) {
     this.touch(); sfx.boing();
     this.fx.burst(m.position.clone().add(new THREE.Vector3(0, 3.5, 0)), { count: 24, colors: [0xff4d6d, 0xffffff, 0xffe14d], speed: 4, gravity: -5, life: 1.1 });

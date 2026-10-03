@@ -115,7 +115,7 @@ export class CastleScene extends BaseScene {
     const ui = G.ui;
     ui.bubble('\u{1F3F0} \u{1F451}', 'The castle!');
     this.tm.after(4.5, () => { this.stage = 'greet'; this.wave(this.king); this.wave(this.queen); sfx.fanfare(); this.confetti(); P.both().forEach((t) => (t.mode = 'cheer')); ui.bubble('\u{1F451}\u{1F389}\u{1F389}', 'Congratulations Adalyn and Esmae!', 'king'); });
-    this.tm.after(9.5, () => { ui.bubble('\u{1F36B} \u{1F69A} \u{1F3E0}', 'Your chocolate is on its way to your house!', 'queen'); sfx.babble(9); this.wave(this.queen); P.both().forEach((t) => (t.mode = 'idle')); });
+    this.tm.after(9.5, () => { ui.bubble('\u{1F36C} \u{1F69A} \u{1F3E0}', 'Your candy is on its way to your house!', 'queen'); sfx.babble(9); this.wave(this.queen); P.both().forEach((t) => (t.mode = 'idle')); });
     this.tm.after(15, () => { ui.bubble('\u{1F3E0} \u{1F4A4}', 'Time to go home!', 'king'); sfx.magic(); this.openPortal(); });
   }
 
