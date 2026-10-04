@@ -1,11 +1,23 @@
-import { FOODS, princessSVG, castleSVG } from './art.js';
+import { FOODS, princessSVG, staffSVG, wallSVG, floorSVG, tableSVG } from './art.js';
 
 const $ = (s) => document.querySelector(s);
-const princess = $('#princess'), plate = $('#plate'), wish = $('#wish'), quiz = $('#quiz');
-const qPrompt = $('.q-prompt'), qObjects = $('.q-objects'), qChoices = $('.q-choices'), qMsg = $('.q-msg');
+const princess = $('#princess'), plate = $('#plate'), quiz = $('#quiz'), butler = $('#butler');
+const qPrompt = $('.q-prompt'), qChoices = $('.q-choices'), qMsg = $('.q-msg'), wish = $('#wish');
 
-$('#castle').innerHTML = castleSVG;
-princess.innerHTML = princessSVG('happy');
+$('#wall').innerHTML = wallSVG();
+$('#floor').innerHTML = floorSVG();
+$('#tablesvg').innerHTML = tableSVG();
+princess.innerHTML = princessSVG();
+$('#butler .b-body').innerHTML = staffSVG('butler');
+
+// staff wandering around the back of the hall with trays: [kind, feet height from bottom (%), height (vh), seconds to cross, start offset, direction]
+[['maid', 17, 24, 34, -4, false], ['cook', 15, 27, 44, -22, true], ['footman', 19, 22, 38, -30, false], ['maid', 14, 30, 52, -12, true]].forEach(([kind, y, h, dur, delay, rev]) => {
+  const w = document.createElement('div');
+  w.className = 'walker' + (rev ? ' rev' : '');
+  w.style.cssText = `bottom:${y}%;height:${h}vh;--dur:${dur}s;--delay:${delay}s`;
+  w.innerHTML = `<div>${staffSVG(kind)}</div>`;
+  $('#staff').appendChild(w);
+});
 
 // ---------- sound: the device's own voice for words, tiny synth for dings ----------
 const hasTTS = 'speechSynthesis' in window;
@@ -30,66 +42,45 @@ const sfx = {
   good: () => [660, 880, 1100, 1320].forEach((f, i) => tone(f, i * 0.09, 0.3)),
   bell: () => { tone(1568, 0, 0.9, 'triangle'); tone(2093, 0, 0.7, 'triangle', 0.1); },
   oops: () => { tone(300, 0, 0.25, 'triangle'); tone(240, 0.15, 0.3, 'triangle'); },
-  tap: (n) => tone(440 + n * 55, 0, 0.18, 'triangle'),
   yum: () => [523, 659, 784].forEach((f, i) => tone(f, i * 0.12, 0.25, 'square', 0.07)),
 };
 
-// ---------- the questions ----------
-const THINGS = ['⭐', '🌸', '🍎', '🦋', '💎', '👑', '🍓', '🐱', '🎈', '🐠'];
+// ---------- the questions: just numbers, like 3 + 2 = ? ----------
 const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = (arr) => arr[rand(0, arr.length - 1)];
-let lastThing = '';
 
-// Level 1-2 count up to 5 then 10; level 3-4 add up to 5 then 10. After a few rounds the kinds get mixed so it stays fun.
+// First rounds add up to 5, then up to 10 (one small number to start), then anything up to 10.
 function makeQuestion(round) {
-  let thing; do { thing = pick(THINGS); } while (thing === lastThing); lastThing = thing;
-  const stage = round < 2 ? 0 : round < 4 ? 1 : round < 6 ? 2 : round < 8 ? 3 : rand(0, 3);
-  if (stage <= 1) {
-    const n = stage === 0 ? rand(1, 5) : rand(4, 10);
-    return { kind: 'count', thing, n, answer: n, spoken: 'How many do you see? Tap each one to count!', prompt: 'How many?' };
-  }
-  const max = stage === 2 ? 5 : 10;
-  const a = rand(1, max - 1), b = rand(1, max - a);
-  return { kind: 'add', thing, a, b, answer: a + b, spoken: `${WORDS[a]} plus ${WORDS[b]}. How many altogether?`, prompt: `${a} + ${b} = ?` };
+  const max = round < 4 ? 5 : 10;
+  let a = rand(1, max - 1), b = rand(1, max - a);
+  if (round >= 4 && round < 8 && a > 5 && b > 5) b = 1;
+  if (Math.random() < 0.5) [a, b] = [b, a];
+  return { a, b, answer: a + b, spoken: `${WORDS[a]} plus ${WORDS[b]}. What is the answer?`, prompt: `${a} + ${b} = ?` };
 }
 
-function choicesFor(answer, min) {
+function choicesFor(answer) {
   const set = new Set([answer]);
-  while (set.size < 3) { const c = answer + pick([-2, -1, 1, 2]); if (c >= min && c <= 10) set.add(c); }
+  while (set.size < 3) { const c = answer + pick([-2, -1, 1, 2]); if (c >= 2 && c <= 10) set.add(c); }
   return [...set].sort(() => Math.random() - 0.5);
 }
 
 // ---------- the game ----------
-let round = 0, stars = 0, q = null, food = null, tapCount = 0, busy = true, foodIdx = 0;
-const order = () => FOODS.slice().sort(() => Math.random() - 0.5);
-let queue = [];
-
-function objGroup(thing, n, solo) {
-  const g = document.createElement('div'); g.className = 'group' + (solo ? ' solo' : '');
-  for (let i = 0; i < n; i++) { const o = document.createElement('span'); o.className = 'obj'; o.textContent = thing; g.appendChild(o); }
-  return g;
-}
-const sym = (t) => { const s = document.createElement('div'); s.className = 'sym'; s.textContent = t; return s; };
+let round = 0, stars = 0, q = null, food = null, busy = true, queue = [];
 
 function startRound() {
-  if (!queue.length) queue = order();
+  if (!queue.length) queue = FOODS.slice().sort(() => Math.random() - 0.5);
   food = queue.pop();
   q = makeQuestion(round);
-  tapCount = 0; busy = false;
+  busy = false;
   plate.className = ''; plate.innerHTML = '';
-  princess.innerHTML = princessSVG('happy');
 
-  wish.querySelector('.w-food').innerHTML = food.svg;
+  wish.querySelector('.w-food').innerHTML = food.svg();
   wish.querySelector('.w-text').textContent = `I want ${food.name}!`;
-
   qPrompt.textContent = q.prompt;
-  qObjects.innerHTML = '';
-  if (q.kind === 'count') qObjects.appendChild(objGroup(q.thing, q.n, true));
-  else { qObjects.append(objGroup(q.thing, q.a), sym('+'), objGroup(q.thing, q.b), sym('=') , sym('?')); }
   qMsg.textContent = 'Get it right to order!';
   qChoices.innerHTML = '';
-  choicesFor(q.answer, 1).forEach((c) => {
+  choicesFor(q.answer).forEach((c) => {
     const b = document.createElement('button'); b.className = 'choice'; b.textContent = c;
     b.addEventListener('click', () => answer(b, c));
     qChoices.appendChild(b);
@@ -98,13 +89,6 @@ function startRound() {
   say(`I'd like ${food.a}, please! ${q.spoken}`);
 }
 
-qObjects.addEventListener('click', (e) => {            // tap objects to count them out loud
-  const o = e.target.closest('.obj'); if (!o || o.classList.contains('tapped') || busy) return;
-  o.classList.add('tapped');
-  tapCount++;
-  const n = document.createElement('span'); n.className = 'n'; n.textContent = tapCount; o.appendChild(n);
-  sfx.tap(tapCount); say(WORDS[tapCount]);
-});
 $('#say').addEventListener('click', () => say(q ? q.spoken : ''));
 
 function answer(btn, value) {
@@ -119,26 +103,34 @@ function answer(btn, value) {
   sfx.good(); say(`Yes! ${WORDS[q.answer]}!`);
   qMsg.textContent = '🎉 Yes! ' + q.answer + '!';
   stars++; $('#starcount').textContent = stars; round++;
-  setTimeout(serve, 1300);
+  setTimeout(serve, 1400);
 }
 
+// The butler walks in from the right with the food, sets it on the table, bows and leaves; then she eats.
 function serve() {
   quiz.classList.add('hidden');
-  plate.innerHTML = food.svg;
-  setTimeout(() => { sfx.bell(); plate.classList.add('in'); }, 150);
-  setTimeout(() => {
+  butler.className = ''; butler.querySelector('.b-food').innerHTML = food.svg();
+  void butler.offsetWidth;
+  sfx.bell();
+  butler.classList.add('walking', 'in');
+  setTimeout(() => {                                    // arrived: put the plate on the table and bow
+    butler.classList.remove('walking'); butler.classList.add('set', 'bow');
+    plate.innerHTML = food.svg(); plate.classList.add('in'); sfx.bell();
+  }, 2700);
+  setTimeout(() => {                                    // butler leaves, princess digs in
+    butler.classList.remove('bow', 'in'); butler.classList.add('walking', 'out');
     princess.classList.add('cheer'); sfx.yum(); say(`Yummy ${food.name}! Thank you!`);
     plate.classList.add('eat'); hearts();
-  }, 1300);
-  setTimeout(() => { princess.classList.remove('cheer'); plate.classList.add('gone'); }, 3200);
-  setTimeout(() => { plate.className = ''; startRound(); }, 4000);
+  }, 3800);
+  setTimeout(() => { princess.classList.remove('cheer'); plate.classList.add('gone'); }, 5600);
+  setTimeout(() => { plate.className = ''; butler.className = ''; startRound(); }, 6400);
 }
 
 function hearts() {
   const box = $('#hearts');
   for (let i = 0; i < 8; i++) {
     const h = document.createElement('span'); h.className = 'heart'; h.textContent = pick(['❤️', '💖', '✨', '💛']);
-    h.style.left = (8 + Math.random() * 20) + '%'; h.style.animationDelay = (i * 0.12) + 's';
+    h.style.left = (6 + Math.random() * 18) + '%'; h.style.animationDelay = (i * 0.12) + 's';
     box.appendChild(h); setTimeout(() => h.remove(), 2400);
   }
 }

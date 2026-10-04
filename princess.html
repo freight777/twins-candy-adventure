@@ -11,17 +11,18 @@
 </head>
 <body>
   <div id="scene">
-    <svg id="castle" viewBox="0 -40 400 240" preserveAspectRatio="xMidYMax meet" aria-hidden="true"></svg>
+    <div id="wall"></div>
     <div id="floor"></div>
+    <div id="staff"></div>
     <a id="home" href="./" aria-label="All games">&#127968;</a>
     <div id="stars"><span>&#11088;</span> <b id="starcount">0</b></div>
     <div id="princess"></div>
-    <div id="table"><div id="plate"></div></div>
+    <div id="table"><div id="tablesvg"></div><div id="plate"></div></div>
+    <div id="butler"><div class="b-body"></div><div class="b-food"></div></div>
     <div id="hearts"></div>
     <div id="quiz" class="hidden">
       <div id="wish"><div class="w-food"></div><div class="w-text"></div></div>
       <div class="q-top"><div class="q-prompt"></div><button id="say" aria-label="Hear it again">&#128266;</button></div>
-      <div class="q-objects"></div>
       <div class="q-choices"></div>
       <div class="q-msg"></div>
     </div>
