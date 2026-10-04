@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#4ab8e8" />
+  <link rel="icon" type="image/png" href="./icon-192.png" />
+  <title>Mermaid Love Adventure</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="loading"><div class="l-uni">&#129436;&#8205;&#9792;&#65039;</div><div class="l-text">Diving into the sea...</div></div>
+
+  <div id="ui">
+    <div id="title" class="hidden">
+      <div class="logo">
+        <div class="logo-small">&#128150; Esmae's &#128150;</div>
+        <div class="logo-big">Mermaid Love<br>Adventure</div>
+      </div>
+      <button id="play" aria-label="Play"><span>&#9654;</span></button>
+    </div>
+
+    <div id="hud" class="hidden">
+      <a id="home" href="./" aria-label="All games">&#127968;</a>
+      <div id="friends"></div>
+      <div id="stars"><span>&#128150;</span> <span id="starcount">0</span></div>
+    </div>
+
+    <div id="bubble" class="hidden"><div class="emoji"></div><div class="caption"></div></div>
+    <div id="chip" class="hidden"></div>
+    <button id="deck" class="hidden" aria-label="Draw a card"><span class="d-card c3"></span><span class="d-card c2"></span><span class="d-card c1"><i>&#128026;</i><b>Draw!</b></span></button>
+    <div id="card" class="hidden"><div class="card-face"></div></div>
+    <div id="hint" class="hidden">&#128070;</div>
+
+    <div id="banner" class="hidden"><span class="confetti l">&#127881;</span><div class="b-text">You did it, Esmae!</div><span class="confetti r">&#127881;</span></div>
+    <button id="again" class="hidden"><span>&#8635;</span> Play again</button>
+  </div>
+  <div id="fade"></div>
+
+  <script type="module" src="/src/mermaid/game.js"></script>
+</body>
+</html>

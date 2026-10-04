@@ -146,6 +146,7 @@ const SONGS = {
   fall:   { bpm: 150, swing: 0,   chords: [[45, MIN], [41, MAJ], [48, MAJ], [43, MAJ]], scale: PENT(69), lead: 'pluck', drums: 1, pad: .05, arp: true },
   cat:    { bpm: 84,  swing: 0,   chords: [[48, MAJ], [43, MAJ], [45, MIN], [40, MIN], [41, MAJ], [48, MAJ], [41, MAJ], [43, MAJ]], scale: PENT(72), lead: 'bell', drums: 0, pad: .08 },
   forest: { bpm: 108, swing: .06, chords: [[52, MAJ], [48, MAJ], [45, MIN], [50, MAJ], [52, MAJ], [43, MAJ], [45, MIN], [48, MAJ]], scale: PENT(76), lead: 'bell', drums: 1, pad: .08 },
+  ocean: { bpm: 86, swing: .04, chords: [[50, MAJ7], [47, MIN7], [43, MAJ7], [45, DOM7], [50, MAJ7], [47, MIN7], [52, MIN7], [45, DOM7]], scale: PENT(74), lead: 'bell', drums: 0, pad: .1 },
   castle: { bpm: 100, swing: 0,   chords: [[48, MAJ], [41, MAJ], [43, MAJ], [48, MAJ]], scale: PENT(60), lead: 'bell', drums: 0, pad: .1 },
 };
 let cur = null, timer = null, nextT = 0, step = 0, phrase = [], phraseOld = [], lastIdx = 3;
@@ -195,4 +196,30 @@ function schedule() {
     }
     nextT += eighth; step++;
   }
+}
+
+// ================= a fixed score (the mermaid finale anthem), scheduled up front through its own volume bus =================
+let scoreBus = null;
+export function stopScore() { if (scoreBus && ctx) { scoreBus.gain.setTargetAtTime(0, ctx.currentTime, 0.25); } scoreBus = null; }
+/** score = { bpm, bars: [{ chord: [rootMidi, quality], mel: [8 midi notes or null] }] }. Returns its length in seconds. */
+export function playScore(score) {
+  stopMusic(); stopScore();
+  if (!ctx) return 0;
+  scoreBus = ctx.createGain(); scoreBus.gain.value = Math.max(0.5, musicLevel * 1.5); scoreBus.connect(master);
+  const eighth = 60 / score.bpm / 2; let t = 0.15;
+  score.bars.forEach(({ chord: [root, qual], mel }, b) => {
+    qual.forEach((n) => { tone(mtof(root + 12 + n), eighth * 8.6, { type: 'triangle', vol: .075, attack: .3, delay: t, out: scoreBus, wet: .5 }); tone(mtof(root + 12 + n) * 1.004, eighth * 8.6, { type: 'sine', vol: .05, attack: .4, delay: t, out: scoreBus, wet: .5 }); });
+    for (let s = 0; s < 8; s++) {
+      const d = t + s * eighth;
+      if (s === 0 || s === 4) tone(mtof(root), eighth * 3.4, { type: 'sine', vol: .5, delay: d, out: scoreBus, wet: .05 });
+      if (s === 0 || s === 4) tone(130, .16, { slide: .3, vol: .5, delay: d, out: scoreBus, wet: 0 });
+      if (s === 2 || s === 6) noise(.12, { vol: .12, from: 2400, to: 1800, q: .6, delay: d, out: scoreBus });
+      if (s % 2) noise(.05, { vol: .06, from: 7000, to: 9000, type: 'highpass', q: .5, delay: d, out: scoreBus });
+      const m = mel[s];
+      if (m != null) { lead('bell', m, eighth * 1.7, d, .24); tone(mtof(m - 12), eighth * 1.2, { type: 'triangle', vol: .08, delay: d, out: scoreBus, wet: .3 }); }
+      if (b >= 4 && s % 2 === 0) tone(mtof(root + 36 + qual[(s / 2) % qual.length]), eighth * .8, { type: 'sine', vol: .06, delay: d, out: scoreBus, wet: .5 });   // sparkly arpeggio in the second half
+    }
+    t += eighth * 8;
+  });
+  return t;
 }

@@ -74,6 +74,7 @@ const ui = {
   show(sel, on = true) { $(sel).classList.toggle('hidden', !on); },
 };
 const sq = (c, cls = '') => `<div class="sq ${cls}" style="background:${c.css}"></div>`;
+const cname = (card, cls = 'cname') => `<div class="${cls}" style="color:${card.c.css}">${card.double ? 'Double ' : ''}${card.c.name}</div>`;
 
 let W, uni, twin, friends = [];
 const S = { mode: 'boot', idx: 0, u: 0, speed: 0, stars: 0, time: 0, followers: [], dirS: new THREE.Vector3(0, 0, -1), card: null, busy: false, hint: 0, waiting: false };
@@ -110,6 +111,7 @@ async function boot() {
   });
   twin = createUnicorn(LOOKS.twin); twin.root.scale.setScalar(SCALE); scene.add(twin.root);
   resetFriends();
+  camera.position.copy(uni.root.position).add(new THREE.Vector3(8, 4.4, 9)); camTarget.copy(uni.root.position);
 
   $('#friends').innerHTML = [...FRIENDS, TWIN].map((f) => `<div class="fr" style="--c:${f.css}" title="${f.name}">${f.emoji}</div>`).join('');
   $('#loading').classList.add('done');
@@ -160,12 +162,12 @@ async function takeTurn() {
   await waitDraw();
   sfx.pop();
   const card = S.card = drawCard();
-  const face = $('.card-face'); face.innerHTML = (card.double ? sq(card.c) + sq(card.c) : sq(card.c));
+  const face = $('.card-face'); face.innerHTML = (card.double ? sq(card.c) + sq(card.c) : sq(card.c)) + cname(card);
   ui.show('#card'); face.style.animation = 'none'; void face.offsetWidth; face.style.animation = '';
   sfx.chime(); say(`${card.double ? 'Double ' : ''}${card.c.name}!`, 'counter');
   await sleep(1.7);
   ui.show('#card', false);
-  $('#chip').innerHTML = card.double ? sq(card.c, 'sm') + sq(card.c, 'sm') : sq(card.c, 'sm'); ui.show('#chip');
+  $('#chip').innerHTML = (card.double ? sq(card.c, 'sm') + sq(card.c, 'sm') : sq(card.c, 'sm')) + cname(card, 'cn'); ui.show('#chip');
   const target = targetFor(card, S.idx);
   await runTo(target);
   ui.show('#chip', false);
