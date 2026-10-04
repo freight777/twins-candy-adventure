@@ -34,6 +34,15 @@ export async function preloadAssets(renderer) {
   pm.dispose();
 }
 
+/** Load just these models (e.g. 'food/sundae') into the shared store. */
+export async function preloadModels(names) {
+  const loader = new GLTFLoader();
+  await Promise.all(names.map(async (n) => {
+    if (store[n]) return;
+    try { store[n] = (await loader.loadAsync(`${BASE}assets/models/${n}.glb`)).scene; } catch (e) { console.warn('model failed to load:', n, e); }
+  }));
+}
+
 export const hasModel = (n) => !!store[n];
 export const getHDREnv = (key) => hdrEnv[key];
 

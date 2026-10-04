@@ -38,6 +38,11 @@ const PROFILES = {
   queen:    { pitch: 1.3,  rate: 0.92, prefer: ['Moira', 'Tessa', 'Serena', ...FEMALE] },
   king:     { pitch: 0.55, rate: 0.82, prefer: MALE },
   counter:  { pitch: 1.35, rate: 1.1,  prefer: FEMALE },
+  uni:      { pitch: 1.45, rate: 1.02, prefer: FEMALE },
+  sparkle:  { pitch: 1.8,  rate: 1.1,  prefer: FEMALE },
+  rainbow:  { pitch: 1.3,  rate: 1.0,  prefer: ['Samantha', 'Ava', ...FEMALE] },
+  cloud:    { pitch: 1.05, rate: 0.82, prefer: ['Tessa', 'Moira', ...FEMALE] },
+  rain:     { pitch: 0.95, rate: 0.92, prefer: ['Karen', 'Serena', ...FEMALE] },
 };
 function pickVoice(prefer) {
   const en = voiceList.filter((v) => /^en/i.test(v.lang));
@@ -140,6 +145,7 @@ const SONGS = {
   choc:   { bpm: 90,  swing: .12, chords: [[48, MAJ7], [45, MIN7], [50, MIN7], [43, DOM7]], scale: PENT(64), lead: 'bell', drums: 1, pad: .08 },
   fall:   { bpm: 150, swing: 0,   chords: [[45, MIN], [41, MAJ], [48, MAJ], [43, MAJ]], scale: PENT(69), lead: 'pluck', drums: 1, pad: .05, arp: true },
   cat:    { bpm: 84,  swing: 0,   chords: [[48, MAJ], [43, MAJ], [45, MIN], [40, MIN], [41, MAJ], [48, MAJ], [41, MAJ], [43, MAJ]], scale: PENT(72), lead: 'bell', drums: 0, pad: .08 },
+  forest: { bpm: 108, swing: .06, chords: [[52, MAJ], [48, MAJ], [45, MIN], [50, MAJ], [52, MAJ], [43, MAJ], [45, MIN], [48, MAJ]], scale: PENT(76), lead: 'bell', drums: 1, pad: .08 },
   castle: { bpm: 100, swing: 0,   chords: [[48, MAJ], [41, MAJ], [43, MAJ], [48, MAJ]], scale: PENT(60), lead: 'bell', drums: 0, pad: .1 },
 };
 let cur = null, timer = null, nextT = 0, step = 0, phrase = [], phraseOld = [], lastIdx = 3;
