@@ -64,6 +64,11 @@ export function createUnicorn(spec) {
     }
   }
 
+  if (S.royal) {                                                                   // royal crown wrapped around the base of the horn (or a tiara for the queen)
+    const gold = toon(0xffd24d, { emissive: 0xffb800, emissiveIntensity: .25, clearcoat: 1 }), ring = new THREE.Group(); ring.position.set(0, .66, .34); ring.rotation.x = Math.PI / 2 + .5; head.add(ring);
+    ring.add(mk(new THREE.TorusGeometry(.2, .05, 8, 24), gold));
+    for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; const c = mk(new THREE.ConeGeometry(.05, S.royal === 'king' ? .26 : .18, 6), gold, [Math.cos(a) * .2, Math.sin(a) * .2, 0]); c.rotation.x = Math.PI / 2; c.lookAt(0, 0, 1); ring.add(c); ring.add(mk(sph(.04, 8, 6), i % 2 ? 0xff5fa4 : 0x6cc8ff, [Math.cos(a) * .2, Math.sin(a) * .2, .17])); }
+  }
   // mane: a flowing chain of soft blobs down the neck, plus a forelock
   const maneC = S.mane.map((c) => new THREE.Color(c));
   const colAt = (t) => { const f = t * (maneC.length - 1), i = Math.min(maneC.length - 2, Math.floor(f)); return maneC[i].clone().lerp(maneC[i + 1], f - i); };
@@ -157,3 +162,5 @@ export const LOOKS = {
   rain:    { body: 0x8ea2ee, belly: 0xbccaf8, mane: [0xe6efff, 0x6f86e0, 0xbfd0ff, 0x4a62c8], iris: 0x2a4fb8, cutie: '\u{1F4A7}', accessory: 'raincloud' },
 };
 LOOKS.twin = LOOKS.uni;
+LOOKS.king = { body: 0xe6eeff, belly: 0xffffff, mane: [0xffd24d, 0xfff0a0, 0xffffff, 0xffd24d], iris: 0x2a4ab8, cutie: '👑', royal: 'king' };
+LOOKS.queen = { body: 0xffe4f6, belly: 0xffffff, mane: [0xff9ecb, 0xffd24d, 0xc9a8ff, 0xff9ecb], iris: 0x9a2a9a, cutie: '💎', royal: 'queen', crown: true };

@@ -12,6 +12,8 @@ import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, RAINBOW } fro
 import { unlock, playMusic, say, sfx, stopSpeech } from '../audio.js';
 import { buildWorld, COLORS, N, FRIEND_TILES, ICE_TILES } from './world.js';
 import { createUnicorn, LOOKS } from './unicorn.js';
+import { createHouse, HOUSES } from './houses.js';
+import { model } from '../assets.js';
 
 const $ = (s) => document.querySelector(s);
 const FEET = 0.82;                                   // standing height above the path line
@@ -42,10 +44,12 @@ function applyTier() {
   const pr = Math.min(window.devicePixelRatio, Q.pr);
   bloom.enabled = Q.bloom; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight);
 }
+let houseResizeHook = null;
 function resize() {
   const w = innerWidth, h = innerHeight, a = w / h;
   renderer.setSize(w, h, false); composer.setSize(w, h);
   camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(76 / 2)) / a)), 42, 82); camera.updateProjectionMatrix();
+  if (houseResizeHook) houseResizeHook(a);
 }
 applyTier(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
@@ -76,7 +80,7 @@ const ui = {
 const sq = (c, cls = '') => `<div class="sq ${cls}" style="background:${c.css}"></div>`;
 const cname = (card, cls = 'cname') => `<div class="${cls}" style="color:${card.c.css}">${card.double ? 'Double ' : ''}${card.c.name}</div>`;
 
-let W, uni, twin, friends = [];
+let W, uni, twin, kingU, queenU, friends = [];
 const S = { mode: 'boot', idx: 0, u: 0, speed: 0, stars: 0, time: 0, followers: [], dirS: new THREE.Vector3(0, 0, -1), card: null, busy: false, hint: 0, waiting: false };
 const camTarget = new THREE.Vector3();
 const pathPos = (u) => { const p = W.curve.getPointAt(clamp(u, 0, 1)); p.y += FEET; return p; };
@@ -110,10 +114,13 @@ async function boot() {
     return o;
   });
   twin = createUnicorn(LOOKS.twin); twin.root.scale.setScalar(SCALE); scene.add(twin.root);
+  kingU = createUnicorn(LOOKS.king); queenU = createUnicorn(LOOKS.queen);
+  [kingU, queenU].forEach((m) => { m.root.scale.setScalar(1.45); m.root.visible = false; scene.add(m.root); });
   resetFriends();
   camera.position.copy(uni.root.position).add(new THREE.Vector3(8, 4.4, 9)); camTarget.copy(uni.root.position);
 
-  $('#friends').innerHTML = [...FRIENDS, TWIN].map((f) => `<div class="fr" style="--c:${f.css}" title="${f.name}">${f.emoji}</div>`).join('');
+  $('#friends').innerHTML = [...FRIENDS, TWIN].map((f, i) => `<button class="fr" data-i="${i}" style="--c:${f.css}" title="${f.name}'s house">${f.emoji}</button>`).join('');
+  document.querySelectorAll('.fr').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); unlock(); visit(+b.dataset.i); }));
   $('#loading').classList.add('done');
   S.mode = 'title'; ui.show('#title');
   setTimeout(() => $('#loading').remove(), 800);
@@ -285,14 +292,15 @@ async function finale() {
   ui.bubble('\u{1F495}', "Hi! I'm Uni too! We have the same name!", 'uni');
   const hop = (u) => anim(.55, (k) => { u.lift = Math.sin(k * Math.PI) * 1.5; }, ease.linear);
   await hop(twin); await hop(uni); await sleep(2.4);
-  addStars(5);
+  addStars(5); S.twinMet = true;
+  await royalGift();
   ui.hideBubble(); ui.show('#banner'); ui.show('#again'); sfx.fanfare(); stopSpeech(); say('You did it, Uni! You made it to the castle!', 'uni');
   S.celebrate = true; S.mode = 'finale';
   $('#again').onclick = () => { $('#fade').style.opacity = 1; setTimeout(restart, 520); };
 }
 
 function restart() {
-  S.celebrate = false; S.mode = 'follow'; S.idx = 0; S.followers = []; S.stars = 0; S.speed = 0; ui.stars(0); S.greeting = null; uni.lift = 0;
+  S.celebrate = false; S.mode = 'follow'; S.idx = 0; S.followers = []; S.twinMet = false; S.housesDone = new Set(); clearTreats(); [kingU, queenU].forEach((m) => (m.root.visible = false)); S.stars = 0; S.speed = 0; ui.stars(0); S.greeting = null; uni.lift = 0;
   placeUni(0); resetFriends(); W.stars.forEach((s) => { s.taken = false; s.mesh.visible = true; });
   document.querySelectorAll('.fr').forEach((e) => e.classList.remove('met'));
   ui.show('#banner', false); ui.show('#again', false); ui.hideBubble(); timers.clear();
@@ -300,6 +308,73 @@ function restart() {
   $('#fade').style.opacity = 0;
   play();
 }
+
+// ---------------------------------------------------------------- the king & queen, and the lifetime supply of Uni treats
+const TREAT_MODELS = ['ice-cream-cne', 'ice-cream', 'sundae', 'popsicle', 'popsicle-chocolate', 'cupcake', 'donut-sprinkles', 'lollypop', 'cake-birthday'];
+function makeTreats() {
+  const e = W.tiles[N - 1].pos, tn = pathTan(1); tn.y = 0; tn.normalize();
+  S.treatCenter = e.clone().addScaledVector(tn, 7); S.treats = [];
+  for (let i = 0; i < 44; i++) {
+    const m = model('food/' + TREAT_MODELS[i % TREAT_MODELS.length], { height: rand(1.5, 2.6) });
+    if (!m) continue; m.traverse((o) => { if (o.isMesh) o.castShadow = false; }); m.scale.setScalar(0.001); scene.add(m);
+    S.treats.push({ m, base: m.userData.baseScale || 1, a: rand(0, 6.28), r: rand(5, 14), h: rand(1, 12), sp: rand(.2, .5) * (Math.random() < .5 ? -1 : 1), at: rand(0, 3.5), ph: rand(0, 6) });
+  }
+  S.treatT = 0;
+}
+function clearTreats() { (S.treats || []).forEach((t) => scene.remove(t.m)); S.treats = []; }
+function updateTreats(dt, t) {
+  if (!S.treats || !S.treats.length) return;
+  S.treatT += dt; const c = S.treatCenter;
+  S.treats.forEach((g) => {
+    const k = clamp((S.treatT - g.at) / 1.2, 0, 1), a = g.a + t * g.sp;
+    g.m.position.set(c.x + Math.cos(a) * g.r, c.y + g.h * ease.out(k) + Math.sin(t * 1.3 + g.ph) * .5, c.z + Math.sin(a) * g.r);
+    g.m.rotation.set(Math.sin(t + g.ph) * .3, t * .8 + g.ph, 0); g.m.scale.setScalar(Math.max(.001, g.base * k));
+  });
+}
+async function royalGift() {
+  const e = W.tiles[N - 1].pos, tn = pathTan(1); tn.y = 0; tn.normalize(); const sd = side(tn);
+  const gate = e.clone().addScaledVector(tn, 10);
+  [[kingU, 1], [queenU, -1]].forEach(([m, sg]) => {
+    const p = gate.clone().addScaledVector(sd, sg * 3.6); p.y = groundY(p.x, p.z) + .25;
+    m.root.position.copy(p); m.root.rotation.y = Math.atan2(-tn.x, -tn.z); m.root.visible = true;
+    sparkleAt(p.clone().add(new THREE.Vector3(0, 3, 0)), [0xffd84d, 0xffffff, 0xff9ecb], 50, 6);
+  });
+  sfx.fanfare();
+  ui.bubble('👑', 'Welcome, brave Uni! You made it to the Rainbow Castle!', 'king'); await sleep(4.8);
+  ui.bubble('👑', 'Your kindness sparkles like magic! We have a gift for you!', 'queen'); await sleep(4.6);
+  ui.bubble('🍦 🎁', 'A lifetime supply of Uni treats!', 'king');
+  makeTreats(); sfx.magic(); sfx.tada(); addStars(10);
+  [kingU, queenU].forEach((m) => sparkleAt(m.root.position.clone().add(new THREE.Vector3(0, 4, 0)), RAINBOW.concat([0xffffff]), 70, 7));
+  await sleep(5.8);
+}
+
+// ---------------------------------------------------------------- visiting a friend's little house (mini-games)
+const HOUSE_KEYS = ['sparkle', 'rainbow', 'cloud', 'rain', 'uni'];
+S.housesDone = new Set();
+function visit(i) {
+  if (S.house || !W || S.mode === 'boot' || S.mode === 'title') return;
+  const f = i < 4 ? friends[i] : null, met = i < 4 ? f.met : S.twinMet;
+  if (!met) { ui.bubble('🔒', i < 4 ? `Meet ${f.name} on the path first!` : 'Meet your twin at the castle first!', 'uni'); timers.after(2.6, () => ui.hideBubble()); return; }
+  if (!(S.waiting || S.celebrate)) { ui.bubble('⏳', 'Wait for Uni to stop first!', 'uni'); timers.after(2, () => ui.hideBubble()); return; }
+  const key = HOUSE_KEYS[i], info = HOUSES[key];
+  S.houseWas = { deck: !$('#deck').classList.contains('hidden'), banner: !$('#banner').classList.contains('hidden'), again: !$('#again').classList.contains('hidden') };
+  ['#deck', '#banner', '#again', '#hint', '#bubble', '#chip', '#card'].forEach((x) => ui.show(x, false));
+  stopSpeech();
+  S.house = createHouse(key, {
+    env: scene.environment, say, sfx,
+    addStars: (n) => { if (!S.housesDone.has(key)) { S.housesDone.add(key); addStars(n); } },
+    progress: (txt) => { $('#mini .mp').textContent = txt; },
+  });
+  houseResizeHook = (a) => S.house && S.house.resize(a); houseResizeHook(innerWidth / innerHeight);
+  $('#mini .mt').textContent = info.title; ui.show('#mini'); ui.show('#leave');
+  say(`Welcome to ${info.title}! ${info.how}`, 'uni');
+}
+function leave() {
+  if (!S.house) return;
+  S.house.dispose(); S.house = null; houseResizeHook = null; stopSpeech(); ui.show('#mini', false); ui.show('#leave', false);
+  const w = S.houseWas || {}; if (w.deck && S.waiting) ui.show('#deck'); if (w.banner) ui.show('#banner'); if (w.again) ui.show('#again');
+}
+$('#leave').addEventListener('click', leave);
 
 // ---------------------------------------------------------------- per-frame
 function updateCamera(dt, t) {
@@ -331,6 +406,7 @@ function updateCamera(dt, t) {
 
 function update(dt) {
   S.time += dt; const t = S.time;
+  kingU.update(dt, t, 0); queenU.update(dt, t, 0); updateTreats(dt, t);
   timers.update(dt); fx.update(dt); W.update(dt, t);
   uni.update(dt, t, S.speed);
   friends.forEach((f) => f.u.update(dt, t, f.speed));
@@ -356,6 +432,7 @@ function update(dt) {
 const ray = new THREE.Raycaster();
 canvas.addEventListener('pointerdown', (e) => {
   unlock();
+  if (S.house) { const rr = canvas.getBoundingClientRect(); S.house.pointer(new THREE.Vector2(((e.clientX - rr.left) / rr.width) * 2 - 1, -((e.clientY - rr.top) / rr.height) * 2 + 1)); return; }
   const r = canvas.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
   const all = [{ u: uni, n: 'Uni' }, ...friends.map((f) => ({ u: f.u, n: f.name })), { u: twin, n: 'Uni' }];
   const hit = all.find((a) => a.u.root.visible && ray.intersectObject(a.u.root, true).length);
@@ -369,10 +446,12 @@ const clock = new THREE.Clock(); let slow = 0, frames = 0;
 renderer.setAnimationLoop(() => {
   if (!W) return;
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
-  update(dt); composer.render(dt);
+  if (S.house) { S.house.update(dt); renderPass.scene = S.house.scene; renderPass.camera = S.house.camera; }
+  else { update(dt); renderPass.scene = scene; renderPass.camera = camera; }
+  composer.render(dt);
   if (raw > 0.03 && raw < 0.5) slow++;
   if (++frames === 150) { if (slow > 80 && lowerTier()) { applyTier(); resize(); } slow = 0; frames = 0; }
 });
 $('#play').addEventListener('click', () => { unlock(); playMusic('forest'); play(); });
-window.uniGame = { S, scene, camera, get W() { return W; }, tp: (i) => { S.idx = i; placeUni(i / (N - 1)); }, force: (name, double = false) => { S.forceCard = { c: COLORS.find((c) => c.name === name), double }; } };
+window.uniGame = { S, scene, camera, get friends() { return friends; }, visit, leave, get W() { return W; }, tp: (i) => { S.idx = i; placeUni(i / (N - 1)); }, force: (name, double = false) => { S.forceCard = { c: COLORS.find((c) => c.name === name), double }; } };
 boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });
