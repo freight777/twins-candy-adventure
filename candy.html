@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Our Games" />
+  <meta name="theme-color" content="#7fd8ff" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <link rel="icon" type="image/png" href="./icon-192.png" />
+  <title>Adalyn &amp; Esmae's Candy Adventure</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="ui">
+    <div id="title" class="hidden">
+      <a id="home" href="./" aria-label="All games">&#127968;</a>
+      <div class="logo">
+        <div class="logo-small">Adalyn &amp; Esmae's</div>
+        <div class="logo-big">Candy Adventure</div>
+      </div>
+      <div class="title-bottom">
+        <button class="portrait pick" data-who="adalyn" aria-label="Adalyn"></button>
+        <button id="play" aria-label="Play"><span>&#9654;</span></button>
+        <button class="portrait pick" data-who="esmae" aria-label="Esmae"></button>
+      </div>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div id="swap">
+        <button class="portrait swap" data-who="adalyn" aria-label="Play as Adalyn"></button>
+        <button class="portrait swap" data-who="esmae" aria-label="Play as Esmae"></button>
+      </div>
+      <div id="stars" class="hidden"><span id="staricon">&#11088;</span> <span id="starcount">0</span></div>
+    </div>
+
+    <div id="progress" class="hidden"><div class="track"><span class="flag">&#127984;</span><i class="dot a"></i><i class="dot e"></i></div></div>
+    <div id="bubble" class="hidden"><div class="emoji"></div><div class="caption"></div></div>
+    <div id="hint" class="hidden"></div>
+    <button id="eat" class="hidden" aria-label="Eat"><span class="eat-item"></span><span class="eat-mouth">&#128523;</span></button>
+    <button id="roll" class="hidden" aria-label="Roll"><span>&#127922;</span></button>
+
+    <div id="quiz" class="hidden">
+      <div class="q-card">
+        <div class="q-top"><div class="q-big"></div><button id="q-say" aria-label="Hear it again">&#128266;</button></div>
+        <div class="q-choices"></div>
+      </div>
+    </div>
+    <div id="banner" class="hidden"><span class="confetti l">&#127881;</span><div class="b-text">You did it!</div><span class="confetti r">&#127881;</span></div>
+    <button id="again" class="hidden"><span>&#8635;</span> Play again</button>
+
+    <div id="msg" class="hidden">
+      <div class="msg-card"><div class="msg-emoji"></div><div class="msg-text"></div>
+        <div class="msg-row"><button id="msg-btn"></button><button id="msg-cancel" class="hidden"></button></div></div>
+    </div>
+  </div>
+  <div id="secret"></div>
+  <div id="parent" class="hidden">
+    <div class="parent-card">
+      <h2>Grown-ups menu</h2>
+      <p>Jump to a scene:</p>
+      <div class="pgrid" id="pscenes"></div>
+      <div class="prow"><button id="pmute">Sound: on</button><button id="pquiz">Questions: on</button><button id="plevel">Level: auto</button><button id="pretry">Wrong answer: try again</button><button id="pvoice">Voices: on</button><button id="pmusic">Music: medium</button><button id="pgfx">Graphics: high</button></div>
+      <button id="pclose">Close</button>
+    </div>
+  </div>
+  <div id="fade"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

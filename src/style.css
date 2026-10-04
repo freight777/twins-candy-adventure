@@ -122,3 +122,4 @@ html, body {
 .msg-card { animation-name: popc; }
 @keyframes popc { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes bounce { 0%,100% { margin-top: 0; } 50% { margin-top: -18px; } }
+#home { position: absolute; top: 12px; left: 14px; width: 56px; height: 56px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 30px; text-decoration: none; box-shadow: 0 3px 0 #0003; z-index: 3; }

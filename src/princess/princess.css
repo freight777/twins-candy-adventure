@@ -52,3 +52,4 @@ html,body { margin:0; height:100%; overflow:hidden; font-family:'Fredoka',system
 .logo-big { font-size:clamp(40px,10vw,96px); font-weight:700; line-height:1; color:#fff; -webkit-text-stroke:3px #c2185b; paint-order:stroke fill; text-shadow:0 5px 0 #c2185b; }
 #go { margin-top:22px; width:clamp(90px,18vw,150px); height:clamp(90px,18vw,150px); border-radius:50%; border:0; background:var(--pink); color:#fff; font-size:clamp(44px,9vw,76px); box-shadow:0 8px 0 #a0316a; cursor:pointer; animation:pulse 1.4s ease infinite; }
 @keyframes pulse { 50%{transform:scale(1.08)} }
+#home { position:absolute; top:12px; right:14px; width:clamp(44px,7vw,60px); height:clamp(44px,7vw,60px); border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; font-size:clamp(22px,4vw,32px); text-decoration:none; box-shadow:0 3px 0 #0002; z-index:6; }

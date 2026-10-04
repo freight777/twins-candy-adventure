@@ -1,9 +1,9 @@
 // Offline support: serve from cache first, refresh the cache in the background.
 // Bump VERSION when you want everyone to drop old files immediately.
-const VERSION = 'candy-v2';
+const VERSION = 'games-v3';
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(['./', './manifest.webmanifest', './icon-192.png', './apple-touch-icon.png'])).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(['./', './candy.html', './princess.html', './manifest.webmanifest', './icon-192.png', './apple-touch-icon.png'])).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -12,9 +12,9 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  if (e.request.mode === 'navigate') {       // the page itself: always try for the newest version first, fall back to offline copy
-    e.respondWith(fetch(e.request).then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put('./', copy)); return res; })
-      .catch(() => caches.match('./')));
+  if (e.request.mode === 'navigate') {       // a page: always try for the newest version first, fall back to this page's offline copy
+    e.respondWith(fetch(e.request).then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(e.request, copy)); return res; })
+      .catch(() => caches.match(e.request, { ignoreSearch: true }).then((hit) => hit || caches.match('./'))));
     return;
   }
   e.respondWith(

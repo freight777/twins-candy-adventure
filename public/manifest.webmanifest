@@ -1,7 +1,7 @@
 {
-  "name": "Adalyn & Esmae's Candy Adventure",
-  "short_name": "Candy Adventure",
-  "description": "A bedtime story you can play: beach, whirlpool, candy land and home again.",
+  "name": "Adalyn & Esmae's Games",
+  "short_name": "Our Games",
+  "description": "Games for Adalyn and Esmae.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

@@ -7,7 +7,7 @@ export default defineConfig({
   server: { host: true, port: 5173 },
   build: {
     chunkSizeWarningLimit: 1500,
-    // two games: the candy adventure (index.html) and Esmae's princess kitchen (princess.html)
-    rollupOptions: { input: { main: resolve(import.meta.dirname, 'index.html'), princess: resolve(import.meta.dirname, 'princess.html') } },
+    // index.html is the games menu; each game is its own page (candy.html, princess.html, ...)
+    rollupOptions: { input: { hub: resolve(import.meta.dirname, 'index.html'), candy: resolve(import.meta.dirname, 'candy.html'), princess: resolve(import.meta.dirname, 'princess.html') } },
   },
 });
