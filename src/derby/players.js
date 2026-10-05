@@ -180,7 +180,7 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
 export function createPitcher(clips) {
   const clip = clips.pitch, skin = skinMat(0xc08a63), gray = cloth(0xd6d9df), red = cloth(0xb81f30);
   const rig = clips.mannequin
-    ? createSkinnedRig(clips.mannequin, { skin: 0xcf9d78, hair: 0x2a1c12, jersey: 0xaeb3bc, pants: 0xa6acb6, under: 0x9a1b2b, sock: 0x9a1b2b, shoes: 0x111114, stripes: false, cap: 0x9a1b2b, bill: true, curl: .5 })
+    ? createSkinnedRig(clips.mannequin, { skin: 0xcf9d78, hair: 0x2a1c12, jersey: 0xa7acb6, pants: 0xa0a6b0, under: 0x9a1b2b, sock: 0x9a1b2b, shoes: 0x111114, stripes: false, cap: 0x9a1b2b, bill: true, curl: .5 })
     : createRig({ torsoMat: gray, legMat: gray, armMat: gray, foreMat: new THREE.MeshPhysicalMaterial({ color: 0xc08a63, roughness: .55 }), helmet: red, skin, ears: false });
   const { root } = rig, REL_IDX = clip.center;
   const mitt = makeGlove(); root.add(mitt);
@@ -189,7 +189,7 @@ export function createPitcher(clips) {
   const setF = pitcherSet(frameAt(clip, 0));
   const drivePose = (F) => { hands = rig.drive(F, Math.PI); mitt.position.copy(hands.L); if (rig.handQ) mitt.quaternion.copy(rig.handQ('L')); ballM.visible = holding; ballM.position.copy(hands.gR || hands.R); };
   const at = (idx) => { const k = smooth(idx / 24), F = blend(setF, frameAt(clip, idx), k); drivePose(F); };
-  holding = false; drivePose(frameAt(clip, REL_IDX)); const relLocal = hands.R.clone(); holding = true; drivePose(setF);
+  holding = false; drivePose(frameAt(clip, REL_IDX)); const relLocal = (hands.gR || hands.R).clone(); holding = true; drivePose(setF);
   return {
     root, relLocal,
     /** release point of the ball in world space */
@@ -198,6 +198,6 @@ export function createPitcher(clips) {
     pose(k) { at(k * REL_IDX); },
     idle() { holding = true; drivePose(setF); },
     holdBall(on) { holding = on; ballM.visible = on; },
-    handWorld() { return root.localToWorld(hands.R.clone()); },
+    handWorld() { return root.localToWorld((hands.gR || hands.R).clone()); },
   };
 }

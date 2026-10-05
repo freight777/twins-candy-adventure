@@ -46,7 +46,7 @@ const grade = new ShaderPass({
       gl_FragColor = vec4(clamp(c, 0., 1.), t.a); }`,
 });
 // broadcast-style image: ambient occlusion where things meet, and a shallow depth of field that softens the crowd and far wall (top quality tier only)
-const gtao = new GTAOPass(scene, camera, 256, 256); gtao.blendIntensity = 0.9; gtao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.4, thickness: 1.2, scale: 1.2, samples: 12 });
+const gtao = new GTAOPass(scene, camera, 256, 256); gtao.blendIntensity = 0.9; gtao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.4, thickness: 1.2, scale: 1.2, samples: 10 });
 const bokeh = new BokehPass(scene, camera, { focus: 13, aperture: 0.00016, maxblur: 0.006 });
 const depthSkip = [];
 function collectDepthSkip() { depthSkip.length = 0; scene.traverse((o) => { const m = o.material; if (o.isSprite || o.isPoints || (o.isMesh && m && (Array.isArray(m) ? m.some((x) => x.transparent) : m.transparent))) depthSkip.push(o); }); }
@@ -229,7 +229,7 @@ async function homeRun(from) {
 function playReplay(from, end, ft, mph, peak) {
   return new Promise((res) => {
     const pos = new THREE.Vector3(end.x > 0 ? -22 : 22, 30, 54);                       // an aerial view from up behind the plate, off to one side, so the whole flight and the crowd show                       // up and back from the seat it lands in (the stands rise away from the field), so the view clears the rows in front
-    replay = { t: 0, dur: 3.0, from: from.clone(), end: end.clone(), pos, peak, res, skip: false, look: from.clone() };
+    replay = { t: 0, dur: 2.6, from: from.clone(), end: end.clone(), pos, peak, res, skip: false, look: from.clone() };
     S.camMode = 'replay'; taps(false); cue(''); camera.position.copy(pos); camLook.copy(from); camera.lookAt(camLook);
     ball.visible = true; ball.scale.setScalar(1); ball.userData.glow.scale.setScalar(1.6); hrTracer.clear();
     $('#replayinfo').textContent = `${ft} ft  \u2022  ${mph} mph`; show('#replay');
@@ -327,5 +327,5 @@ renderer.setAnimationLoop(() => {
   const dt = real * S.timeScale;
   update(dt); composer.render(dt); adapt(raw);
 });
-window.derby = { S, camera, renderer, passes: { gtao, bokeh, bloom, grade }, get stadium() { return stadium; }, get batter() { return batter; }, get pitcher() { return pitcher; }, get ball() { return ball; }, swing, start };
+window.derby = { S, scene, camera, renderer, passes: { gtao, bokeh, bloom, grade }, get stadium() { return stadium; }, get batter() { return batter; }, get pitcher() { return pitcher; }, get ball() { return ball; }, swing, start };
 boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });
