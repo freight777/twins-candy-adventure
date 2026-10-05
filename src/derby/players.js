@@ -120,8 +120,11 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
   const clip = clips.swing, skin = skinMat(), navy = cloth(0x10203f), stripes = cloth(0xffffff, { map: pinstripe('#f7f7f4', '#14234a') });
   const rig = createRig({ torsoMat: stripes, legMat: stripes, armMat: navy, foreMat: navy, helmet: navy, skin, ears: true });
   const { root, torso } = rig;
-  const backPlate = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.4), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, map: canvasTex(256, 320, (g, w, h) => { g.fillStyle = '#10203f'; g.textAlign = 'center'; g.font = '700 50px Arial, sans-serif'; g.fillText(name.slice(0, 8), w / 2, 62); g.font = '700 180px Arial, sans-serif'; g.fillText(number, w / 2, 240); }) }));
-  backPlate.position.set(0, 1.05, .56); torso.add(backPlate);
+  // name and number on the back: a plate that sits just off the jersey and curves around the body so nothing is buried in it
+  const plateGeo = new THREE.PlaneGeometry(.9, 1.2, 10, 1), pp = plateGeo.attributes.position;
+  for (let i = 0; i < pp.count; i++) pp.setZ(i, -(pp.getX(i) * pp.getX(i)) * 0.3);
+  const backPlate = new THREE.Mesh(plateGeo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, map: canvasTex(256, 320, (g, w, h) => { g.fillStyle = '#10203f'; g.textAlign = 'center'; g.font = '700 46px Arial, sans-serif'; g.fillText(name.slice(0, 8), w / 2, 70); g.font = '700 190px Arial, sans-serif'; g.fillText(number, w / 2, 258); }) }));
+  backPlate.position.set(0, 1.1, .64); torso.add(backPlate);
   // bat
   const pivot = new THREE.Group(); root.add(pivot);
   const wood = new THREE.MeshPhysicalMaterial({ color: 0xc89a5a, roughness: .35, clearcoat: .5 });

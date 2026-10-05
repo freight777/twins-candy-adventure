@@ -29,17 +29,23 @@ export function buildStadium(scene) {
   const grass = new THREE.Mesh(new THREE.CircleGeometry(220, 64).rotateX(-Math.PI / 2), mat({ map: grassTex })); grass.position.set(0, -.02, -60); grass.receiveShadow = true; scene.add(grass);
   const dirtTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#b57b4a'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(80,40,10,.18)'; g.lineWidth = 2; for (let y = 0; y < h; y += 9) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + Math.random() * 4); g.stroke(); } noise(g, w, h, 6000, .25); }, [6, 6]);
   const dirt = mat({ map: dirtTex, roughness: 1 });
-  const inf = new THREE.Mesh(new THREE.CircleGeometry(38, 56).rotateX(-Math.PI / 2), dirt); inf.position.set(0, 0, -19); inf.receiveShadow = true; scene.add(inf);
-  const infG = new THREE.Mesh(new THREE.CircleGeometry(22, 56).rotateX(-Math.PI / 2), mat({ map: grassTex })); infG.position.set(0, .01, -27); infG.receiveShadow = true; scene.add(infG);
+  // infield: bases at the corners of a 90-ft diamond. Dirt base paths form the diamond's edges, the inside is grass,
+  // and there is dirt around home, the mound and each base (second base sits in the dirt too).
+  const dirtShapeTex = dirtTex.clone(); dirtShapeTex.repeat.set(1 / 7, 1 / 7); dirtShapeTex.needsUpdate = true;
+  const dirtFlat = mat({ map: dirtShapeTex, roughness: 1 });
+  const diamond = (half, cs) => { const pts = [[0, cs - half], [half, cs], [0, cs + half], [-half, cs]]; const sh = new THREE.Shape(); pts.forEach(([x, y], i) => sh[i ? 'lineTo' : 'moveTo'](x, y)); sh.closePath(); return sh; };
+  const ringShape = diamond(19 + 4.4, 19); ringShape.holes.push(diamond(19 - 5, 19));
+  const ring = new THREE.Mesh(new THREE.ShapeGeometry(ringShape).rotateX(-Math.PI / 2), dirtFlat); ring.position.y = .015; ring.receiveShadow = true; scene.add(ring);
+  [[19, -19], [0, -38], [-19, -19]].forEach(([x, z]) => { const c = new THREE.Mesh(new THREE.CircleGeometry(4.6, 36).rotateX(-Math.PI / 2), dirtFlat); c.position.set(x, .016, z); c.receiveShadow = true; scene.add(c); });
   const home = new THREE.Mesh(new THREE.CircleGeometry(9, 40).rotateX(-Math.PI / 2), dirt); home.position.set(0, .02, -.3); home.receiveShadow = true; scene.add(home);
   const track = new THREE.Mesh(new THREE.RingGeometry(S.wallR - 9, S.wallR, 96, 1, Math.PI * 1.1, Math.PI * .8).rotateX(-Math.PI / 2), mat({ color: 0x9a5f3a, side: THREE.DoubleSide })); track.position.y = .02; scene.add(track);
   const mound = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 5, .7, 32), dirt); mound.position.set(0, .35, -16.5); mound.receiveShadow = true; scene.add(mound);
   const rubber = new THREE.Mesh(new THREE.BoxGeometry(1.8, .1, .4), mat({ color: 0xf2f2f2 })); rubber.position.set(0, .75, -16.5); scene.add(rubber);
-  const plate = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .1, 5).rotateY(Math.PI / 2), mat({ color: 0xf4f4f4, roughness: .6 })); plate.position.set(0, .07, 0); scene.add(plate);
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .1, 5), mat({ color: 0xf4f4f4, roughness: .6 })); plate.position.set(0, .07, 0); scene.add(plate);
   [[19, -19], [0, -38], [-19, -19]].forEach(([x, z]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(1.6, .22, 1.6), mat({ color: 0xf4f4f4 })); b.position.set(x, .12, z); b.castShadow = true; scene.add(b); });
   const chalk = new THREE.MeshBasicMaterial({ color: 0xf2f2f2 });
-  [-1, 1].forEach((s) => { const l = new THREE.Mesh(new THREE.PlaneGeometry(.35, 160).rotateX(-Math.PI / 2), chalk); l.position.set(s * 56, .06, -80); l.rotation.y = s * Math.PI / 4; scene.add(l); });
-  [-1, 1].forEach((s) => { const bx = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 6.2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf2f2f2, wireframe: true })); bx.position.set(s * 3.2, .05, 0); scene.add(bx); });
+  [-1, 1].forEach((s) => { const l = new THREE.Mesh(new THREE.PlaneGeometry(.35, 160).rotateX(-Math.PI / 2), chalk); l.position.set(s * 56.5, .06, -56.5); l.rotation.y = -s * Math.PI / 4; scene.add(l); });
+  [-1, 1].forEach((s) => { const cx = s * 3.2, w = 3.3, d = 6.2, t = .14; [[0, -d / 2, w, t], [0, d / 2, w, t], [-w / 2, 0, t, d], [w / 2, 0, t, d]].forEach(([x, z, sx, sz]) => { const e = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz).rotateX(-Math.PI / 2), chalk); e.position.set(cx + x, .05, z); scene.add(e); }); });
   S.zones = {};
   [-1, 1].forEach((s) => { const r = new THREE.Mesh(new THREE.RingGeometry(.42, .6, 30).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); r.position.set(s * 1.0, .11, -.4); scene.add(r); S.zones[s] = r; });
 

@@ -207,6 +207,7 @@ function update(dt) {
     if (near && !f.said) { f.said = true; cue(prefs.helper ? 'NOW!' : '', 'now'); sfx.ting(); }
     if (f.t > f.F + LATE) { f.resolved = true; f.resolve({ type: 'late' }); }
   }
+  if (S.debugCam) { camera.position.copy(S.debugCam.p); camera.lookAt(S.debugCam.l); return; }
   // camera: behind home plate; during a home run it swings to follow the ball
   const home = new THREE.Vector3(Math.sin(t * .2) * .6, 5.2, 12);
   camera.position.lerp(home, 1 - Math.exp(-2 * dt));
@@ -223,5 +224,5 @@ renderer.setAnimationLoop(() => {
   if (raw > 0.03 && raw < 0.5) slow++;
   if (++frames === 150) { if (slow > 80 && lowerTier()) { applyTier(); resize(); } slow = 0; frames = 0; }
 });
-window.derby = { S, get ball() { return ball; }, swing, start };
+window.derby = { S, camera, get batter() { return batter; }, get ball() { return ball; }, swing, start };
 boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });
