@@ -368,7 +368,7 @@ export function buildStadium(scene, T = {}) {
   [
     { p: [-62, 88, 96], t: [0, 0, -8], a: .3, pen: .6, i: 30000, shadow: true },
     { p: [62, 88, 96], t: [0, 0, -8], a: .3, pen: .6, i: 30000, shadow: true },
-    { p: [0, 110, 120], t: [0, 0, -62], a: .72, pen: .8, i: 100000 },
+    { p: [0, 110, 120], t: [0, 0, -62], a: .8, pen: .8, i: 150000 },
     { p: [0, 92, -170], t: [0, 0, -4], a: .22, pen: .7, i: 25000 },
   ].forEach((L) => {
     const sp = new THREE.SpotLight(0xfff1d8, L.i, 0, L.a, L.pen, 2); sp.position.set(...L.p); sp.target.position.set(...L.t); sp.visible = false;
