@@ -134,6 +134,11 @@ export function createSkinnedRig(template, o) {
     for (let t = 0; t < tris.length; t += 3) for (let e = 0; e < 3; e++) { const a = grp[tris[t + e]], b = grp[tris[t + (e + 1) % 3]]; if (a === b) continue; nbr[a].add(b); nbr[b].add(a); const k = a < b ? `${a}_${b}` : `${b}_${a}`; edge.set(k, (edge.get(k) || 0) + 1); }
     const border = new Uint8Array(G); edge.forEach((c, k) => { if (c === 1) { const [a, b] = k.split('_').map(Number); border[a] = border[b] = 1; } });
     const nbrA = nbr.map((st) => [...st]);
+    // baked ambient occlusion: where the surface is dented (armpits, waist, behind the knees, under the chin) the cloth is darker
+    const A1 = new Float32Array(G * 3), A2 = new Float32Array(G * 3), ao = new Float32Array(G).fill(1);
+    const blur = (src, dst) => { for (let gi = 0; gi < G; gi++) { const nb = nbrA[gi]; if (!nb.length) { dst[gi * 3] = src[gi * 3]; dst[gi * 3 + 1] = src[gi * 3 + 1]; dst[gi * 3 + 2] = src[gi * 3 + 2]; continue; } let x = 0, y = 0, z = 0; nb.forEach((j) => { x += src[j * 3]; y += src[j * 3 + 1]; z += src[j * 3 + 2]; }); dst[gi * 3] = x / nb.length; dst[gi * 3 + 1] = y / nb.length; dst[gi * 3 + 2] = z / nb.length; } };
+    blur(P0, A1); blur(A1, A2);
+    for (let gi = 0; gi < G; gi++) { const nl = Math.hypot(N0[gi * 3], N0[gi * 3 + 1], N0[gi * 3 + 2]) || 1, cv = ((A2[gi * 3] - P0[gi * 3]) * N0[gi * 3] + (A2[gi * 3 + 1] - P0[gi * 3 + 1]) * N0[gi * 3 + 1] + (A2[gi * 3 + 2] - P0[gi * 3 + 2]) * N0[gi * 3 + 2]) / nl; ao[gi] = 1 - Math.min(1, Math.max(0, cv / .028)) * .5; }
     for (let it = 0; it < 12; it++) {                            // Taubin smoothing: rounds off the muscle detail without shrinking the body
       const lam = it % 2 ? -.53 : .5, Q = new Float32Array(P);
       for (let gi = 0; gi < G; gi++) { if (border[gi] || !nbrA[gi].length) continue; let ax = 0, ay = 0, az = 0; nbrA[gi].forEach((j) => { ax += P[j * 3]; ay += P[j * 3 + 1]; az += P[j * 3 + 2]; }); const k = nbrA[gi].length; Q[gi * 3] = P[gi * 3] + lam * (ax / k - P[gi * 3]); Q[gi * 3 + 1] = P[gi * 3 + 1] + lam * (ay / k - P[gi * 3 + 1]); Q[gi * 3 + 2] = P[gi * 3 + 2] + lam * (az / k - P[gi * 3 + 2]); }
@@ -147,7 +152,7 @@ export function createSkinnedRig(template, o) {
       n0.set(N0[gi * 3], N0[gi * 3 + 1], N0[gi * 3 + 2]).normalize(); nv.set(Ns[gi * 3], Ns[gi * 3 + 1], Ns[gi * 3 + 2]).normalize().multiplyScalar(.75).addScaledVector(n0, .25).normalize();
       q.set(P[gi * 3], P[gi * 3 + 1], P[gi * 3 + 2]).addScaledVector(nv, d); p0.set(P0[gi * 3], P0[gi * 3 + 1], P0[gi * 3 + 2]);
       const have = q.clone().sub(p0).dot(n0); if (have < d * .6) q.addScaledVector(n0, d * .6 - have);      // never sink into the skin
-      mem.forEach((i) => { outP[i * 3] = q.x; outP[i * 3 + 1] = q.y; outP[i * 3 + 2] = q.z; outN[i * 3] = nv.x; outN[i * 3 + 1] = nv.y; outN[i * 3 + 2] = nv.z; colors[i * 3] = c0.r; colors[i * 3 + 1] = c0.g; colors[i * 3 + 2] = c0.b; st[i * 4] = ax[0]; st[i * 4 + 1] = ax[1]; st[i * 4 + 2] = ax[2]; st[i * 4 + 3] = ax[3]; });
+      mem.forEach((i) => { outP[i * 3] = q.x; outP[i * 3 + 1] = q.y; outP[i * 3 + 2] = q.z; outN[i * 3] = nv.x; outN[i * 3 + 1] = nv.y; outN[i * 3 + 2] = nv.z; colors[i * 3] = c0.r * ao[gi]; colors[i * 3 + 1] = c0.g * ao[gi]; colors[i * 3 + 2] = c0.b * ao[gi]; st[i * 4] = ax[0]; st[i * 4 + 1] = ax[1]; st[i * 4 + 2] = ax[2]; st[i * 4 + 3] = ax[3]; });
     });
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.BufferAttribute(outP, 3)); sg.setAttribute('normal', new THREE.BufferAttribute(outN, 3));
