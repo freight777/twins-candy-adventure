@@ -127,7 +127,7 @@ async function boot() {
   const mkBlob = () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, fog: false })); m.renderOrder = 1; scene.add(m); return m; };
   blobB = mkBlob(); blobP = mkBlob();
   camera.position.set(0, 5.2, 12); camera.lookAt(camLook); scene.environment = env.night; await setTime(prefs.time);
-  try { await renderer.compileAsync(scene, camera); } catch { /* the first frame will compile instead */ }       // build the shaders now, behind the loading screen, so the first frames are smooth
+  try { await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 4000))]); } catch { /* the first frame will compile instead */ }       // build the shaders now, behind the loading screen, so the first frames are smooth
   $('#loading').classList.add('done'); setTimeout(() => $('#loading').remove(), 800);
   S.state = 'title'; taps(false); show('#title'); $('#name').value = prefs.name; $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`; gfxLabel();
 }
@@ -304,13 +304,13 @@ function groundShadow(blob, rig) {
   blob.position.set((a.x + b.x) / 2, .055, (a.z + b.z) / 2); blob.scale.set(2.6 + sp * .7, 1, 2.1 + sp * .45);
 }
 
-const clock = new THREE.Clock(); const gfx = { auto: store.get('derbyGfx', 'auto') !== 'high', slow: 0, frames: 0, fast: 0, mute: performance.now() + 6000, noRaise: 0, lowered: 0 };
+const clock = new THREE.Clock(); const gfx = { auto: store.get('derbyGfx', 'auto') !== 'high', slow: 0, frames: 0, fast: 0, mute: performance.now() + 4500, noRaise: 0, lowered: 0 };
 document.addEventListener('visibilitychange', () => { gfx.mute = performance.now() + 3000; gfx.slow = gfx.frames = gfx.fast = 0; });
 function adapt(raw) {
   const now = performance.now(); if (!gfx.auto || now < gfx.mute || document.hidden || raw >= .5) return;
   gfx.frames++; if (raw > .03) gfx.slow++; if (raw < .02) gfx.fast++; else gfx.fast = 0;
   const change = () => { applyTier(); resize(); try { if (Q.name === 'low') localStorage.removeItem('derbyTier'); else localStorage.setItem('derbyTier', Q.name); } catch { /* ignore */ } };
-  if (gfx.frames >= 150) { if (gfx.slow > 80 && lowerTier(null)) { gfx.lowered++; gfx.noRaise = now + 45000; gfx.fast = 0; change(); } gfx.slow = gfx.frames = 0; }
+  if (gfx.frames >= 100) { if (gfx.slow > 55 && lowerTier(null)) { gfx.lowered++; gfx.noRaise = now + 45000; gfx.fast = 0; change(); } gfx.slow = gfx.frames = 0; }
   if (gfx.fast >= 300 && now > gfx.noRaise && gfx.lowered < 3 && raiseTier(null)) { gfx.fast = 0; change(); }
 }
 renderer.setAnimationLoop(() => {
