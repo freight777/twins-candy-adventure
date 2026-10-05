@@ -64,7 +64,7 @@ function makeHead(parent, helmet, skin, ears) {
   const h = new THREE.Group(); parent.add(h);
   const face = new THREE.Mesh(sph(.4, 28, 20), skin); face.scale.set(.88, 1.1, .95); face.castShadow = true; h.add(face);
   const hm = new THREE.Mesh(new THREE.SphereGeometry(.44, 28, 20, 0, Math.PI * 2, 0, Math.PI * .52), helmet); hm.position.y = .06; hm.scale.set(.96, 1.05, 1.02); hm.castShadow = true; h.add(hm);
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(.43, .43, .05, 24, 1, false, 0, Math.PI), helmet); brim.position.set(0, .1, -.12); brim.rotation.y = Math.PI; brim.scale.set(1, 1, 1.25); h.add(brim);
+  if (!ears) { const brim = new THREE.Mesh(new THREE.CylinderGeometry(.43, .43, .05, 24, 1, false, Math.PI / 2, Math.PI), helmet); brim.position.set(0, .04, -.02); brim.rotation.x = -.28; brim.scale.set(1.05, 1.5, 1.85); h.add(brim); }   // cap bill (front half-disc, toward -Z)
   [-.15, .15].forEach((x) => { const e = new THREE.Mesh(sph(.045, 10, 8), new THREE.MeshStandardMaterial({ color: 0x1a1210 })); e.position.set(x, .04, -.34); h.add(e); });
   const nose = new THREE.Mesh(sph(.06, 10, 8), skin); nose.position.set(0, -.06, -.38); h.add(nose);
   if (ears) { const ear = new THREE.Mesh(sph(.17, 14, 10), helmet); ear.position.set(.34, -.04, 0); ear.scale.set(.5, 1, .9); h.add(ear); }
@@ -133,7 +133,7 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
   const knob = new THREE.Mesh(sph(.12, 14, 10), new THREE.MeshStandardMaterial({ color: 0x241810 })); knob.position.x = -.22; pivot.add(knob);
   [0, .35].forEach((x) => { const g = new THREE.Mesh(sph(.16, 14, 10), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .7 })); g.position.x = x; pivot.add(g); });
   const IDLE = 8, START = 10, RATE = 1.5, CONTACT = clip.center, axisQ = new THREE.Quaternion(), tmpQ = new THREE.Quaternion(), SWEET = 3.2;
-  let anim = null, hold = null;
+  let anim = null, hold = null, baseX = 0, off = 0, offT = 0;
   const pose = (F) => {
     const hands = rig.drive(F, 0), axis = hands.R.clone().sub(hands.L); if (axis.lengthSq() < 1e-6) axis.set(1, 0, 0); axis.normalize();
     tmpQ.setFromUnitVectors(V(1, 0, 0), axis); axisQ.slerp(tmpQ, .65); pivot.quaternion.copy(axisQ); pivot.position.copy(hands.L);
@@ -146,7 +146,9 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
   const api = {
     root, pivot, torso, contactLocal, contactY: contactLocal.y, contactDelay: (CONTACT - START) / 60 / RATE,
     /** stand so the bat meets the ball over the plate */
-    placeAt(x, z) { root.position.set(x - contactLocal.x, 0, z - contactLocal.z); },
+    placeAt(x, z) { baseX = x - contactLocal.x; off = 0; offT = 0; root.position.set(baseX, 0, z - contactLocal.z); },
+    /** step a little toward the side the ball is on, so the bat meets it there */
+    setOffset(v) { offT = v; },
     contactWorld() { return root.localToWorld(contactLocal.clone()); },
     swing(arg1, arg2) {
       const cb = typeof arg1 === 'function' ? arg1 : arg2; let f = START, hit = false; api._back = null;
@@ -157,11 +159,12 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
       };
     },
     update(dt, t) {
+      off += (offT - off) * (1 - Math.exp(-16 * dt)); root.position.x = baseX + off;
       if (anim) { anim(dt); return; }
       if (api._back != null && api._back < 1) { api._back = Math.min(1, api._back + dt * 2.2); pose(blend(hold, idleFrame, api._back * api._back * (3 - 2 * api._back))); return; }
       const F = copyFrame(idleFrame); F.hips.y += Math.sin(t * 1.8) * .015; F.rwr.y += Math.sin(t * 1.8 + 1) * .02; pose(F);
     },
-    unswing() { anim = null; api._back = 1; },
+    unswing() { anim = null; api._back = 1; offT = 0; },
   };
   return api;
 }

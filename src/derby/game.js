@@ -58,8 +58,9 @@ const sleep = (s) => new Promise((r) => timers.after(s, r));
 const anim = (dur, fn, e = ease.inOut) => new Promise((r) => timers.tween(dur, fn, { ease: e, done: r }));
 const S = { state: 'boot', hr: 0, outs: 0, flight: null, lastLanes: [], time: 0, camMode: 'home', over: false };
 const WIN = 0.55, LATE = 0.3;                          // seconds before / after the ball reaches the plate: a wide window
-const LANE_X = 1.0, REL = new THREE.Vector3(0.4, 5.2, -15.0), PLATE_PT = (lane) => new THREE.Vector3(lane * LANE_X, HIT_Y, -0.2);
+const LANE_X = 0.8, REL = new THREE.Vector3(0.4, 5.2, -15.0), PLATE_PT = (lane) => new THREE.Vector3(lane * LANE_X, HIT_Y, -0.2);
 let HIT_Y = 3.3;
+const ballPath = (lane, k) => new THREE.Vector3(lerp(REL.x, lane * LANE_X, k), lerp(REL.y, HIT_Y, k) + Math.sin(Math.min(k, 1) * Math.PI) * .6, lerp(REL.z, -0.2, k));
 const flightTime = () => Math.max(1.6, 2.6 - Math.floor(S.hr / 4) * 0.12);
 let stadium, batter, pitcher, ball, ballShadow, zoneGlow;
 const camLook = new THREE.Vector3(0, 3.0, -18);
@@ -126,13 +127,14 @@ async function outcome(res, lane) {
   cue(''); const zone = stadium.zones[lane]; zone.material.opacity = 0;
   if (res.type === 'hit') {
     // swing, the ball jumps to the bat, then launches
-    const from = ball.position.clone(), to = batter.contactWorld();
+    const k0 = S.flight.t / S.flight.F, to = ballPath(lane, 1);
+    batter.setOffset(lane * LANE_X);
     batter.swing(() => { sfx.crack(); fx.burst(to, { count: 30, colors: [0xffffff, 0xffe14d, 0xffa030], speed: 6, gravity: -3, life: .7, size: 1 }); });
     sfx.swoosh();
-    await anim(batter.contactDelay, (k) => ball.position.lerpVectors(from, to, k), ease.out);
+    await anim(batter.contactDelay, (e) => ball.position.copy(ballPath(lane, lerp(k0, 1, e))), ease.out);
     await homeRun(to);
   } else if (res.type === 'wrong') {
-    batter.swing(null); sfx.swoosh(); await keepFlying(); await miss('Swing and a miss!');
+    batter.setOffset(-lane * LANE_X); batter.swing(null); sfx.swoosh(); await keepFlying(); await miss('Swing and a miss!');
   } else {
     await keepFlying(); await miss('Strike!');
   }
@@ -199,7 +201,7 @@ function update(dt) {
   const f = S.flight;
   if (f && !f.resolved) {
     f.t += dt; const k = f.t / f.F;
-    ball.position.set(lerp(REL.x, f.lane * LANE_X, k), lerp(REL.y, HIT_Y, k) + Math.sin(Math.min(k, 1) * Math.PI) * .6, lerp(REL.z, -0.2, k));
+    ball.position.copy(ballPath(f.lane, k));
     ball.rotation.x += dt * 14; ballShadow.position.set(ball.position.x, .06, ball.position.z); ballShadow.scale.setScalar(clamp(1 - ball.position.y * .06, .4, 1));
     ball.scale.setScalar(1 + clamp(k, 0, 1.2) * 1.4);
     const near = f.t >= f.F - WIN && f.t <= f.F + LATE, z = stadium.zones[f.lane];

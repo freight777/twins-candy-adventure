@@ -38,16 +38,16 @@ export function buildStadium(scene) {
   const ring = new THREE.Mesh(new THREE.ShapeGeometry(ringShape).rotateX(-Math.PI / 2), dirtFlat); ring.position.y = .015; ring.receiveShadow = true; scene.add(ring);
   [[19, -19], [0, -38], [-19, -19]].forEach(([x, z]) => { const c = new THREE.Mesh(new THREE.CircleGeometry(4.6, 36).rotateX(-Math.PI / 2), dirtFlat); c.position.set(x, .016, z); c.receiveShadow = true; scene.add(c); });
   const home = new THREE.Mesh(new THREE.CircleGeometry(9, 40).rotateX(-Math.PI / 2), dirt); home.position.set(0, .02, -.3); home.receiveShadow = true; scene.add(home);
-  const track = new THREE.Mesh(new THREE.RingGeometry(S.wallR - 9, S.wallR, 96, 1, Math.PI * 1.1, Math.PI * .8).rotateX(-Math.PI / 2), mat({ color: 0x9a5f3a, side: THREE.DoubleSide })); track.position.y = .02; scene.add(track);
+  const track = new THREE.Mesh(new THREE.RingGeometry(S.wallR - 9, S.wallR, 96, 1, Math.PI * .1, Math.PI * .8).rotateX(-Math.PI / 2), mat({ color: 0x9a5f3a, side: THREE.DoubleSide })); track.position.y = .02; scene.add(track);
   const mound = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 5, .7, 32), dirt); mound.position.set(0, .35, -16.5); mound.receiveShadow = true; scene.add(mound);
   const rubber = new THREE.Mesh(new THREE.BoxGeometry(1.8, .1, .4), mat({ color: 0xf2f2f2 })); rubber.position.set(0, .75, -16.5); scene.add(rubber);
   const plate = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .1, 5), mat({ color: 0xf4f4f4, roughness: .6 })); plate.position.set(0, .07, 0); scene.add(plate);
   [[19, -19], [0, -38], [-19, -19]].forEach(([x, z]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(1.6, .22, 1.6), mat({ color: 0xf4f4f4 })); b.position.set(x, .12, z); b.castShadow = true; scene.add(b); });
   const chalk = new THREE.MeshBasicMaterial({ color: 0xf2f2f2 });
-  [-1, 1].forEach((s) => { const l = new THREE.Mesh(new THREE.PlaneGeometry(.35, 160).rotateX(-Math.PI / 2), chalk); l.position.set(s * 56.5, .06, -56.5); l.rotation.y = -s * Math.PI / 4; scene.add(l); });
+  [-1, 1].forEach((s) => { const l = new THREE.Mesh(new THREE.PlaneGeometry(.35, S.wallR).rotateX(-Math.PI / 2), chalk); l.position.set(s * S.wallR * .3536, .06, -S.wallR * .3536); l.rotation.y = -s * Math.PI / 4; scene.add(l); });
   [-1, 1].forEach((s) => { const cx = s * 3.2, w = 3.3, d = 6.2, t = .14; [[0, -d / 2, w, t], [0, d / 2, w, t], [-w / 2, 0, t, d], [w / 2, 0, t, d]].forEach(([x, z, sx, sz]) => { const e = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz).rotateX(-Math.PI / 2), chalk); e.position.set(cx + x, .05, z); scene.add(e); }); });
   S.zones = {};
-  [-1, 1].forEach((s) => { const r = new THREE.Mesh(new THREE.RingGeometry(.42, .6, 30).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); r.position.set(s * 1.0, .11, -.4); scene.add(r); S.zones[s] = r; });
+  [-1, 1].forEach((s) => { const r = new THREE.Mesh(new THREE.RingGeometry(.42, .6, 30).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); r.position.set(s * .8, .11, -.4); scene.add(r); S.zones[s] = r; });
 
   // ---- outfield wall: dark green padding with sponsor boards (generic names) ----
   const a0 = Math.PI * 1.1, aL = Math.PI * .8;
@@ -56,9 +56,10 @@ export function buildStadium(scene) {
     const ads = ['SLUGGER SNACKS', 'BIG DOG HOT DOGS', 'DERBY DAY', 'ICE POPS', 'HOME RUN JUICE', 'PLAY BALL', 'CITY BANK', 'SPEED TIRES'];
     ads.forEach((t, i) => { g.fillStyle = i % 2 ? '#f2f2f2' : '#14234a'; g.fillRect(i * 256 + 8, 14, 240, 100); g.fillStyle = i % 2 ? '#14234a' : '#f2f2f2'; g.font = '700 30px Arial, sans-serif'; g.textAlign = 'center'; g.fillText(t, i * 256 + 128, 74, 224); });
   }, [2, 1]);
-  const wall = new THREE.Mesh(new THREE.CylinderGeometry(S.wallR, S.wallR, 8, 120, 1, true, a0 - Math.PI / 2 + Math.PI, aL), mat({ map: adTex, side: THREE.DoubleSide, roughness: .7 })); wall.position.y = 4; scene.add(wall);
-  const cap = new THREE.Mesh(new THREE.TorusGeometry(S.wallR, .3, 8, 120, aL).rotateX(Math.PI / 2), mat({ color: 0xe8c020, roughness: .5 })); cap.rotation.z = a0 - Math.PI / 2 + Math.PI; cap.position.y = 8; scene.add(cap);
-  [-1, 1].forEach((s) => { const pole = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, 30, 10), mat({ color: 0xe8c020 })); pole.position.set(Math.sin(s * .88) * S.wallR * .98, 15, -Math.cos(s * .88) * S.wallR * .98); scene.add(pole); });
+  adTex.repeat.set(-2, 1); adTex.offset.set(2, 0);          // the boards face the field, so flip them to read correctly from inside the park
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(S.wallR, S.wallR, 8, 120, 1, true, Math.PI - aL / 2, aL), mat({ map: adTex, side: THREE.DoubleSide, roughness: .7 })); wall.position.y = 4; scene.add(wall);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(S.wallR + .15, S.wallR + .15, .7, 120, 1, true, Math.PI - aL / 2, aL), mat({ color: 0xe8c020, roughness: .5, side: THREE.DoubleSide })); cap.position.y = 8; scene.add(cap);
+  [-1, 1].forEach((s) => { const pole = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, 30, 10), mat({ color: 0xe8c020 })); pole.position.set(s * S.wallR * .7071, 15, -S.wallR * .7071); scene.add(pole); });
 
   // ---- the stands: three seating decks, concrete fascia, white frieze, thousands of fans ----
   const seatTex = canvasTex(512, 128, (g, w, h) => { g.fillStyle = '#17306a'; g.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 16) { g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, y, w, 3); } for (let x = 0; x < w; x += 20) { g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(x, 0, 2, h); } }, [18, 1]);
