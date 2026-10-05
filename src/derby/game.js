@@ -69,7 +69,7 @@ async function boot() {
   scene.environment = skyEnv(renderer, 'park', { top: 0x6fb4ff, mid: 0xfff4e6, bottom: 0xb8e8a8, sun: [25, 40, -20], sunPower: 6 }); scene.environmentIntensity = 0.35;
   scene.fog = new THREE.Fog(0xc8d8e8, 260, 820);
   scene.traverse((o) => { const m = o.material; if (m && m.isShaderMaterial && !m.userData.lin) { m.fragmentShader = linearizeFrag(m.fragmentShader); m.userData.lin = true; m.needsUpdate = true; } });
-  batter = createBatter('JUDGE', '99'); batter.root.position.set(-3.0, 0, 0.4); scene.add(batter.root);
+  batter = createBatter('JUDGE', '99'); batter.root.position.set(-2.7, 0, 0.5); scene.add(batter.root);
   pitcher = createPitcher(); pitcher.root.position.set(0, .7, -16.5); scene.add(pitcher.root);
   scene.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.type !== 'PlaneGeometry') { /* shadows only for the players */ } });
   [batter.root, pitcher.root].forEach((r) => r.traverse((o) => { if (o.isMesh) o.castShadow = true; }));

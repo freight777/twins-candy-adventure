@@ -90,7 +90,7 @@ export function buildStadium(scene) {
     const gl = glowSprite(0xfff0c8, 70, .3); gl.position.set(x, 84, z); scene.add(gl);
   });
   const sbC = document.createElement('canvas'); sbC.width = 1024; sbC.height = 384; const sbT = new THREE.CanvasTexture(sbC); sbT.colorSpace = THREE.SRGBColorSpace;
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(54, 20.25), new THREE.MeshBasicMaterial({ map: sbT })); board.position.set(0, 31, -S.wallR - 14); scene.add(board);
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(54, 20.25), new THREE.MeshBasicMaterial({ map: sbT })); board.position.set(0, 31, -S.wallR - 13.4); scene.add(board);
   const frame = new THREE.Mesh(new THREE.BoxGeometry(58, 24, 2), mat({ color: 0x1b2230, metalness: .3 })); frame.position.set(0, 31, -S.wallR - 15); scene.add(frame);
   S.setScore = (hr, outs, name) => {
     const g = sbC.getContext('2d'); g.fillStyle = '#05080f'; g.fillRect(0, 0, 1024, 384);

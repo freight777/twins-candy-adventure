@@ -40,23 +40,24 @@ export function createBatter(name = 'JUDGE', number = '99') {
   const root = new THREE.Group(), skin = skinMat(), navy = cloth(0x10203f), stripes = cloth(0xffffff, { map: pinstripe('#f7f7f4', '#14234a') });
   const shoe = new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: .5 });
   // legs: hips to feet with knees bent
-  const hipsY = 2.75, feet = [new THREE.Vector3(-.85, .12, .05), new THREE.Vector3(.85, .12, .25)];
-  const legBones = feet.map((f, i) => { const s = i ? 1 : -1; return { upper: bone(root, .4, .3, stripes), lower: bone(root, .3, .22, stripes), hip: new THREE.Vector3(s * .32, hipsY, 0), foot: f, pole: new THREE.Vector3(s * .4, 0, -1) }; });
-  feet.forEach((f) => { const sh = new THREE.Mesh(new THREE.BoxGeometry(.42, .26, 1.0), shoe); sh.position.set(f.x, .13, f.z - .15); sh.castShadow = true; root.add(sh); const toe = new THREE.Mesh(sph(.21, 12, 8), shoe); toe.position.set(f.x, .14, f.z - .6); toe.scale.set(1, .7, 1); root.add(toe); });
+  const hipsY = 2.75, feet = [new THREE.Vector3(.15, .12, -.95), new THREE.Vector3(.15, .12, .95)];
+  const legBones = feet.map((f, i) => { const s = i ? 1 : -1; return { upper: bone(root, .4, .3, stripes), lower: bone(root, .3, .22, stripes), hip: new THREE.Vector3(0, hipsY, s * .34), foot: f, pole: new THREE.Vector3(1, 0, 0) }; });
+  feet.forEach((f) => { const sh = new THREE.Mesh(new THREE.BoxGeometry(1.0, .26, .42), shoe); sh.position.set(f.x + .15, .13, f.z); sh.castShadow = true; root.add(sh); const toe = new THREE.Mesh(sph(.21, 12, 8), shoe); toe.position.set(f.x + .6, .14, f.z); toe.scale.set(1, .7, 1); root.add(toe); });
   // torso (jersey + belt + undershirt arms)
-  const torso = new THREE.Group(); torso.position.set(0, hipsY, 0); root.add(torso);
+  const BASE = -Math.PI / 2 + .35;
+  const torso = new THREE.Group(); torso.position.set(0, hipsY, 0); torso.rotation.y = BASE; root.add(torso);
   const chest = new THREE.Mesh(sph(1, 32, 24), stripes); chest.scale.set(.92, 1.08, .6); chest.position.y = 1.0; chest.castShadow = true; torso.add(chest);
   const waist = new THREE.Mesh(cyl(.55, .52, .7, 24), stripes); waist.scale.set(1, 1, .7); waist.position.y = .05; torso.add(waist);
   const belt = new THREE.Mesh(new THREE.TorusGeometry(.56, .06, 10, 28), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: .4 })); belt.rotation.x = Math.PI / 2; belt.scale.set(1, .72, 1); belt.position.y = -.1; torso.add(belt);
   const neck = new THREE.Mesh(cyl(.17, .21, .35, 16), skin); neck.position.y = 2.05; torso.add(neck);
   const backPlate = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.4), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, map: canvasTex(256, 320, (g, w, h) => { g.fillStyle = '#10203f'; g.textAlign = 'center'; g.font = '700 50px Arial, sans-serif'; g.fillText(name.slice(0, 8), w / 2, 62); g.font = '700 180px Arial, sans-serif'; g.fillText(number, w / 2, 240); }) }));
   backPlate.position.set(0, 1.05, .56); torso.add(backPlate);
-  const hd = head(torso, navy, skin, true); hd.position.set(0, 2.55, 0);
+  const hd = head(torso, navy, skin, true); hd.position.set(0, 2.55, 0); hd.rotation.y = Math.PI / 2 - .35;
   // bat and hands
-  const pivot = new THREE.Group(); pivot.position.set(.55, 3.55, -.45); root.add(pivot);
+  const pivot = new THREE.Group(); pivot.position.set(.35, 3.8, .55); root.add(pivot);
   const bat = new THREE.Group(); pivot.add(bat);
   const wood = new THREE.MeshPhysicalMaterial({ color: 0xc89a5a, roughness: .35, clearcoat: .5 });
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.22, .085, 3.1, 24), wood); barrel.rotation.z = -Math.PI / 2; barrel.position.x = 2.0; barrel.castShadow = true; bat.add(barrel);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.22, .085, 3.7, 24), wood); barrel.rotation.z = -Math.PI / 2; barrel.position.x = 2.2; barrel.castShadow = true; bat.add(barrel);
   const handle = new THREE.Mesh(cyl(.075, .075, .7, 14), new THREE.MeshStandardMaterial({ color: 0x241810, roughness: .8 })); handle.rotation.z = Math.PI / 2; handle.position.x = .15; bat.add(handle);
   const knob = new THREE.Mesh(sph(.12, 14, 10), new THREE.MeshStandardMaterial({ color: 0x241810 })); knob.position.x = -.22; bat.add(knob);
   const gloves = [0, .35].map((x) => { const g = new THREE.Mesh(sph(.16, 14, 10), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .7 })); g.position.x = x; bat.add(g); return g; });
@@ -64,24 +65,25 @@ export function createBatter(name = 'JUDGE', number = '99') {
   let t0 = 0;
   const api = {
     root, pivot, bat, torso,
-    reset() { api._anim = null; pivot.rotation.set(0, -1.7, .45); },
+    reset() { api._anim = null; pivot.rotation.set(0, -1.7, 1.1); },
     swing(theta, onContact, dur = .24) {
       const a0 = -1.7, a1 = theta + 1.25; let t = 0, hit = false;
       api._anim = (dt) => {
         t += dt; const k = clamp(t / dur, 0, 1), e = k * k * (3 - 2 * k);
-        pivot.rotation.y = lerp(a0, a1, e); pivot.rotation.z = lerp(.45, -.12, e); torso.rotation.y = lerp(.25, -.7, e); pivot.position.x = .55 + e * .15;
+        pivot.rotation.y = lerp(a0, a1, e); pivot.rotation.z = lerp(1.1, -.12, e); torso.rotation.y = lerp(BASE - .3, BASE + .9, e); pivot.position.x = .35 + e * .2;
         if (!hit && k >= .46) { hit = true; onContact && onContact(); }
         if (k >= 1) api._anim = null;
       };
     },
     update(dt, t) {
-      if (api._anim) api._anim(dt); else { pivot.rotation.y = -1.7 + Math.sin(t * 2.2) * .04; pivot.rotation.z = .45 + Math.sin(t * 1.7) * .02; torso.rotation.y = .25 + Math.sin(t * 1.3) * .03; pivot.position.x = .55; }
+      if (api._anim) api._anim(dt); else { pivot.rotation.y = -1.7 + Math.sin(t * 2.2) * .04; pivot.rotation.z = 1.1 + Math.sin(t * 1.7) * .03; torso.rotation.y = BASE + Math.sin(t * 1.3) * .03; pivot.position.x = .35; }
+      hd.rotation.y = Math.PI / 2 - (torso.rotation.y - BASE) * .9 - .35;
       root.updateMatrixWorld(true);
       legBones.forEach((L) => { const k = joint(L.hip, L.foot.clone().setY(.45), 1.45, 1.4, L.pole); L.upper(L.hip, k); L.lower(k, L.foot.clone().setY(.45)); });
       // arms: shoulders (on the rotating torso) reach to the two hands on the bat handle
       arms.forEach((A, i) => {
         const sh = torso.localToWorld(new THREE.Vector3(A.s * .78, 1.55, 0)), local = root.worldToLocal(sh), hand = root.worldToLocal(gloves[i].getWorldPosition(new THREE.Vector3()));
-        const el = joint(local, hand, 1.05, 1.0, new THREE.Vector3(A.s * .6, -1, .3)); A.upper(local, el); A.fore(el, hand);
+        const el = joint(local, hand, 1.05, 1.0, new THREE.Vector3(.3, -1, A.s * .6)); A.upper(local, el); A.fore(el, hand);
       });
     },
     unswing() { api.reset(); },
