@@ -2,25 +2,39 @@
 // Real voice-over (v2) will be recordings played through the same unlock/master chain.
 let ctx = null, master = null, musicBus = null, reverbIn = null, muted = false, musicLevel = 0.5;
 
+function createGraph() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  ctx = new AC();
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4;
+  master = ctx.createGain(); master.gain.value = muted ? 0 : 0.8; master.connect(comp); comp.connect(ctx.destination);
+  musicBus = ctx.createGain(); musicBus.gain.value = musicLevel; musicBus.connect(master);
+  // small dreamy reverb so everything sounds less "beepy"
+  const len = Math.floor(ctx.sampleRate * 1.8), buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.4); }
+  const conv = ctx.createConvolver(); conv.buffer = buf;
+  reverbIn = ctx.createGain(); reverbIn.gain.value = 0.28; reverbIn.connect(conv); conv.connect(master);
+}
+function primeSpeech() {                    // iPads only allow speech after a tap: "prime" it with a silent word
+  if (!hasTTS || primeSpeech.done) return;
+  primeSpeech.done = true;
+  const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u);
+}
+/** Start (or wake up) the sound. Safe to call any time; every tap anywhere calls it. */
 export function unlock() {
-  if (!ctx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    ctx = new AC();
-    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4;
-    master = ctx.createGain(); master.gain.value = muted ? 0 : 0.8; master.connect(comp); comp.connect(ctx.destination);
-    musicBus = ctx.createGain(); musicBus.gain.value = musicLevel; musicBus.connect(master);
-    // small dreamy reverb so everything sounds less "beepy"
-    const len = Math.floor(ctx.sampleRate * 1.8), buf = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let c = 0; c < 2; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.4); }
-    const conv = ctx.createConvolver(); conv.buffer = buf;
-    reverbIn = ctx.createGain(); reverbIn.gain.value = 0.28; reverbIn.connect(conv); conv.connect(master);
-  }
-  if (ctx.state !== 'running') ctx.resume();
-  if (hasTTS && !unlock.spoke) {            // iPads only allow speech after a tap: "prime" it with a silent word
-    unlock.spoke = true;
-    const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u);
-  }
+  if (!ctx) { createGraph(); primeSpeech(); }
+  if (ctx && (ctx.state === 'suspended' || ctx.state === 'interrupted')) ctx.resume().catch(() => {});   // iOS uses "interrupted" after Siri / a phone call
+}
+// any gesture anywhere (quiz buttons, the deck, the eat button...), not only the 3D canvas; iOS needs touchend for the mute-switch path
+if (typeof window !== 'undefined') {
+  addEventListener('pointerdown', unlock, { capture: true, passive: true });
+  addEventListener('touchend', unlock, { capture: true, passive: true });
+  // the iPad locked / the app went to the background: stop talking and pause the sound; wake it again on return
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { stopSpeech(); if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); }
+    else { unlock(); if (ctx) nextT = Math.max(nextT, ctx.currentTime + 0.1); if (hasTTS) window.speechSynthesis.resume(); }
+  });
+  addEventListener('pagehide', () => stopSpeech());
 }
 // ================= talking: the device's own text-to-speech, one voice "profile" per character =================
 // (Later we can swap any of these for your own recordings.)
@@ -43,6 +57,7 @@ const PROFILES = {
   rainbow:  { pitch: 1.3,  rate: 1.0,  prefer: ['Samantha', 'Ava', ...FEMALE] },
   cloud:    { pitch: 1.05, rate: 0.82, prefer: ['Tessa', 'Moira', ...FEMALE] },
   rain:     { pitch: 0.95, rate: 0.92, prefer: ['Karen', 'Serena', ...FEMALE] },
+  princess: { pitch: 1.3,  rate: 0.92, prefer: FEMALE },
 };
 function pickVoice(prefer) {
   const en = voiceList.filter((v) => /^en/i.test(v.lang));
@@ -108,6 +123,8 @@ function noise(dur = 0.4, { vol = 0.3, from = 1500, to = 1500, q = 0.8, type = '
 
 export const sfx = {
   pop: () => { tone(500, 0.12, { slide: 2.2, vol: 0.25 }); },
+  soft: () => { tone(392, 0.16, { type: 'triangle', slide: 0.85, vol: 0.16, wet: .25 }); tone(330, 0.2, { type: 'sine', slide: 0.85, vol: 0.12, delay: .12, wet: .25 }); },
+  good: () => [659.25, 880, 1108.73, 1318.51].forEach((f, i) => tone(f, 0.32, { type: 'triangle', vol: 0.18, delay: i * 0.09, wet: .3 })),
   ting: () => { tone(1568, 0.6, { vol: 0.15, wet: .4 }); tone(2093, 0.7, { vol: 0.08, delay: 0.05, wet: .4 }); },
   note: (i = 0) => { const f = PENTA[i % PENTA.length]; tone(f, 0.6, { type: 'triangle', vol: 0.3, wet: .35 }); tone(f * 2.005, 0.5, { vol: 0.07, wet: .4 }); },
   sparkle: () => PENTA.forEach((f, i) => tone(f * 2, 0.45, { delay: i * 0.06, vol: 0.12, wet: .4 })),
@@ -202,6 +219,7 @@ function lead(kind, midi, dur, delay, vol = 0.2) {
 
 function schedule() {
   if (!ctx || !cur) return;
+  if (nextT < ctx.currentTime - 0.3) nextT = ctx.currentTime + 0.1;   // back from the background: don't fire every missed note at once
   const eighth = 60 / cur.bpm / 2;
   while (nextT < ctx.currentTime + 0.4) {
     const s = step % 8, bar = Math.floor(step / 8);

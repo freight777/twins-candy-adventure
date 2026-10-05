@@ -1,4 +1,5 @@
 import { FOODS, princessSVG, staffSVG, wallSVG, floorSVG, tableSVG } from './art.js';
+import { unlock, say as speak, sfx as fx } from '../audio.js';
 
 const $ = (s) => document.querySelector(s);
 const princess = $('#princess'), plate = $('#plate'), quiz = $('#quiz'), butler = $('#butler');
@@ -19,31 +20,9 @@ $('#butler .b-body').innerHTML = staffSVG('butler');
   $('#staff').appendChild(w);
 });
 
-// ---------- sound: the device's own voice for words, tiny synth for dings ----------
-const hasTTS = 'speechSynthesis' in window;
-function say(text) {
-  if (!hasTTS) return;
-  const synth = window.speechSynthesis; synth.cancel();
-  const u = new SpeechSynthesisUtterance(text); u.rate = 0.9; u.pitch = 1.25; u.lang = 'en-US';
-  const v = synth.getVoices().find((x) => /^en/i.test(x.lang) && /female|samantha|zira|aria|jenny|google us/i.test(x.name));
-  if (v) u.voice = v;
-  synth.speak(u);
-}
-let actx = null;
-function tone(freq, t0, dur, type = 'sine', vol = 0.18) {
-  if (!actx) return;
-  const o = actx.createOscillator(), g = actx.createGain();
-  o.type = type; o.frequency.value = freq; o.connect(g); g.connect(actx.destination);
-  const t = actx.currentTime + t0;
-  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  o.start(t); o.stop(t + dur + 0.05);
-}
-const sfx = {
-  good: () => [660, 880, 1100, 1320].forEach((f, i) => tone(f, i * 0.09, 0.3)),
-  bell: () => { tone(1568, 0, 0.9, 'triangle'); tone(2093, 0, 0.7, 'triangle', 0.1); },
-  oops: () => { tone(300, 0, 0.25, 'triangle'); tone(240, 0.15, 0.3, 'triangle'); },
-  yum: () => [523, 659, 784].forEach((f, i) => tone(f, i * 0.12, 0.25, 'square', 0.07)),
-};
+// ---------- sound: the shared audio (src/audio.js) — same voices, reverb and lock/unlock handling as the other games ----------
+const say = (text) => speak(text, 'princess');
+const sfx = { good: fx.good, bell: fx.ting, oops: fx.soft, yum: fx.yum };
 
 // ---------- the questions: just numbers, like 3 + 2 = ? ----------
 const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
@@ -136,8 +115,7 @@ function hearts() {
 }
 
 $('#go').addEventListener('click', () => {
-  actx = new (window.AudioContext || window.webkitAudioContext)();
-  if (hasTTS) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); }
+  unlock();
   $('#start').classList.add('hidden');
   startRound();
 });
