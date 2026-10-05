@@ -1,9 +1,9 @@
 // Offline support: serve from cache first, refresh the cache in the background.
 // Bump VERSION when you want everyone to drop old files immediately.
-const VERSION = 'games-v6';
+const VERSION = 'games-v7';
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(['./', './candy.html', './princess.html', './uni.html', './mermaid.html', './derby.html', './manifest.webmanifest', './icon-192.png', './apple-touch-icon.png'])).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(['./', './candy.html', './princess.html', './uni.html', './mermaid.html', './derby.html', './manifest.webmanifest', './icon-ae-192.png', './icon-ae-512.png', './apple-touch-icon-ae.png'])).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
