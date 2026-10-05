@@ -1,8 +1,8 @@
 // Graphics quality tiers. The game starts on the best one and quietly steps down if the iPad is struggling.
 const TIERS = {
-  high:   { pr: 2,   shadow: 2048, bloom: true },
-  medium: { pr: 1.5, shadow: 1024, bloom: true },
-  low:    { pr: 1,   shadow: 0,    bloom: false },
+  high:   { pr: 2,   shadow: 2048, bloom: true, post: true },
+  medium: { pr: 1.5, shadow: 1024, bloom: true, post: false },
+  low:    { pr: 1,   shadow: 0,    bloom: false, post: false },
 };
 export const ORDER = ['high', 'medium', 'low'];
 export const Q = { name: 'high', ...TIERS.high };

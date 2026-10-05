@@ -87,16 +87,51 @@ export function buildStadium(scene, T = {}) {
   const topR = tiers[2][1];
   const frieze = new THREE.Mesh(new THREE.CylinderGeometry(topR + 2, topR + 2, 9, 120, 1, true, centerAng - span / 2, span), mat({ map: frTex, side: THREE.DoubleSide, roughness: .6 })); frieze.position.y = 8 + 2 * 19 + 17; scene.add(frieze);
   const roof = new THREE.Mesh(new THREE.CylinderGeometry(topR + 3, topR + 3, 2, 120, 1, true, centerAng - span / 2, span), mat({ color: 0x2f6f5a, side: THREE.DoubleSide })); roof.position.y = 8 + 2 * 19 + 22; scene.add(roof);
-  // fans: small, muted colors, mostly navy, white and gray with some red/blue
-  const FAN = 5200, fans = new THREE.InstancedMesh(sph(.5, 8, 6), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .9 }), FAN), d = new THREE.Object3D(), col = new THREE.Color();
-  const palette = [0x14234a, 0x14234a, 0x14234a, 0xf0f0f0, 0xf0f0f0, 0x9aa0ac, 0x2a4a9a, 0xb02030, 0x3a3a44, 0xc8b090, 0x6a8ac0];
+  // ---- the crowd: thousands of painted fans (skin tones, hair, caps, shirts; about a third cheering) as camera-facing cutouts ----
+  const CW = 96, CH = 128, COLS = 8, ROWS = 4;
+  const crowdTex = canvasTex(CW * COLS, CH * ROWS, (g) => {
+    const skins = ['#f3d2b4', '#e6b88f', '#cf9a6d', '#a8734a', '#7a4f33', '#5a3a28'], hairs = ['#1e130b', '#3b2616', '#6b4423', '#b78a42', '#d8c08a', '#8e8e90', '#0e0e10'];
+    const shirts = ['#14234a', '#14234a', '#f2f2f2', '#f2f2f2', '#9aa0ac', '#b02030', '#2a4a9a', '#33343c', '#c8b090', '#6a8ac0', '#1f5a3a'], caps = ['#14234a', '#14234a', '#f2f2f2', '#b02030', '#33343c'];
+    const pick1 = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const x0 = c * CW, y0 = r * CH, cx = x0 + CW / 2, skin = pick1(skins), hair = pick1(hairs), shirt = pick1(shirts), cheer = Math.random() < .35, hasCap = Math.random() < .42, capC = pick1(caps), tilt = (Math.random() - .5) * .14;
+      g.save(); g.translate(cx, y0 + CH); g.rotate(tilt); g.translate(-cx, -(y0 + CH));
+      if (cheer) {                                                      // raised arm
+        g.strokeStyle = shirt; g.lineWidth = 13; g.lineCap = 'round'; g.beginPath(); g.moveTo(cx + 24, y0 + CH - 26); g.lineTo(cx + 34, y0 + 34); g.stroke();
+        g.fillStyle = skin; g.beginPath(); g.arc(cx + 34, y0 + 28, 8.5, 0, 7); g.fill();
+      }
+      g.beginPath(); g.moveTo(x0 + 5, y0 + CH); g.quadraticCurveTo(x0 + 7, y0 + 72, cx - 20, y0 + 64); g.lineTo(cx + 20, y0 + 64); g.quadraticCurveTo(x0 + CW - 7, y0 + 72, x0 + CW - 5, y0 + CH); g.closePath();
+      g.fillStyle = shirt; g.fill(); const sh = g.createLinearGradient(0, y0 + 60, 0, y0 + CH); sh.addColorStop(0, 'rgba(255,255,255,.12)'); sh.addColorStop(1, 'rgba(0,0,0,.4)'); g.fillStyle = sh; g.fill();
+      g.strokeStyle = 'rgba(0,0,0,.28)'; g.lineWidth = 1.5; g.stroke();
+      g.fillStyle = skin; g.fillRect(cx - 7, y0 + 54, 14, 14); g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(cx - 7, y0 + 54, 14, 5);
+      const hg = g.createRadialGradient(cx - 5, y0 + 34, 4, cx, y0 + 40, 22); hg.addColorStop(0, skin); hg.addColorStop(1, 'rgba(0,0,0,.35)');
+      g.beginPath(); g.ellipse(cx, y0 + 40, 17, 20, 0, 0, 7); g.fillStyle = skin; g.fill(); g.fillStyle = hg; g.globalAlpha = .55; g.fill(); g.globalAlpha = 1; g.strokeStyle = 'rgba(0,0,0,.25)'; g.stroke();
+      if (hasCap) { g.fillStyle = capC; g.beginPath(); g.ellipse(cx, y0 + 30, 19, 16, 0, Math.PI, 0); g.fill(); g.beginPath(); g.ellipse(cx + 9, y0 + 31, 15, 4.5, 0, 0, 7); g.fill(); }
+      else { g.fillStyle = hair; g.beginPath(); g.ellipse(cx, y0 + 31, 18, 15, 0, Math.PI, 0); g.fill(); if (Math.random() < .4) { g.fillRect(cx - 18, y0 + 31, 6, 24); g.fillRect(cx + 12, y0 + 31, 6, 24); } }
+      g.fillStyle = '#1a1210'; g.beginPath(); g.arc(cx - 6, y0 + 42, 1.8, 0, 7); g.arc(cx + 6, y0 + 42, 1.8, 0, 7); g.fill();
+      g.strokeStyle = '#4a1a14'; g.lineWidth = 1.6; g.beginPath(); if (cheer) { g.fillStyle = '#4a1a14'; g.ellipse(cx, y0 + 51, 5, 3.4, 0, 0, 7); g.fill(); } else { g.moveTo(cx - 4, y0 + 51); g.quadraticCurveTo(cx, y0 + 53, cx + 4, y0 + 51); g.stroke(); }
+      g.restore();
+    }
+  });
+  crowdTex.anisotropy = 4;
+  const FAN = 5200, fanGeo = new THREE.PlaneGeometry(1, 1).translate(0, .5, 0), cells = new Float32Array(FAN * 2);
+  const crowdMat = new THREE.MeshBasicMaterial({ map: crowdTex, alphaTest: .45, side: THREE.DoubleSide });
+  crowdMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aCell;').replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = uv * vec2(.125, .25) + aCell;\n#endif');
+  };
+  crowdMat.customProgramCacheKey = () => 'crowd';
+  const fans = new THREE.InstancedMesh(fanGeo, crowdMat, FAN), d = new THREE.Object3D(), col = new THREE.Color();
+  fanGeo.setAttribute('aCell', new THREE.InstancedBufferAttribute(cells, 2));
   S.fans = [];
   for (let i = 0; i < FAN; i++) {
-    const k = Math.floor(Math.random() * 3), [r0, r1] = tiers[k], h = 16 + k * 3, f = Math.random(), r = lerp(r0 + 1.5, r1 - 1.5, f), ang = centerAng + rand(-span / 2 + .05, span / 2 - .05), y = 8 + k * 19 + lerp(-h / 2 + 1.4, h / 2 - 1, 1 - f);
-    const x = Math.sin(ang) * r, z = Math.cos(ang) * r, sc = rand(.9, 1.25);
-    d.position.set(x, y, z); d.scale.set(sc, sc * 1.25, sc); d.updateMatrix(); fans.setMatrixAt(i, d.matrix); col.set(pick(palette)).offsetHSL(0, 0, rand(-.05, .05)); fans.setColorAt(i, col); S.fans.push({ x, y, z, ph: rand(0, 6), s: sc });
+    const k = Math.floor(Math.random() * 3), [r0, r1] = tiers[k], h = 16 + k * 3, f = Math.random(), r = lerp(r0 + 1.5, r1 - 1.5, f), ang = centerAng + rand(-span / 2 + .05, span / 2 - .05), y = 8 + k * 19 + lerp(-h / 2 + 1.4, h / 2 - 1, 1 - f) - .9;
+    const x = Math.sin(ang) * r, z = Math.cos(ang) * r, w = rand(1.8, 2.5), hgt = w * (CH / CW), ry = Math.atan2(-x, -z);
+    d.position.set(x, y, z); d.rotation.set(0, ry, 0); d.scale.set(w, hgt, 1); d.updateMatrix(); fans.setMatrixAt(i, d.matrix);
+    const cx = Math.floor(Math.random() * COLS), cy = Math.floor(Math.random() * ROWS); cells[i * 2] = cx / COLS; cells[i * 2 + 1] = 1 - (cy + 1) / ROWS;
+    const tone = (1 - k * .09) * rand(.78, 1.0); col.setRGB(tone, tone, tone); fans.setColorAt(i, col);
+    S.fans.push({ x, y, z, ph: rand(0, 6), s: 1, w, hgt, ry });
   }
-  fans.instanceColor.needsUpdate = true; scene.add(fans); S.fanMesh = fans;
+  fans.instanceColor.needsUpdate = true; fans.frustumCulled = false; scene.add(fans); S.fanMesh = fans;
   S.flashes = []; for (let i = 0; i < 40; i++) { const sp = glowSprite(0xffffff, 3, 0); const f = S.fans[Math.floor(Math.random() * FAN)]; sp.position.set(f.x, f.y + 1, f.z); scene.add(sp); S.flashes.push({ sp, t: rand(0, 6) }); }
 
   // ---- light towers (banks of lamps) and the scoreboard ----
@@ -134,7 +169,7 @@ export function buildStadium(scene, T = {}) {
     S.flashes.forEach((f) => { f.t -= dt; f.sp.material.opacity = f.t < .12 && f.t > 0 ? .9 : 0; if (f.t < -rand(1, 5)) f.t = rand(.5, 4); });
     if (S.cheering > 0) {
       S.cheering -= dt; const amp = Math.min(1, S.cheering), fm = S.fanMesh;
-      S.fans.forEach((f, i) => { dummy.position.set(f.x, f.y + Math.abs(Math.sin(t * 9 + f.ph)) * 1.1 * amp, f.z); dummy.scale.set(f.s, f.s * 1.25, f.s); dummy.updateMatrix(); fm.setMatrixAt(i, dummy.matrix); });
+      S.fans.forEach((f, i) => { dummy.position.set(f.x, f.y + Math.abs(Math.sin(t * 9 + f.ph)) * 1.1 * amp, f.z); dummy.rotation.set(0, f.ry, 0); dummy.scale.set(f.w, f.hgt * (1 + Math.abs(Math.sin(t * 9 + f.ph)) * .06 * amp), 1); dummy.updateMatrix(); fm.setMatrixAt(i, dummy.matrix); });
       fm.instanceMatrix.needsUpdate = true;
     }
   };

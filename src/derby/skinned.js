@@ -74,7 +74,15 @@ export function createSkinnedRig(template, o) {
   attach(gb('DEF-head'), dome, V(hc.x, hc.y + hs.y * .06, hc.z - hr * .06));
   if (o.bill) { const bill = new THREE.Mesh(new THREE.CylinderGeometry(hr * 1.02, hr * 1.02, hr * .1, 24, 1, false, 0, Math.PI), capMat); bill.scale.set(1, 1, 1.5); bill.castShadow = true; attach(gb('DEF-head'), bill, V(hc.x, hc.y + hs.y * .12, hc.z + hr * .1), new THREE.Quaternion().setFromEuler(new THREE.Euler(.3, 0, 0))); }
   if (o.earFlap) { const f = new THREE.Mesh(new THREE.SphereGeometry(hr * .42, 14, 10), capMat); f.scale.set(.5, 1, .9); attach(gb('DEF-head'), f, V(hc.x + hr * .98, hc.y - hs.y * .04, hc.z)); }
-  [-1, 1].forEach((sd) => { const e = new THREE.Mesh(new THREE.SphereGeometry(hr * .085, 12, 8), new THREE.MeshStandardMaterial({ color: 0x1a1210, roughness: .3 })); attach(gb('DEF-head'), e, V(hc.x + sd * hr * .36, hc.y + hs.y * .02, regionBB.head.max.z - hr * .02)); });
+  // face: eyes with whites and irises, eyebrows, ears and a mouth
+  [-1, 1].forEach((sd) => {
+    const hb = gb('DEF-head'), ex = hc.x + sd * hr * .36, ey = hc.y + hs.y * .02, ez = regionBB.head.max.z - hr * .03;
+    const white = new THREE.Mesh(new THREE.SphereGeometry(hr * .1, 14, 10), new THREE.MeshStandardMaterial({ color: 0xf4f0ea, roughness: .35 })); white.scale.set(1.15, .8, .6); attach(hb, white, V(ex, ey, ez));
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(hr * .055, 12, 8), new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: .2 })); attach(hb, iris, V(ex, ey, ez + hr * .045));
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(hr * .32, hr * .05, hr * .06), new THREE.MeshStandardMaterial({ color: 0x1a1210, roughness: .9 })); attach(hb, brow, V(ex, ey + hr * .17, ez + hr * .01), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -sd * .12)));
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(hr * .16, 12, 8), new THREE.MeshPhysicalMaterial({ color: o.skin, roughness: .55 })); ear.scale.set(.5, 1, .8); attach(hb, ear, V(hc.x + sd * hr * 1.0, hc.y - hs.y * .02, hc.z - hr * .1));
+  });
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(hr * .3, hr * .035, hr * .05), new THREE.MeshStandardMaterial({ color: 0x5a2a22, roughness: .6 })); attach(gb('DEF-head'), mouth, V(hc.x, hc.y - hs.y * .22, regionBB.head.max.z - hr * .02));
   const nose = new THREE.Mesh(new THREE.SphereGeometry(hr * .12, 12, 8), new THREE.MeshPhysicalMaterial({ color: o.skin, roughness: .55 })); attach(gb('DEF-head'), nose, V(hc.x, hc.y - hs.y * .1, regionBB.head.max.z + hr * .01));
   if (o.back) {
     // measure where the jersey surface really is on the upper back (a ray from behind), so the plate sits on it

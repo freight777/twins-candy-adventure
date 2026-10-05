@@ -178,7 +178,7 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
 export function createPitcher(clips) {
   const clip = clips.pitch, skin = skinMat(0xc08a63), gray = cloth(0xd6d9df), red = cloth(0xb81f30);
   const rig = clips.mannequin
-    ? createSkinnedRig(clips.mannequin, { skin: 0xc08a63, hands: 0xc08a63, forearm: 0xc08a63, sleeve: 0xd8dbe0, pants: 0xd8dbe0, jersey: 0xd8dbe0, shoes: 0x111114, stripes: false, cap: 0xb81f30, bill: true, curl: .5 })
+    ? createSkinnedRig(clips.mannequin, { skin: 0xc08a63, hands: 0xc08a63, forearm: 0xb81f30, sleeve: 0xc9ccd3, pants: 0xc2c5cd, jersey: 0xd0d3d9, shoes: 0x111114, stripes: false, cap: 0xb81f30, bill: true, curl: .5 })
     : createRig({ torsoMat: gray, legMat: gray, armMat: gray, foreMat: new THREE.MeshPhysicalMaterial({ color: 0xc08a63, roughness: .55 }), helmet: red, skin, ears: false });
   const { root } = rig, REL_IDX = clip.center;
   const mitt = new THREE.Mesh(sph(.3, 16, 12), new THREE.MeshStandardMaterial({ color: 0x6a3a1c, roughness: .6 })); mitt.castShadow = true; root.add(mitt);
