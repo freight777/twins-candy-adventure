@@ -10,6 +10,7 @@ import { skyEnv } from '../env.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, glowSprite, RAINBOW } from '../util.js';
 import { unlock, playMusic, stopMusic, say, sfx } from '../audio.js';
 import { buildStadium } from './stadium.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { createBatter, createPitcher, loadClips } from './players.js';
 
 const $ = (s) => document.querySelector(s);
@@ -67,8 +68,15 @@ const camLook = new THREE.Vector3(0, 3.0, -18);
 
 async function boot() {
   await new Promise((r) => setTimeout(r, 30));
-  stadium = buildStadium(scene);
-  scene.environment = skyEnv(renderer, 'park', { top: 0x6fb4ff, mid: 0xfff4e6, bottom: 0xb8e8a8, sun: [25, 40, -20], sunPower: 6 }); scene.environmentIntensity = 0.35;
+  // photographic lighting (Poly Haven "Orlando Stadium" HDRI, CC0) and photo-scanned surfaces (ambientCG, CC0)
+  const BASE = import.meta.env.BASE_URL, tl = new THREE.TextureLoader();
+  const loadT = async (n) => { const g = async (f, srgb) => { const t = await tl.loadAsync(`${BASE}assets/derby/tex/${f}.jpg`); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; }; return { c: await g(n + '_c', true), n: await g(n + '_n'), r: await g(n + '_r') }; };
+  const T = { grass: await loadT('grass'), dirt: await loadT('dirt'), conc: await loadT('conc') };
+  let hdr = null; try { hdr = await new HDRLoader().loadAsync(`${BASE}assets/derby/hdr/orlando_stadium_2k.hdr`); hdr.mapping = THREE.EquirectangularReflectionMapping; } catch (e) { console.warn('HDRI failed', e); }
+  T.hdr = !!hdr;
+  stadium = buildStadium(scene, T);
+  if (hdr) { scene.environment = hdr; scene.background = hdr; scene.environmentIntensity = 1.0; scene.backgroundIntensity = 1.0; stadium.sky.visible = false; stadium.clouds.forEach((c) => (c.visible = false)); }
+  else { scene.environment = skyEnv(renderer, 'park', { top: 0x6fb4ff, mid: 0xfff4e6, bottom: 0xb8e8a8, sun: [25, 40, -20], sunPower: 6 }); scene.environmentIntensity = 0.35; }
   scene.fog = new THREE.Fog(0xc8d8e8, 260, 820);
   scene.traverse((o) => { const m = o.material; if (m && m.isShaderMaterial && !m.userData.lin) { m.fragmentShader = linearizeFrag(m.fragmentShader); m.userData.lin = true; m.needsUpdate = true; } });
   const clips = await loadClips(import.meta.env.BASE_URL);              // real motion-capture swing and pitch (CMU Graphics Lab database)

@@ -5,7 +5,7 @@ const sph = (r, w = 12, h = 8) => new THREE.SphereGeometry(r, w, h);
 const mat = (o) => new THREE.MeshStandardMaterial({ roughness: .9, ...o });
 
 /** A big-league ballpark in a realistic style (generic design, no team logos). Home plate is the origin; the mound is toward -Z. */
-export function buildStadium(scene) {
+export function buildStadium(scene, T = {}) {
   const S = { cheering: 0, wallR: 112 };
 
   // ---- sky: photographic gradient, haze at the horizon, soft thin clouds ----
@@ -17,7 +17,7 @@ export function buildStadium(scene) {
       vec3 s = normalize(vec3(.45,.32,-.8)); float sd = max(dot(d,s),0.); c += vec3(1.,.82,.55)*(pow(sd,400.)*3. + pow(sd,18.)*.45);
       gl_FragColor = vec4(c,1.); }`,
   }));
-  scene.add(sky);
+  scene.add(sky); S.sky = sky;
   const cloudTex = canvasTex(256, 128, (g, w, h) => { for (let i = 0; i < 40; i++) { const x = 40 + Math.random() * 176, y = 40 + Math.random() * 48, r = 20 + Math.random() * 34, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); } });
   S.clouds = [];
   for (let i = 0; i < 14; i++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(rand(160, 300), rand(50, 90)), new THREE.MeshBasicMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: rand(.6, .95) })); m.position.set(rand(-380, 380), rand(110, 220), rand(-420, -150)); m.rotation.x = -.35; scene.add(m); S.clouds.push(m); }
@@ -26,17 +26,29 @@ export function buildStadium(scene) {
   const noise = (g, w, h, n, a) => { for (let i = 0; i < n; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * a})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); g.fillStyle = `rgba(255,255,255,${Math.random() * a * .6})`; g.fillRect(Math.random() * w, Math.random() * h, 1, 3); } };
   const grassTex = canvasTex(512, 512, (g, w, h) => { const bands = 8; for (let i = 0; i < bands; i++) { g.fillStyle = i % 2 ? '#2f6e32' : '#3b8038'; g.fillRect(0, i * (h / bands), w, h / bands + 1); } noise(g, w, h, 14000, .12); }, [1, 16]);
   grassTex.anisotropy = 8;
-  const grass = new THREE.Mesh(new THREE.CircleGeometry(220, 64).rotateX(-Math.PI / 2), mat({ map: grassTex })); grass.position.set(0, -.02, -60); grass.receiveShadow = true; scene.add(grass);
+  // photographic PBR surfaces (ambientCG, CC0): colour + normal + roughness maps, tiled
+  const DIRT_TINT = 0xd89a68;
+  const pbr = (t, rx, ry, extra = {}) => { const set = (x) => { const c = x.clone(); c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(rx, ry); c.anisotropy = 8; c.needsUpdate = true; return c; }; return new THREE.MeshStandardMaterial({ map: set(t.c), normalMap: set(t.n), roughnessMap: set(t.r), roughness: 1, ...extra }); };
+  const mow = (m) => {          // mowing stripes: alternate bands of lighter and darker turf
+    m.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix*vec4(transformed,1.)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(.78, 1.08, step(.5, fract(vWP.z/9.)));');
+    };
+    m.customProgramCacheKey = () => 'mow'; return m;
+  };
+  const grassMat = T.grass ? mow(pbr(T.grass, 150, 150, { color: 0xe4f2d0 })) : null;
+  const grass = new THREE.Mesh(new THREE.CircleGeometry(220, 64).rotateX(-Math.PI / 2), grassMat || mat({ map: grassTex })); grass.position.set(0, -.02, -60); grass.receiveShadow = true; scene.add(grass);
   const dirtTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#b57b4a'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(80,40,10,.18)'; g.lineWidth = 2; for (let y = 0; y < h; y += 9) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + Math.random() * 4); g.stroke(); } noise(g, w, h, 6000, .25); }, [6, 6]);
-  const dirt = mat({ map: dirtTex, roughness: 1 });
+  const dirt = T.dirt ? pbr(T.dirt, 4, 4, { color: DIRT_TINT }) : mat({ map: dirtTex, roughness: 1 });
   // infield: bases at the corners of a 90-ft diamond. Dirt base paths form the diamond's edges, the inside is grass,
   // and there is dirt around home, the mound and each base (second base sits in the dirt too).
   const dirtShapeTex = dirtTex.clone(); dirtShapeTex.repeat.set(1 / 7, 1 / 7); dirtShapeTex.needsUpdate = true;
-  const dirtFlat = mat({ map: dirtShapeTex, roughness: 1 });
+  const dirtFlat = T.dirt ? pbr(T.dirt, .2, .2, { color: DIRT_TINT }) : mat({ map: dirtShapeTex, roughness: 1 });
+  const dirtBase = T.dirt ? pbr(T.dirt, 2, 2, { color: DIRT_TINT }) : dirtFlat;
   const diamond = (half, cs) => { const pts = [[0, cs - half], [half, cs], [0, cs + half], [-half, cs]]; const sh = new THREE.Shape(); pts.forEach(([x, y], i) => sh[i ? 'lineTo' : 'moveTo'](x, y)); sh.closePath(); return sh; };
   const ringShape = diamond(19 + 4.4, 19); ringShape.holes.push(diamond(19 - 5, 19));
   const ring = new THREE.Mesh(new THREE.ShapeGeometry(ringShape).rotateX(-Math.PI / 2), dirtFlat); ring.position.y = .015; ring.receiveShadow = true; scene.add(ring);
-  [[19, -19], [0, -38], [-19, -19]].forEach(([x, z]) => { const c = new THREE.Mesh(new THREE.CircleGeometry(4.6, 36).rotateX(-Math.PI / 2), dirtFlat); c.position.set(x, .016, z); c.receiveShadow = true; scene.add(c); });
+  [[19, -19], [0, -38], [-19, -19]].forEach(([x, z]) => { const c = new THREE.Mesh(new THREE.CircleGeometry(4.6, 36).rotateX(-Math.PI / 2), dirtBase); c.position.set(x, .016, z); c.receiveShadow = true; scene.add(c); });
   const home = new THREE.Mesh(new THREE.CircleGeometry(9, 40).rotateX(-Math.PI / 2), dirt); home.position.set(0, .02, -.3); home.receiveShadow = true; scene.add(home);
   const track = new THREE.Mesh(new THREE.RingGeometry(S.wallR - 9, S.wallR, 96, 1, Math.PI * .1, Math.PI * .8).rotateX(-Math.PI / 2), mat({ color: 0x9a5f3a, side: THREE.DoubleSide })); track.position.y = .02; scene.add(track);
   const mound = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 5, .7, 32), dirt); mound.position.set(0, .35, -16.5); mound.receiveShadow = true; scene.add(mound);
@@ -63,7 +75,7 @@ export function buildStadium(scene) {
 
   // ---- the stands: three seating decks, concrete fascia, white frieze, thousands of fans ----
   const seatTex = canvasTex(512, 128, (g, w, h) => { g.fillStyle = '#17306a'; g.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 16) { g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, y, w, 3); } for (let x = 0; x < w; x += 20) { g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(x, 0, 2, h); } }, [18, 1]);
-  const seatMat = mat({ map: seatTex, side: THREE.DoubleSide, roughness: .8 }), concrete = mat({ color: 0x8c8f98, side: THREE.DoubleSide });
+  const seatMat = mat({ map: seatTex, side: THREE.DoubleSide, roughness: .8 }), concrete = T.conc ? pbr(T.conc, 80, 1.5, { side: THREE.DoubleSide, color: 0xc4c8d2 }) : mat({ color: 0x8c8f98, side: THREE.DoubleSide });
   const tiers = [[S.wallR + 3, S.wallR + 26], [S.wallR + 32, S.wallR + 56], [S.wallR + 62, S.wallR + 86]];
   const centerAng = Math.PI, span = 2.8;
   tiers.forEach(([r0, r1], k) => {
@@ -111,8 +123,8 @@ export function buildStadium(scene) {
   S.setScore(0, 0);
 
   // ---- lighting: low warm afternoon sun, soft sky fill, long shadows ----
-  scene.add(new THREE.HemisphereLight(0xbcd4ff, 0x4a5a3a, .7));
-  const sun = new THREE.DirectionalLight(0xffe2b8, 3.0); sun.position.set(34, 38, 26); sun.castShadow = true;
+  scene.add(new THREE.HemisphereLight(0xbcd4ff, 0x4a5a3a, T.hdr ? .25 : .7));
+  const sun = new THREE.DirectionalLight(0xffe2b8, T.hdr ? 2.4 : 3.0); sun.position.set(34, 38, 26); sun.castShadow = true;
   const c = sun.shadow.camera; c.left = c.bottom = -30; c.right = c.top = 30; c.near = 1; c.far = 150; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0004; sun.shadow.normalBias = .04; sun.shadow.radius = 2;
   sun.target.position.set(0, 0, -10); scene.add(sun, sun.target); S.sun = sun;
 

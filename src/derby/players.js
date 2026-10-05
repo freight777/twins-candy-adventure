@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { canvasTex, clamp, lerp } from '../util.js';
+import { loadMannequin, createSkinnedRig } from './skinned.js';
 
 const sph = (r, w = 24, h = 16) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 20) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -11,7 +12,8 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 export async function loadClips(base = '/') {
   const get = async (f) => { const c = await (await fetch(`${base}assets/mocap/${f}`)).json(); c.idx = {}; c.names.forEach((n, i) => (c.idx[n] = i * 3)); c.count = c.frames.length; return c; };
   const [swing, pitch] = await Promise.all([get('swing.json'), get('pitch.json')]);
-  return { swing, pitch };
+  let mannequin = null; try { mannequin = await loadMannequin(base); } catch (e) { console.warn('skinned body failed to load, using the simple body', e); }
+  return { swing, pitch, mannequin };
 }
 /** joint positions at a (fractional) frame index */
 function frameAt(c, f) {
@@ -23,7 +25,7 @@ const copyFrame = (F) => { const o = {}; Object.keys(F).forEach((n) => (o[n] = F
 const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 /** batting stance: hands by the rear shoulder, bat upright and tipped a little back over the shoulder, weight slightly on the back foot */
 function batterStance(F0) {
-  const F = copyFrame(F0), base = F.rsh.clone().add(V(.38, .12, .04)), a = V(.1, 1, .42).normalize();
+  const F = copyFrame(F0), base = F.rsh.clone().add(V(.8, -.1, .18)), a = V(.12, 1, .4).normalize();
   F.lwr = base.clone().addScaledVector(a, -.1); F.rwr = base.clone().addScaledVector(a, .3);               // bottom hand, top hand
   F.lfin = F.lwr.clone(); F.rfin = F.rwr.clone();
   F.rel = F.rsh.clone().add(F.rwr).multiplyScalar(.5).add(V(.05, -.6, .3)); F.lel = F.lsh.clone().add(F.lwr).multiplyScalar(.5).add(V(.05, -.5, -.15));
@@ -118,20 +120,22 @@ function createRig({ torsoMat, legMat, armMat, foreMat, helmet, skin, ears }) {
  *  His swing is the real CMU motion-capture "Baseball Swing". Hands, hips, shoulders and feet follow the recording. */
 export function createBatter(clips, name = 'JUDGE', number = '99') {
   const clip = clips.swing, skin = skinMat(), navy = cloth(0x10203f), stripes = cloth(0xffffff, { map: pinstripe('#f7f7f4', '#14234a') });
-  const rig = createRig({ torsoMat: stripes, legMat: stripes, armMat: navy, foreMat: navy, helmet: navy, skin, ears: true });
+  const rig = clips.mannequin
+    ? createSkinnedRig(clips.mannequin, { skin: 0x8a5a3c, hands: 0x1b1b1e, forearm: 0x10203f, sleeve: 0x10203f, pants: 0xf4f4f0, jersey: 0xf4f4f0, shoes: 0x111114, stripes: true, cap: 0x10203f, earFlap: true, bill: false, back: { name, number }, curl: 1.15 })
+    : createRig({ torsoMat: stripes, legMat: stripes, armMat: navy, foreMat: navy, helmet: navy, skin, ears: true });
   const { root, torso } = rig;
   // name and number on the back: a plate that sits just off the jersey and curves around the body so nothing is buried in it
   const plateGeo = new THREE.PlaneGeometry(.9, 1.2, 10, 1), pp = plateGeo.attributes.position;
   for (let i = 0; i < pp.count; i++) pp.setZ(i, -(pp.getX(i) * pp.getX(i)) * 0.3);
   const backPlate = new THREE.Mesh(plateGeo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, map: canvasTex(256, 320, (g, w, h) => { g.fillStyle = '#10203f'; g.textAlign = 'center'; g.font = '700 46px Arial, sans-serif'; g.fillText(name.slice(0, 8), w / 2, 70); g.font = '700 190px Arial, sans-serif'; g.fillText(number, w / 2, 258); }) }));
-  backPlate.position.set(0, 1.1, .64); torso.add(backPlate);
+  backPlate.position.set(0, 1.1, .64); if (torso) torso.add(backPlate);
   // bat
   const pivot = new THREE.Group(); root.add(pivot);
   const wood = new THREE.MeshPhysicalMaterial({ color: 0xc89a5a, roughness: .35, clearcoat: .5 });
   const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.22, .085, 3.7, 24), wood); barrel.rotation.z = -Math.PI / 2; barrel.position.x = 2.2; barrel.castShadow = true; pivot.add(barrel);
   const handle = new THREE.Mesh(cyl(.075, .075, .7, 14), new THREE.MeshStandardMaterial({ color: 0x241810, roughness: .8 })); handle.rotation.z = Math.PI / 2; handle.position.x = .15; pivot.add(handle);
   const knob = new THREE.Mesh(sph(.12, 14, 10), new THREE.MeshStandardMaterial({ color: 0x241810 })); knob.position.x = -.22; pivot.add(knob);
-  [0, .35].forEach((x) => { const g = new THREE.Mesh(sph(.16, 14, 10), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .7 })); g.position.x = x; pivot.add(g); });
+  if (!rig.skinned) [0, .35].forEach((x) => { const g = new THREE.Mesh(sph(.16, 14, 10), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .7 })); g.position.x = x; pivot.add(g); });
   const IDLE = 8, START = 10, RATE = 1.5, CONTACT = clip.center, axisQ = new THREE.Quaternion(), tmpQ = new THREE.Quaternion(), SWEET = 3.2;
   let anim = null, hold = null, baseX = 0, off = 0, offT = 0;
   const pose = (F) => {
@@ -144,7 +148,7 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
   const contactLocal = cp.hands.L.clone().addScaledVector(cp.axis, SWEET);       // sweet spot of the bat at contact (in rig space)
   pose(idleFrame); axisQ.copy(pivot.quaternion); pose(idleFrame);
   const api = {
-    root, pivot, torso, contactLocal, contactY: contactLocal.y, contactDelay: (CONTACT - START) / 60 / RATE,
+    rig, root, pivot, torso, contactLocal, contactY: contactLocal.y, contactDelay: (CONTACT - START) / 60 / RATE,
     /** stand so the bat meets the ball over the plate */
     placeAt(x, z) { baseX = x - contactLocal.x; off = 0; offT = 0; root.position.set(baseX, 0, z - contactLocal.z); },
     /** step a little toward the side the ball is on, so the bat meets it there */
@@ -173,7 +177,9 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
 /** an original pitcher in a gray road uniform and red cap. His windup and throw are the real CMU "Baseball Pitch" capture. */
 export function createPitcher(clips) {
   const clip = clips.pitch, skin = skinMat(0xc08a63), gray = cloth(0xd6d9df), red = cloth(0xb81f30);
-  const rig = createRig({ torsoMat: gray, legMat: gray, armMat: gray, foreMat: new THREE.MeshPhysicalMaterial({ color: 0xc08a63, roughness: .55 }), helmet: red, skin, ears: false });
+  const rig = clips.mannequin
+    ? createSkinnedRig(clips.mannequin, { skin: 0xc08a63, hands: 0xc08a63, forearm: 0xc08a63, sleeve: 0xd8dbe0, pants: 0xd8dbe0, jersey: 0xd8dbe0, shoes: 0x111114, stripes: false, cap: 0xb81f30, bill: true, curl: .5 })
+    : createRig({ torsoMat: gray, legMat: gray, armMat: gray, foreMat: new THREE.MeshPhysicalMaterial({ color: 0xc08a63, roughness: .55 }), helmet: red, skin, ears: false });
   const { root } = rig, REL_IDX = clip.center;
   const mitt = new THREE.Mesh(sph(.3, 16, 12), new THREE.MeshStandardMaterial({ color: 0x6a3a1c, roughness: .6 })); mitt.castShadow = true; root.add(mitt);
   const ballM = new THREE.Mesh(sph(.2, 16, 12), new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: .55 })); root.add(ballM);
