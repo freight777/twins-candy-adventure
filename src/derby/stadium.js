@@ -47,6 +47,17 @@ export function buildStadium(scene, T = {}) {
       gl_FragColor = vec4(c,1.); }`,
   }));
   scene.add(sky); S.sky = sky;
+  // night sky: deep blue with a warm city glow on the horizon and a few stars
+  const skyNight = new THREE.Mesh(new THREE.SphereGeometry(880, 40, 20), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader: `varying vec3 vP; float h21(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
+      void main(){ vec3 d = normalize(vP); float h = clamp(d.y, 0., 1.);
+      vec3 c = mix(vec3(.36,.40,.56), vec3(.07,.1,.24), pow(h, .5)); c += vec3(.3,.2,.12) * pow(1. - h, 7.);
+      vec2 g = vec2(atan(d.x, d.z) * 220., d.y * 220.), fc = fract(g) - .5; float st = step(.994, h21(floor(g))) * smoothstep(.36, .0, length(fc)) * smoothstep(.12, .35, h); c += st * vec3(.8, .85, 1.) * (.35 + .65 * h21(floor(g) + 3.));
+      gl_FragColor = vec4(c, 1.); }`,
+  }));
+  skyNight.visible = false; scene.add(skyNight); S.skyNight = skyNight;
   const cloudTex = canvasTex(256, 128, (g, w, h) => { for (let i = 0; i < 40; i++) { const x = 40 + Math.random() * 176, y = 40 + Math.random() * 48, r = 20 + Math.random() * 34, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); } });
   S.clouds = [];
   for (let i = 0; i < 14; i++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(rand(160, 300), rand(50, 90)), new THREE.MeshBasicMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: rand(.6, .95) })); m.position.set(rand(-380, 380), rand(110, 220), rand(-420, -150)); m.rotation.x = -.35; scene.add(m); S.clouds.push(m); }
@@ -182,12 +193,12 @@ export function buildStadium(scene, T = {}) {
   scene.add(new THREE.Mesh(ribbon(TH0, TH1, 170, (th) => [[wallR(th) + TIERS[1].off - .75, TIERS[1].y0 - 2.7, 0], [wallR(th) + TIERS[1].off - .75, TIERS[1].y0 - .7, 1]]), ledM));
   scene.add(new THREE.Mesh(ribbon(TH0, TH1, 170, (th) => [[wallR(th) + TIERS[2].off - .75, TIERS[2].y0 - 2.7, 0], [wallR(th) + TIERS[2].off - .75, TIERS[2].y0 - .7, 1]]), ledM));
   S.led = ledT;
-  const lampM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff2d0).multiplyScalar(2.4), fog: false });
+  const lampM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff2d0).multiplyScalar(1.6), fog: false }), glows = [];
   for (let i = 0; i < 9; i++) {
     const th = lerp(-1.1, 1.1, i / 8), bank = new THREE.Group(); bank.position.copy(P3(th, wallR(th) + TIERS[2].off - 1, roofY + 4)); bank.lookAt(0, roofY - 6, 0); scene.add(bank);
     bank.add(new THREE.Mesh(new THREE.BoxGeometry(24, 8.5, 1.4), mat({ color: 0x30343d })));
     for (let a = 0; a < 8; a++) for (let b = 0; b < 3; b++) { const lamp = new THREE.Mesh(new THREE.CircleGeometry(1.2, 12), lampM); lamp.position.set(-10.5 + a * 3, -2.6 + b * 2.7, .75); bank.add(lamp); }
-    const gl = glowSprite(0xfff0c8, 46, .22); gl.position.copy(bank.position); scene.add(gl);
+    const gl = glowSprite(0xfff0c8, 46, .2); gl.position.copy(bank.position); scene.add(gl); glows.push(gl);
   }
   // the video board (it shows the score); mounted on the upper-deck fascia right of center
   const sbC = document.createElement('canvas'); sbC.width = 1280; sbC.height = 720; const sbT = new THREE.CanvasTexture(sbC); sbT.colorSpace = THREE.SRGBColorSpace; sbT.anisotropy = 4;
@@ -272,10 +283,35 @@ export function buildStadium(scene, T = {}) {
   S.flashes = []; for (let i = 0; i < 40; i++) { const sp = glowSprite(0xffffff, 3, 0); const f = S.fans[Math.floor(Math.random() * S.fans.length)]; sp.position.set(f.x, f.y + 1, f.z); scene.add(sp); S.flashes.push({ sp, t: rand(0, 6) }); }
 
   // ---- lighting: low warm afternoon sun, soft sky fill, long shadows ----
-  scene.add(new THREE.HemisphereLight(0xbcd4ff, 0x4a5a3a, T.hdr ? .25 : .7));
-  const sun = new THREE.DirectionalLight(0xffe2b8, T.hdr ? 2.4 : 3.0); sun.position.set(34, 38, 26); sun.castShadow = true;
+  const hemi = new THREE.HemisphereLight(0xbcd4ff, 0x4a5a3a, T.hdr ? .25 : .7); scene.add(hemi);
+  const sunI = T.hdr ? 2.4 : 3.0, sun = new THREE.DirectionalLight(0xffe2b8, sunI); sun.position.set(34, 38, 26); sun.castShadow = true;
   const c = sun.shadow.camera; c.left = c.bottom = -30; c.right = c.top = 30; c.near = 1; c.far = 150; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0004; sun.shadow.normalBias = .04; sun.shadow.radius = 2;
   sun.target.position.set(0, 0, -10); scene.add(sun, sun.target); S.sun = sun;
+  // night game: stadium lights. The two key lights sit up behind the plate (so the players are lit from the camera side, with shadows),
+  // a wide one washes the outfield, and a dim one from the center-field roof puts a rim of light on the players.
+  const litSpots = [];
+  [
+    { p: [-62, 88, 96], t: [0, 0, -8], a: .3, pen: .6, i: 30000, shadow: true },
+    { p: [62, 88, 96], t: [0, 0, -8], a: .3, pen: .6, i: 30000, shadow: true },
+    { p: [0, 110, 120], t: [0, 0, -62], a: .72, pen: .8, i: 100000 },
+    { p: [0, 92, -170], t: [0, 0, -4], a: .22, pen: .7, i: 25000 },
+  ].forEach((L) => {
+    const sp = new THREE.SpotLight(0xfff1d8, L.i, 0, L.a, L.pen, 2); sp.position.set(...L.p); sp.target.position.set(...L.t); sp.visible = false;
+    if (L.shadow) { sp.castShadow = true; sp.shadow.mapSize.set(2048, 2048); sp.shadow.camera.near = 60; sp.shadow.camera.far = 320; sp.shadow.bias = -.0003; sp.shadow.normalBias = .04; }
+    scene.add(sp, sp.target); litSpots.push(sp);
+  });
+  S.litSpots = litSpots; S.mode = 'day';
+  /** shadow quality by graphics tier: the day sun, and the night key lights (one on medium, both on high) */
+  S.setShadows = (tier) => { sun.castShadow = tier !== 'low'; litSpots.forEach((sp, i) => { if (i < 2) sp.castShadow = tier === 'high' || (tier === 'medium' && i === 0); }); };
+  S.setMode = (mode) => {
+    const night = mode === 'night'; S.mode = mode;
+    hemi.color.set(night ? 0x4a5f9a : 0xbcd4ff); hemi.groundColor.set(night ? 0x151a26 : 0x4a5a3a); hemi.intensity = night ? .65 : (T.hdr ? .25 : .7);
+    sun.visible = !night; litSpots.forEach((sp) => (sp.visible = night));
+    skyNight.visible = night; if (!T.hdr) sky.visible = !night; else sky.visible = false;
+    lampM.color.copy(new THREE.Color(0xfff2d0)).multiplyScalar(night ? 5 : 1.6); glows.forEach((g) => (g.material.opacity = night ? .55 : .2));
+    ledM.color.setScalar(night ? 2.2 : 1.4); board.material.color.setScalar(night ? 1.5 : 1.1);
+    crowdMat.color.setScalar(night ? .72 : 1); S.clouds.forEach((m) => (m.visible = !night && !T.hdr));
+  };
 
   S.update = (dt, t) => {
     S.clouds.forEach((m) => { m.position.x += dt * .8; if (m.position.x > 400) m.position.x = -400; });

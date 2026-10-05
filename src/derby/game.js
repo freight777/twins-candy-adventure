@@ -46,7 +46,7 @@ const grade = new ShaderPass({
 const gtao = new GTAOPass(scene, camera, 256, 256); gtao.blendIntensity = 0.9; gtao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.4, thickness: 1.2, scale: 1.2, samples: 12 });
 const bokeh = new BokehPass(scene, camera, { focus: 13, aperture: 0.00016, maxblur: 0.006 });
 composer.addPass(new RenderPass(scene, camera)); composer.addPass(gtao); composer.addPass(bokeh); composer.addPass(bloom); composer.addPass(new OutputPass()); composer.addPass(grade);
-function applyTier() { const pr = Math.min(window.devicePixelRatio, Q.pr); if (stadium) stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1); bloom.enabled = Q.bloom; gtao.enabled = bokeh.enabled = !!Q.post; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
+function applyTier() { const pr = Math.min(window.devicePixelRatio, Q.pr); if (stadium) { stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1); stadium.setShadows(Q.name); } bloom.enabled = Q.bloom; gtao.enabled = bokeh.enabled = !!Q.post; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
 function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(54 / 2)) / a)), 34, 62); camera.updateProjectionMatrix(); }
 applyTier(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
@@ -56,7 +56,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } },
 };
-const prefs = { name: store.get('derbyName', 'Tony'), helper: store.get('derbyHelper', true) };
+const prefs = { name: store.get('derbyName', 'Tony'), helper: store.get('derbyHelper', true), time: store.get('derbyTime', 'night') };
 const scores = () => store.get('derbyScores', []);
 function saveScore(name, hr) { const all = scores(); all.push({ name, hr, at: Date.now() }); all.sort((a, b) => b.hr - a.hr || a.at - b.at); store.set('derbyScores', all.slice(0, 10)); store.set('derbyName', name); prefs.name = name; }
 function boardHTML(hl) {
@@ -81,6 +81,17 @@ const ballPath = (lane, k, type = 'fast') => {
 };
 const flightTime = () => Math.max(1.6, 2.6 - Math.floor(S.hr / 4) * 0.12);
 const camLook = new THREE.Vector3(0, 3.0, -18);
+const env = { day: null, night: null, hdr: null };
+/** day game or night game under the lights */
+function setTime(mode) {
+  const night = mode === 'night'; prefs.time = mode; store.set('derbyTime', mode);
+  stadium.setMode(mode);
+  scene.environment = night ? env.night : env.day; scene.background = night ? null : env.hdr; scene.environmentIntensity = night ? .55 : (env.hdr ? 1 : .35); scene.backgroundIntensity = 1;
+  scene.fog.color.set(night ? 0x0a1022 : 0xc8d8e8); scene.fog.near = night ? 230 : 260; scene.fog.far = night ? 640 : 820;
+  renderer.toneMappingExposure = night ? 1.0 : .95; bloom.strength = night ? .4 : .08; bloom.threshold = night ? 1.8 : 1.05;
+  grade.uniforms.sat.value = night ? 1.16 : 1.0; grade.uniforms.con.value = night ? 1.12 : 1.08;
+  const b = $('#time'); if (b) b.textContent = `Time: ${night ? 'Night' : 'Day'}`;
+}
 
 async function boot() {
   await new Promise((r) => setTimeout(r, 30));
@@ -90,10 +101,11 @@ async function boot() {
   const T = { grass: await loadT('grass'), dirt: await loadT('dirt'), conc: await loadT('conc') };
   let hdr = null; try { hdr = await new HDRLoader().loadAsync(`${BASE}assets/derby/hdr/orlando_stadium_2k.hdr`); hdr.mapping = THREE.EquirectangularReflectionMapping; } catch (e) { console.warn('HDRI failed', e); }
   T.hdr = !!hdr;
-  stadium = buildStadium(scene, T); stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1);
+  stadium = buildStadium(scene, T); stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1); stadium.setShadows(Q.name);
   if (hdr) { scene.environment = hdr; scene.background = hdr; scene.environmentIntensity = 1.0; scene.backgroundIntensity = 1.0; stadium.sky.visible = false; stadium.clouds.forEach((c) => (c.visible = false)); }
   else { scene.environment = skyEnv(renderer, 'park', { top: 0x6fb4ff, mid: 0xfff4e6, bottom: 0xb8e8a8, sun: [25, 40, -20], sunPower: 6 }); scene.environmentIntensity = 0.35; }
   scene.fog = new THREE.Fog(0xc8d8e8, 260, 820);
+  env.day = scene.environment; env.hdr = hdr; env.night = skyEnv(renderer, 'derbynight', { top: 0x0b1226, mid: 0x22335e, bottom: 0x090d16, sun: [10, 70, -40], sunColor: 0xbcd0ff, sunPower: 1.6 });
   scene.traverse((o) => { const m = o.material; if (m && m.isShaderMaterial && !m.userData.lin) { m.fragmentShader = linearizeFrag(m.fragmentShader); m.userData.lin = true; m.needsUpdate = true; } });
   const clips = await loadClips(import.meta.env.BASE_URL);              // real motion-capture swing and pitch (CMU Graphics Lab database)
   batter = createBatter(clips, 'JUDGE', '99'); batter.placeAt(0.0, -0.2); HIT_Y = batter.contactY; scene.add(batter.root);
@@ -107,7 +119,7 @@ async function boot() {
   const blobTex = canvasTex(128, 128, (g, w, h) => { const gr = g.createRadialGradient(64, 64, 6, 64, 64, 62); gr.addColorStop(0, 'rgba(0,0,0,.6)'); gr.addColorStop(.5, 'rgba(0,0,0,.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
   const mkBlob = () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, fog: false })); m.renderOrder = 1; scene.add(m); return m; };
   blobB = mkBlob(); blobP = mkBlob();
-  camera.position.set(0, 5.2, 12); camera.lookAt(camLook);
+  camera.position.set(0, 5.2, 12); camera.lookAt(camLook); setTime(prefs.time);
   $('#loading').classList.add('done'); setTimeout(() => $('#loading').remove(), 800);
   S.state = 'title'; taps(false); show('#title'); $('#name').value = prefs.name; $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`; gfxLabel();
 }
@@ -220,6 +232,7 @@ $('#closeBoard').addEventListener('click', () => show('#board', false));
 const gfxLabel = () => { $('#gfx').textContent = `Graphics: ${gfx.auto ? 'Auto' : 'Best'}`; };
 $('#gfx').addEventListener('click', () => { gfx.auto = !gfx.auto; store.set('derbyGfx', gfx.auto ? 'auto' : 'high'); if (!gfx.auto) { Q.name !== 'high' && (loadTierHigh()); } gfxLabel(); });
 function loadTierHigh() { while (Q.name !== 'high' && raiseTier(null)); applyTier(); resize(); }
+$('#time').addEventListener('click', () => setTime(prefs.time === 'night' ? 'day' : 'night'));
 $('#helper').addEventListener('click', () => { prefs.helper = !prefs.helper; store.set('derbyHelper', prefs.helper); $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`; });
 $('#save').addEventListener('click', () => { const nm = ($('#name').value || 'Tony').trim().slice(0, 10) || 'Tony'; const at = Date.now(); saveScore(nm, S.hr); const all = scores(); $('#boardmini').innerHTML = boardHTML(all.find((s) => s.name === nm && s.hr === S.hr)?.at); $('#save').disabled = true; $('#save').textContent = 'Saved ✅'; });
 $('#again').addEventListener('click', () => { $('#save').disabled = false; $('#save').textContent = 'Save my score'; if (batter) { batter.root.traverse(() => {}); } start(); });
