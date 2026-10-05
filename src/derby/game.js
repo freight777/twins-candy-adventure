@@ -10,7 +10,7 @@ import { skyEnv } from '../env.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, glowSprite, RAINBOW } from '../util.js';
 import { unlock, playMusic, stopMusic, say, sfx } from '../audio.js';
 import { buildStadium } from './stadium.js';
-import { createBatter, createPitcher } from './players.js';
+import { createBatter, createPitcher, loadClips } from './players.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -57,8 +57,9 @@ const timers = new Timers(), fx = new Fx(scene, 1200);
 const sleep = (s) => new Promise((r) => timers.after(s, r));
 const anim = (dur, fn, e = ease.inOut) => new Promise((r) => timers.tween(dur, fn, { ease: e, done: r }));
 const S = { state: 'boot', hr: 0, outs: 0, flight: null, lastLanes: [], time: 0, camMode: 'home', over: false };
-const WIN = 0.55;                                       // seconds either side of the plate: a wide window
-const LANE_X = 1.0, HIT_Y = 3.3, REL = new THREE.Vector3(0.4, 5.2, -15.0), PLATE_PT = (lane) => new THREE.Vector3(lane * LANE_X, HIT_Y, -0.2);
+const WIN = 0.55, LATE = 0.3;                          // seconds before / after the ball reaches the plate: a wide window
+const LANE_X = 1.0, REL = new THREE.Vector3(0.4, 5.2, -15.0), PLATE_PT = (lane) => new THREE.Vector3(lane * LANE_X, HIT_Y, -0.2);
+let HIT_Y = 3.3;
 const flightTime = () => Math.max(1.6, 2.6 - Math.floor(S.hr / 4) * 0.12);
 let stadium, batter, pitcher, ball, ballShadow, zoneGlow;
 const camLook = new THREE.Vector3(0, 3.0, -18);
@@ -69,8 +70,9 @@ async function boot() {
   scene.environment = skyEnv(renderer, 'park', { top: 0x6fb4ff, mid: 0xfff4e6, bottom: 0xb8e8a8, sun: [25, 40, -20], sunPower: 6 }); scene.environmentIntensity = 0.35;
   scene.fog = new THREE.Fog(0xc8d8e8, 260, 820);
   scene.traverse((o) => { const m = o.material; if (m && m.isShaderMaterial && !m.userData.lin) { m.fragmentShader = linearizeFrag(m.fragmentShader); m.userData.lin = true; m.needsUpdate = true; } });
-  batter = createBatter('JUDGE', '99'); batter.root.position.set(-2.7, 0, 0.5); scene.add(batter.root);
-  pitcher = createPitcher(); pitcher.root.position.set(0, .7, -16.5); scene.add(pitcher.root);
+  const clips = await loadClips(import.meta.env.BASE_URL);              // real motion-capture swing and pitch (CMU Graphics Lab database)
+  batter = createBatter(clips, 'JUDGE', '99'); batter.placeAt(0.0, -0.2); HIT_Y = batter.contactY; scene.add(batter.root);
+  pitcher = createPitcher(clips); pitcher.root.position.set(0, .7, 0); pitcher.root.position.z = -15.0 - pitcher.releaseWorld().z; REL.copy(pitcher.releaseWorld()); scene.add(pitcher.root);
   scene.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.type !== 'PlaneGeometry') { /* shadows only for the players */ } });
   [batter.root, pitcher.root].forEach((r) => r.traverse((o) => { if (o.isMesh) o.castShadow = true; }));
   ball = new THREE.Group(); ball.add(new THREE.Mesh(new THREE.SphereGeometry(.22, 24, 16), new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: .55 })));
@@ -109,13 +111,13 @@ function pickLane() {
 async function pitchOnce() {
   const lane = pickLane();
   cue('Here comes the pitch!'); pitcher.root.rotation.y = 0;
-  const wind = 1.15; await anim(wind, (k) => pitcher.pose(k * 1.0), ease.linear);
-  ball.visible = true; ballShadow.visible = true; ball.scale.setScalar(1); ball.position.copy(REL); sfx.swoosh();
+  const wind = 1.5; await anim(wind, (k) => pitcher.pose(k), ease.linear);
+  ball.visible = true; ballShadow.visible = true; ball.scale.setScalar(1); ball.position.copy(REL); sfx.swoosh(); anim(.6, (k) => pitcher.pose(1 + k * .36), ease.linear);
   S.flight = { t: 0, F: flightTime(), lane, resolved: false };
   cue(prefs.helper ? (lane < 0 ? '⬅️  LEFT!' : 'RIGHT!  ➡️') : '', 'side');
   const res = await new Promise((r) => (S.flight.resolve = r));
   await outcome(res, lane);
-  S.flight = null; pitcher.idle(0);
+  S.flight = null; pitcher.idle();
 }
 
 function laneTheta(lane) { const px = batter.root.position.x + batter.pivot.position.x, pz = batter.root.position.z + batter.pivot.position.z; return Math.atan2(-(-0.2 - pz), lane * LANE_X - px); }
@@ -124,13 +126,13 @@ async function outcome(res, lane) {
   cue(''); const zone = stadium.zones[lane]; zone.material.opacity = 0;
   if (res.type === 'hit') {
     // swing, the ball jumps to the bat, then launches
-    const from = ball.position.clone(), to = PLATE_PT(lane);
-    batter.swing(laneTheta(lane), () => { sfx.crack(); fx.burst(to, { count: 30, colors: [0xffffff, 0xffe14d, 0xffa030], speed: 6, gravity: -3, life: .7, size: 1 }); });
+    const from = ball.position.clone(), to = batter.contactWorld();
+    batter.swing(() => { sfx.crack(); fx.burst(to, { count: 30, colors: [0xffffff, 0xffe14d, 0xffa030], speed: 6, gravity: -3, life: .7, size: 1 }); });
     sfx.swoosh();
-    await anim(.12, (k) => ball.position.lerpVectors(from, to, k), ease.out);
+    await anim(batter.contactDelay, (k) => ball.position.lerpVectors(from, to, k), ease.out);
     await homeRun(to);
   } else if (res.type === 'wrong') {
-    batter.swing(laneTheta(-lane), null); sfx.swoosh(); await keepFlying(); await miss('Swing and a miss!');
+    batter.swing(null); sfx.swoosh(); await keepFlying(); await miss('Swing and a miss!');
   } else {
     await keepFlying(); await miss('Strike!');
   }
@@ -200,10 +202,10 @@ function update(dt) {
     ball.position.set(lerp(REL.x, f.lane * LANE_X, k), lerp(REL.y, HIT_Y, k) + Math.sin(Math.min(k, 1) * Math.PI) * .6, lerp(REL.z, -0.2, k));
     ball.rotation.x += dt * 14; ballShadow.position.set(ball.position.x, .06, ball.position.z); ballShadow.scale.setScalar(clamp(1 - ball.position.y * .06, .4, 1));
     ball.scale.setScalar(1 + clamp(k, 0, 1.2) * 1.4);
-    const near = Math.abs(f.t - f.F) <= WIN, z = stadium.zones[f.lane];
+    const near = f.t >= f.F - WIN && f.t <= f.F + LATE, z = stadium.zones[f.lane];
     z.material.opacity = near ? .9 : clamp(k - .3, 0, .5) * .6; z.material.color.set(near ? 0x7bff9a : 0xffffff);
     if (near && !f.said) { f.said = true; cue(prefs.helper ? 'NOW!' : '', 'now'); sfx.ting(); }
-    if (f.t > f.F + WIN) { f.resolved = true; f.resolve({ type: 'late' }); }
+    if (f.t > f.F + LATE) { f.resolved = true; f.resolve({ type: 'late' }); }
   }
   // camera: behind home plate; during a home run it swings to follow the ball
   const home = new THREE.Vector3(Math.sin(t * .2) * .6, 5.2, 12);
@@ -215,7 +217,7 @@ function update(dt) {
 
 const clock = new THREE.Clock(); let slow = 0, frames = 0;
 renderer.setAnimationLoop(() => {
-  if (!stadium) return;
+  if (!stadium || !batter || !pitcher) return;
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
   update(dt); composer.render(dt);
   if (raw > 0.03 && raw < 0.5) slow++;
