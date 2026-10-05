@@ -43,7 +43,7 @@ export function createSkinnedRig(template, o) {
   const B = {}; model.traverse((x) => { if (x.isBone) B[x.name] = x; });
   const gb = (n) => { const c = clean(n); return B[ubc ? UBC[c] : c]; };       // bone by canonical name
   const canonOf = (name) => (ubc ? UBC_INV[name] || name : name);
-  const meshes = []; model.traverse((x) => { if (x.isSkinnedMesh) { meshes.push(x); x.castShadow = true; x.receiveShadow = false; x.frustumCulled = false; } });
+  const meshes = []; model.traverse((x) => { if (x.isSkinnedMesh) { meshes.push(x); x.castShadow = true; x.receiveShadow = true; x.frustumCulled = false; } });
   const bodies = meshes.filter((m) => !/^(Eyes|Eyebrows)$/.test(m.name));
   holder.updateMatrixWorld(true);
   // rest positions in the model's own units (metres), before scaling
@@ -154,7 +154,7 @@ export function createSkinnedRig(template, o) {
     sg.setAttribute('skinIndex', g.attributes.skinIndex); sg.setAttribute('skinWeight', g.attributes.skinWeight);
     sg.setAttribute('color', new THREE.BufferAttribute(colors, 3)); sg.setAttribute('aSt', new THREE.BufferAttribute(st, 4));
     sg.setIndex(new THREE.BufferAttribute(n > 65535 ? new Uint32Array(tris) : new Uint16Array(tris), 1));
-    const shell = new THREE.SkinnedMesh(sg, shellMat); shell.name = 'Uniform'; shell.castShadow = true; shell.frustumCulled = false;
+    const shell = new THREE.SkinnedMesh(sg, shellMat); shell.name = "Uniform"; shell.castShadow = true; shell.receiveShadow = true; shell.frustumCulled = false;
     shell.position.copy(m.position); shell.quaternion.copy(m.quaternion); shell.scale.copy(m.scale);
     m.parent.add(shell); shell.bind(m.skeleton, m.bindMatrix); shell.updateMatrixWorld(true); shells.push(shell);
   });
@@ -168,7 +168,7 @@ export function createSkinnedRig(template, o) {
   const hc = regionBB.head.getCenter(V()), hs = regionBB.head.getSize(V()), headBone = gb('DEF-head');
   const eyeBB = new THREE.Box3(); meshes.filter((m) => m.name === 'Eyes').forEach((m) => eyeBB.expandByObject(m, true));
   const eyeY = eyeBB.isEmpty() ? hc.y : eyeBB.getCenter(V()).y, hx = hs.x / 2, hz = hs.z / 2;
-  const capMat = o.helmet ? new THREE.MeshPhysicalMaterial({ color: o.cap, roughness: .3, clearcoat: .8, clearcoatRoughness: .12, envMapIntensity: .55 }) : new THREE.MeshPhysicalMaterial({ color: o.cap, roughness: .9, sheen: .25, sheenRoughness: .7, sheenColor: new THREE.Color(o.cap) });
+  const capMat = o.helmet ? new THREE.MeshPhysicalMaterial({ color: o.cap, roughness: .42, clearcoat: .5, clearcoatRoughness: .32, envMapIntensity: .5 }) : new THREE.MeshPhysicalMaterial({ color: o.cap, roughness: .9, sheen: .25, sheenRoughness: .7, sheenColor: new THREE.Color(o.cap) });
   // hair under the cap (short and dark), then the cap itself with its brim above the brows so the eyes stay clear
   const hairMat = new THREE.MeshStandardMaterial({ color: o.hair ?? 0x14100e, roughness: .9 });
   const top = regionBB.head.max.y, cy = hc.y + hs.y * .08, ry = top + .03 - cy, rimY = eyeY + hs.y * .2, thR = Math.acos(clamp((rimY - cy) / ry, -.95, .95)), cz = hc.z - hz * .02, rz = hz * 1.05;
