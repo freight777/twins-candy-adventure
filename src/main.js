@@ -104,10 +104,10 @@ const LEVELS = [[0, 'off'], [0.3, 'quiet'], [0.5, 'medium'], [0.8, 'loud']];
 const pmute = document.getElementById('pmute'), pmusic = document.getElementById('pmusic');
 // reading questions: on/off, level (auto follows each girl's answers), and what a wrong answer does
 const pquiz = document.getElementById('pquiz'), plevel = document.getElementById('plevel'), pretry = document.getElementById('pretry');
-const LEVEL_NAMES = { auto: 'Level: auto', 1: 'Level: starter', 2: 'Level: medium', 3: 'Level: tricky' };
-const showLearn = () => { pquiz.textContent = `Questions: ${learnSettings.on ? 'on' : 'off'}`; plevel.textContent = LEVEL_NAMES[learnSettings.level]; pretry.textContent = learnSettings.retry ? 'Wrong answer: try again' : 'Wrong answer: skip turn'; };
+const LEVELS_R = ['auto', 0, 1, 2, 3, 4, 5, 6];         // reading level: auto follows each girl's answers (up and down); a number pins it
+const showLearn = () => { pquiz.textContent = `Questions: ${learnSettings.on ? 'on' : 'off'}`; plevel.textContent = learnSettings.level === 'auto' ? 'Reading level: auto' : `Reading level: ${learnSettings.level}`; pretry.textContent = learnSettings.retry ? 'Wrong answer: try again' : 'Wrong answer: skip turn'; };
 pquiz.onclick = () => { learnSettings.on = !learnSettings.on; saveLearn(); showLearn(); };
-plevel.onclick = () => { const o = ['auto', 1, 2, 3], i = o.findIndex((v) => String(v) === String(learnSettings.level)); learnSettings.level = o[(i + 1) % o.length]; saveLearn(); showLearn(); };
+plevel.onclick = () => { const i = LEVELS_R.findIndex((v) => String(v) === String(learnSettings.level)); learnSettings.level = LEVELS_R[(i + 1) % LEVELS_R.length]; saveLearn(); showLearn(); };
 pretry.onclick = () => { learnSettings.retry = !learnSettings.retry; saveLearn(); showLearn(); };
 showLearn();
 const pvoice = document.getElementById('pvoice'); pvoice.textContent = `Voices: ${voicesEnabled() ? 'on' : 'off'}`;

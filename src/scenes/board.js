@@ -203,7 +203,7 @@ export class BoardScene extends BaseScene {
       ui.hideBubble();
       const q = makeQuestion(pl.tw.name);
       const res = await ui.quiz(q, { retry: learn.settings.retry });
-      learn.record(pl.tw.name, res.correct, res.first);
+      learn.record(pl.tw.name, q, res.correct, res.first);
       if (res.correct && res.first) {
         pl.sparkle = true; sfx.magic(); ui.bubble('✨ \u{1F3B2} ✨', 'Sparkle dice! Big roll!');
         this.fx.burst(pl.tw.root.position.clone().add(new THREE.Vector3(0, 2.2, 0)), { count: 60, colors: [0xffe14d, 0xffffff, 0xff9fcb], speed: 6, gravity: -2, life: 1.6, size: 1 });
