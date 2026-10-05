@@ -132,11 +132,11 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
   // bat
   const pivot = new THREE.Group(); root.add(pivot);
   const wood = new THREE.MeshPhysicalMaterial({ color: 0xc89a5a, roughness: .35, clearcoat: .5 });
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.22, .085, 3.7, 24), wood); barrel.rotation.z = -Math.PI / 2; barrel.position.x = 2.2; barrel.castShadow = true; pivot.add(barrel);
-  const handle = new THREE.Mesh(cyl(.075, .075, .7, 14), new THREE.MeshStandardMaterial({ color: 0x241810, roughness: .8 })); handle.rotation.z = Math.PI / 2; handle.position.x = .15; pivot.add(handle);
-  const knob = new THREE.Mesh(sph(.12, 14, 10), new THREE.MeshStandardMaterial({ color: 0x241810 })); knob.position.x = -.22; pivot.add(knob);
-  if (!rig.skinned) [0, .35].forEach((x) => { const g = new THREE.Mesh(sph(.16, 14, 10), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .7 })); g.position.x = x; pivot.add(g); });
-  const IDLE = 8, START = 10, RATE = 1.5, CONTACT = clip.center, axisQ = new THREE.Quaternion(), tmpQ = new THREE.Quaternion(), SWEET = 3.2;
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.15, .055, 2.25, 24), wood); barrel.rotation.z = -Math.PI / 2; barrel.position.x = 1.42; barrel.castShadow = true; pivot.add(barrel);
+  const handle = new THREE.Mesh(cyl(.05, .05, .55, 14), new THREE.MeshStandardMaterial({ color: 0x241810, roughness: .8 })); handle.rotation.z = Math.PI / 2; handle.position.x = .15; pivot.add(handle);
+  const knob = new THREE.Mesh(sph(.085, 14, 10), new THREE.MeshStandardMaterial({ color: 0x241810 })); knob.position.x = -.14; pivot.add(knob);
+  if (!rig.skinned) [0, .35].forEach((x) => { const g = new THREE.Mesh(sph(.12, 14, 10), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .7 })); g.position.x = x; pivot.add(g); });
+  const IDLE = 8, START = 10, RATE = 1.5, CONTACT = clip.center, axisQ = new THREE.Quaternion(), tmpQ = new THREE.Quaternion(), SWEET = 2.0;
   let anim = null, hold = null, baseX = 0, off = 0, offT = 0;
   const pose = (F) => {
     const hands = rig.drive(F, 0), axis = hands.R.clone().sub(hands.L); if (axis.lengthSq() < 1e-6) axis.set(1, 0, 0); axis.normalize();

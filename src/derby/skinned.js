@@ -77,8 +77,11 @@ export function createSkinnedRig(template, o) {
   [-1, 1].forEach((sd) => { const e = new THREE.Mesh(new THREE.SphereGeometry(hr * .085, 12, 8), new THREE.MeshStandardMaterial({ color: 0x1a1210, roughness: .3 })); attach(gb('DEF-head'), e, V(hc.x + sd * hr * .36, hc.y + hs.y * .02, regionBB.head.max.z - hr * .02)); });
   const nose = new THREE.Mesh(new THREE.SphereGeometry(hr * .12, 12, 8), new THREE.MeshPhysicalMaterial({ color: o.skin, roughness: .55 })); attach(gb('DEF-head'), nose, V(hc.x, hc.y - hs.y * .1, regionBB.head.max.z + hr * .01));
   if (o.back) {
-    const sc = regionBB.spine.getCenter(V()), plate = new THREE.Mesh(new THREE.PlaneGeometry(.95, 1.25), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.DoubleSide, map: canvasTex(256, 330, (g, w, h) => { g.fillStyle = '#10203f'; g.textAlign = 'center'; g.font = '700 46px Arial, sans-serif'; g.fillText(o.back.name.slice(0, 8), w / 2, 70); g.font = '700 190px Arial, sans-serif'; g.fillText(o.back.number, w / 2, 262); }) }));
-    attach(gb('DEF-spine.003'), plate, V(sc.x, sc.y + .15, regionBB.spine.min.z - .03), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0)));
+    // measure where the jersey surface really is on the upper back (a ray from behind), so the plate sits on it
+    const sc = regionBB.spine.getCenter(V()), py = sc.y + .12; meshes.forEach((m) => m.updateMatrixWorld(true));
+    const ray = new THREE.Raycaster(V(sc.x, py, regionBB.spine.min.z - 3), V(0, 0, 1), 0, 8), hit = ray.intersectObjects(meshes, false)[0], zb = hit ? hit.point.z : regionBB.spine.min.z;
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(.78, 1.02), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.DoubleSide, map: canvasTex(256, 330, (g, w, h) => { g.fillStyle = '#10203f'; g.textAlign = 'center'; g.font = '700 46px Arial, sans-serif'; g.fillText(o.back.name.slice(0, 8), w / 2, 70); g.font = '700 190px Arial, sans-serif'; g.fillText(o.back.number, w / 2, 262); }) }));
+    attach(gb('DEF-spine.003'), plate, V(sc.x, py, zb - .015), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0)));
   }
 
   // ---- posing: copy the captured limb directions and body orientation, so differences in body proportions do not matter ----
