@@ -39,7 +39,8 @@ const grade = new ShaderPass({
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float sat, con, time, grain; varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
-    void main(){ vec4 t = texture2D(tDiffuse, vUv); float l = dot(t.rgb, vec3(.2126,.7152,.0722));
+    void main(){ vec2 q0 = vUv - .5, off = q0 * dot(q0, q0) * .006;                                  // a whisper of lens colour fringing toward the corners
+      vec4 t = vec4(texture2D(tDiffuse, vUv + off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - off).b, texture2D(tDiffuse, vUv).a); float l = dot(t.rgb, vec3(.2126,.7152,.0722));
       vec3 c = mix(vec3(l), t.rgb, sat); c = (c - .5)*con + .5; vec2 q = vUv - .5; c *= 1. - dot(q, q)*.55;
       c += (hash(vUv*vec2(1920.,1080.) + fract(time)*61.) - .5) * grain;                  // fine film grain
       gl_FragColor = vec4(clamp(c, 0., 1.), t.a); }`,
