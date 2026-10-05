@@ -7,11 +7,12 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { Q, loadTier, lowerTier } from '../quality.js';
+import { Q, loadTier, lowerTier, raiseTier } from '../quality.js';
 import { skyEnv } from '../env.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, glowSprite, canvasTex, RAINBOW } from '../util.js';
 import { unlock, playMusic, stopMusic, say, sfx } from '../audio.js';
 import { buildStadium } from './stadium.js';
+import { createTracer } from './tracer.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { createBatter, createPitcher, loadClips } from './players.js';
 
@@ -22,19 +23,22 @@ const canvas = $('#c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-loadTier();
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+loadTier('derbyTier');                                 // this game remembers its own quality tier (and never remembers 'low')
 const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
 const composer = new EffectComposer(renderer, rt);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, 1, 0.5, 1500);
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.08, 0.4, 1.05);
 const grade = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, sat: { value: 1.0 }, con: { value: 1.08 } },
+  uniforms: { tDiffuse: { value: null }, sat: { value: 1.0 }, con: { value: 1.08 }, time: { value: 0 }, grain: { value: .03 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float sat, con; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float sat, con, time, grain; varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
     void main(){ vec4 t = texture2D(tDiffuse, vUv); float l = dot(t.rgb, vec3(.2126,.7152,.0722));
-      vec3 c = mix(vec3(l), t.rgb, sat); c = (c - .5)*con + .5; vec2 q = vUv - .5; c *= 1. - dot(q, q)*.9; gl_FragColor = vec4(clamp(c, 0., 1.), t.a); }`,
+      vec3 c = mix(vec3(l), t.rgb, sat); c = (c - .5)*con + .5; vec2 q = vUv - .5; c *= 1. - dot(q, q)*.55;
+      c += (hash(vUv*vec2(1920.,1080.) + fract(time)*61.) - .5) * grain;                  // fine film grain
+      gl_FragColor = vec4(clamp(c, 0., 1.), t.a); }`,
 });
 // broadcast-style image: ambient occlusion where things meet, and a shallow depth of field that softens the crowd and far wall (top quality tier only)
 const gtao = new GTAOPass(scene, camera, 256, 256); gtao.blendIntensity = 0.9; gtao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.4, thickness: 1.2, scale: 1.2, samples: 12 });
@@ -66,9 +70,15 @@ const S = { state: 'boot', hr: 0, outs: 0, flight: null, lastLanes: [], time: 0,
 const WIN = 0.55, LATE = 0.3;                          // seconds before / after the ball reaches the plate: a wide window
 const LANE_X = 0.8, REL = new THREE.Vector3(0.4, 5.2, -15.0), PLATE_PT = (lane) => new THREE.Vector3(lane * LANE_X, HIT_Y, -0.2);
 let HIT_Y = 3.3;
-const ballPath = (lane, k) => new THREE.Vector3(lerp(REL.x, lane * LANE_X, k), lerp(REL.y, HIT_Y, k) + Math.sin(Math.min(k, 1) * Math.PI) * .6, lerp(REL.z, -0.2, k));
+const PITCH = { fast: { lift: .9, spin: -17 }, curve: { lift: 2.0, spin: 15 } };       // lift = how far the pitch rises before it dives; spin = ball rotation (rad/s): backspin / topspin
+const ballPath = (lane, k, type = 'fast') => {
+  const kk = Math.min(k, 1), j = 1 - kk, yc = REL.y + PITCH[type].lift;
+  const y = j * j * REL.y + 2 * j * kk * yc + kk * kk * HIT_Y;                                  // quadratic curve: rises a touch, then drops into the zone
+  const x = lerp(REL.x, lane * LANE_X, kk * kk * (3 - 2 * kk) * .55 + kk * .45);               // drifts toward its side, mostly late
+  return new THREE.Vector3(x, y, lerp(REL.z, -0.2, kk));
+};
 const flightTime = () => Math.max(1.6, 2.6 - Math.floor(S.hr / 4) * 0.12);
-let stadium, batter, pitcher, ball, ballShadow, zoneGlow;
+let stadium, batter, pitcher, ball, ballShadow, zoneGlow, tracer, hrTracer, blobB, blobP;
 const camLook = new THREE.Vector3(0, 3.0, -18);
 
 async function boot() {
@@ -104,9 +114,13 @@ async function boot() {
   ball = new THREE.Group(); ball.add(new THREE.Mesh(new THREE.SphereGeometry(.16, 28, 20), new THREE.MeshStandardMaterial({ map: ballTex, roughness: .55 })));
   const bg = glowSprite(0xffffff, 1.1, .3); ball.add(bg); ball.userData.glow = bg; ball.visible = false; scene.add(ball);
   ballShadow = new THREE.Mesh(new THREE.CircleGeometry(.4, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .3, depthWrite: false })); ballShadow.visible = false; scene.add(ballShadow);
+  tracer = createTracer(scene, { n: 14, px: 3, opacity: .35 }); hrTracer = createTracer(scene, { n: 46, px: 9, color: 0xffe9a8, opacity: .9 });
+  const blobTex = canvasTex(128, 128, (g, w, h) => { const gr = g.createRadialGradient(64, 64, 6, 64, 64, 62); gr.addColorStop(0, 'rgba(0,0,0,.6)'); gr.addColorStop(.5, 'rgba(0,0,0,.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+  const mkBlob = () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, fog: false })); m.renderOrder = 1; scene.add(m); return m; };
+  blobB = mkBlob(); blobP = mkBlob();
   camera.position.set(0, 5.2, 12); camera.lookAt(camLook);
   $('#loading').classList.add('done'); setTimeout(() => $('#loading').remove(), 800);
-  S.state = 'title'; taps(false); show('#title'); $('#name').value = prefs.name; $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`;
+  S.state = 'title'; taps(false); show('#title'); $('#name').value = prefs.name; $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`; gfxLabel();
 }
 const show = (sel, on = true) => $(sel).classList.toggle('hidden', !on);
 const taps = (on) => document.querySelectorAll('.tap').forEach((e) => e.classList.toggle('hidden', !on));
@@ -138,7 +152,8 @@ async function pitchOnce() {
   cue('Here comes the pitch!'); pitcher.root.rotation.y = 0;
   const wind = 1.5; await anim(wind, (k) => pitcher.pose(k), ease.linear);
   ball.visible = true; ballShadow.visible = true; ball.scale.setScalar(1); ball.position.copy(REL); pitcher.holdBall(false); sfx.swoosh(); anim(.6, (k) => pitcher.pose(1 + k * .36), ease.linear);
-  S.flight = { t: 0, F: flightTime(), lane, resolved: false };
+  S.pitchNo = (S.pitchNo || 0) + 1; tracer.clear();
+  S.flight = { t: 0, F: flightTime(), lane, resolved: false, type: S.pitchNo > 2 && Math.random() < .4 ? 'curve' : 'fast' };
   cue(prefs.helper ? (lane < 0 ? '⬅️  LEFT!' : 'RIGHT!  ➡️') : '', 'side');
   const res = await new Promise((r) => (S.flight.resolve = r));
   await outcome(res, lane);
@@ -151,11 +166,11 @@ async function outcome(res, lane) {
   cue(''); const zone = stadium.zones[lane]; zone.material.opacity = 0;
   if (res.type === 'hit') {
     // swing, the ball jumps to the bat, then launches
-    const k0 = S.flight.t / S.flight.F, to = ballPath(lane, 1);
+    const type = S.flight.type, k0 = S.flight.t / S.flight.F, to = ballPath(lane, 1, type);
     batter.setOffset(lane * LANE_X);
     batter.swing(() => { sfx.crack(); fx.burst(to, { count: 30, colors: [0xffffff, 0xffe14d, 0xffa030], speed: 6, gravity: -3, life: .7, size: 1 }); });
     sfx.swoosh();
-    await anim(batter.contactDelay, (e) => ball.position.copy(ballPath(lane, lerp(k0, 1, e))), ease.out);
+    await anim(batter.contactDelay, (e) => ball.position.copy(ballPath(lane, lerp(k0, 1, e), type)), ease.out);
     await homeRun(to);
   } else if (res.type === 'wrong') {
     batter.setOffset(-lane * LANE_X); batter.swing(null); sfx.swoosh(); await keepFlying(); await miss('Swing and a miss!');
@@ -184,13 +199,12 @@ async function homeRun(from) {
   ballShadow.visible = false;
   await anim(dur, (k) => {
     ball.position.set(lerp(from.x, end.x, k), lerp(from.y, end.y, k) + 4 * peak * k * (1 - k), lerp(from.z, end.z, k));
-    ball.scale.setScalar(1 + k * 3.2); ball.rotation.x += .5;
-    if (Math.random() < .8) fx.burst(ball.position, { count: 2, colors: [0xffffff, 0xffe14d, 0xff9f2e], speed: 1, gravity: -1, life: .8, size: 1.2 });
+    ball.scale.setScalar(1 + k * 1.3); ball.userData.glow.scale.setScalar(1 + k * 2.5); ball.rotation.x -= .5; hrTracer.push(ball.position);
   }, ease.linear);
-  ball.visible = false; fx.burst(end, { count: 40, colors: [0xffffff, 0xffe14d, 0xd8c8a0], speed: 5, gravity: -5, life: 1.1, size: 1.2 }); stadium.cheer(7);   // it drops into the seats and the fans go wild
+  ball.visible = false; hrTracer.clear(); ball.userData.glow.scale.setScalar(1); fx.burst(end, { count: 40, colors: [0xffffff, 0xffe14d, 0xd8c8a0], speed: 5, gravity: -5, life: 1.1, size: 1.2 }); stadium.cheer(7);   // it drops into the seats and the fans go wild
   S.hr++; setHud(); sfx.tada();
-  for (let i = 0; i < 7; i++) { fx.burst(new THREE.Vector3(end.x + rand(-45, 45), rand(35, 70), end.z + rand(-25, 10)), { count: 70, colors: RAINBOW.concat([0xffffff, 0xffd84d]), speed: 12, gravity: -4, life: 2.2, size: 1.8 }); sfx.pop(); await sleep(.28); }
-  ball.visible = false; S.camMode = 'home'; S.state = 'play';
+  for (let i = 0; i < 7; i++) { fx.burst(new THREE.Vector3(end.x + rand(-45, 45), rand(35, 70), end.z + rand(-25, 10)), { count: 90, colors: [0xffffff, 0xffe9a8, 0xffc04d, 0xff6a4a], speed: 12, gravity: -2.2, life: 2.8, size: 1.8 }); sfx.pop(); await sleep(.28); }
+  ball.visible = false; hrTracer.clear(); S.camMode = 'home'; S.state = 'play';
   await sleep(1.6);
 }
 
@@ -214,6 +228,9 @@ addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'a')
 $('#play').addEventListener('click', start);
 $('#lbBtn').addEventListener('click', () => { $('#boardfull').innerHTML = boardHTML(); show('#board'); });
 $('#closeBoard').addEventListener('click', () => show('#board', false));
+const gfxLabel = () => { $('#gfx').textContent = `Graphics: ${gfx.auto ? 'Auto' : 'Best'}`; };
+$('#gfx').addEventListener('click', () => { gfx.auto = !gfx.auto; store.set('derbyGfx', gfx.auto ? 'auto' : 'high'); if (!gfx.auto) { Q.name !== 'high' && (loadTierHigh()); } gfxLabel(); });
+function loadTierHigh() { while (Q.name !== 'high' && raiseTier(null)); applyTier(); resize(); }
 $('#helper').addEventListener('click', () => { prefs.helper = !prefs.helper; store.set('derbyHelper', prefs.helper); $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`; });
 $('#save').addEventListener('click', () => { const nm = ($('#name').value || 'Tony').trim().slice(0, 10) || 'Tony'; const at = Date.now(); saveScore(nm, S.hr); const all = scores(); $('#boardmini').innerHTML = boardHTML(all.find((s) => s.name === nm && s.hr === S.hr)?.at); $('#save').disabled = true; $('#save').textContent = 'Saved ✅'; });
 $('#again').addEventListener('click', () => { $('#save').disabled = false; $('#save').textContent = 'Save my score'; if (batter) { batter.root.traverse(() => {}); } start(); });
@@ -226,30 +243,45 @@ function update(dt) {
   const f = S.flight;
   if (f && !f.resolved) {
     f.t += dt; const k = f.t / f.F;
-    ball.position.copy(ballPath(f.lane, k));
-    ball.rotation.x += dt * 14; ballShadow.position.set(ball.position.x, .06, ball.position.z); ballShadow.scale.setScalar(clamp(1 - ball.position.y * .06, .4, 1));
-    ball.scale.setScalar(1 + clamp(k, 0, 1.2) * .8);
+    ball.position.copy(ballPath(f.lane, k, f.type)); tracer.push(ball.position);
+    ball.rotation.x += dt * PITCH[f.type].spin; ball.rotation.z += dt * 2.5; ballShadow.position.set(ball.position.x, .06, ball.position.z); ballShadow.scale.setScalar(clamp(1 - ball.position.y * .06, .4, 1));
+    ball.scale.setScalar(1 + clamp(k, 0, 1.2) * .5);
     const near = f.t >= f.F - WIN && f.t <= f.F + LATE, z = stadium.zones[f.lane];
     z.material.opacity = near ? .9 : clamp(k - .3, 0, .5) * .6; z.material.color.set(near ? 0x7bff9a : 0xffffff);
     if (near && !f.said) { f.said = true; cue(prefs.helper ? 'NOW!' : '', 'now'); sfx.ting(); }
     if (f.t > f.F + LATE) { f.resolved = true; f.resolve({ type: 'late' }); }
   }
-  if (S.debugCam) { camera.position.copy(S.debugCam.p); camera.lookAt(S.debugCam.l); return; }
+  grade.uniforms.time.value = t; groundShadow(blobB, batter.rig); groundShadow(blobP, pitcher.rig);
+  if (S.debugCam) { camera.position.copy(S.debugCam.p); camera.lookAt(S.debugCam.l); ribbons(); return; }
   // camera: behind home plate; during a home run it swings to follow the ball
   const home = new THREE.Vector3(Math.sin(t * .2) * .6, 5.2, 12);
   camera.position.lerp(home, 1 - Math.exp(-2 * dt));
   const want = S.camMode === 'ball' ? ball.position.clone() : new THREE.Vector3(0, 3.0, -18);
   camLook.lerp(want, 1 - Math.exp(-(S.camMode === 'ball' ? 6 : 2.5) * dt)); camera.lookAt(camLook);
   stadium.sun.target.position.set(0, 0, -8);
+  ribbons();
+}
+function ribbons() { tracer.update(camera, innerHeight, S.flight && !S.flight.resolved ? 1 : 0); hrTracer.update(camera, innerHeight, 1); }
+/** a soft dark patch under a player's feet so they sit on the ground */
+function groundShadow(blob, rig) {
+  if (!blob || !rig || !rig.skinned) return;
+  const a = rig.wp(rig.gb('DEF-foot.L')), b = rig.wp(rig.gb('DEF-foot.R')), sp = Math.hypot(a.x - b.x, a.z - b.z);
+  blob.position.set((a.x + b.x) / 2, .055, (a.z + b.z) / 2); blob.scale.set(2.6 + sp * .7, 1, 2.1 + sp * .45);
 }
 
-const clock = new THREE.Clock(); let slow = 0, frames = 0;
+const clock = new THREE.Clock(); const gfx = { auto: store.get('derbyGfx', 'auto') !== 'high', slow: 0, frames: 0, fast: 0, mute: performance.now() + 6000, noRaise: 0, lowered: 0 };
+document.addEventListener('visibilitychange', () => { gfx.mute = performance.now() + 3000; gfx.slow = gfx.frames = gfx.fast = 0; });
+function adapt(raw) {
+  const now = performance.now(); if (!gfx.auto || now < gfx.mute || document.hidden || raw >= .5) return;
+  gfx.frames++; if (raw > .03) gfx.slow++; if (raw < .02) gfx.fast++; else gfx.fast = 0;
+  const change = () => { applyTier(); resize(); try { if (Q.name === 'low') localStorage.removeItem('derbyTier'); else localStorage.setItem('derbyTier', Q.name); } catch { /* ignore */ } };
+  if (gfx.frames >= 150) { if (gfx.slow > 80 && lowerTier(null)) { gfx.lowered++; gfx.noRaise = now + 45000; gfx.fast = 0; change(); } gfx.slow = gfx.frames = 0; }
+  if (gfx.fast >= 300 && now > gfx.noRaise && gfx.lowered < 3 && raiseTier(null)) { gfx.fast = 0; change(); }
+}
 renderer.setAnimationLoop(() => {
   if (!stadium || !batter || !pitcher) return;
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
-  update(dt); composer.render(dt);
-  if (raw > 0.03 && raw < 0.5) slow++;
-  if (++frames === 150) { if (slow > 80 && lowerTier()) { applyTier(); resize(); } slow = 0; frames = 0; }
+  update(dt); composer.render(dt); adapt(raw);
 });
 window.derby = { S, camera, get batter() { return batter; }, get pitcher() { return pitcher; }, get ball() { return ball; }, swing, start };
 boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });

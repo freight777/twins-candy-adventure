@@ -6,17 +6,25 @@ const TIERS = {
 };
 export const ORDER = ['high', 'medium', 'low'];
 export const Q = { name: 'high', ...TIERS.high };
+const DEFAULT_KEY = 'candyTier';
 
-export function setTier(name) {
+/** `key` is where the choice is remembered on this device; pass null to switch tiers without remembering. */
+export function setTier(name, key = DEFAULT_KEY) {
   if (!TIERS[name]) return;
   Object.assign(Q, { name }, TIERS[name]);
-  try { localStorage.setItem('candyTier', name); } catch { /* private mode etc. */ }
+  if (key) { try { localStorage.setItem(key, name); } catch { /* private mode etc. */ } }
 }
-export function loadTier() {
-  try { const t = localStorage.getItem('candyTier'); if (TIERS[t]) setTier(t); } catch { /* ignore */ }
+export function loadTier(key = DEFAULT_KEY) {
+  try { const t = localStorage.getItem(key); if (TIERS[t]) setTier(t, key); } catch { /* ignore */ }
 }
-export function lowerTier() {
+export function lowerTier(key = DEFAULT_KEY) {
   const i = ORDER.indexOf(Q.name);
-  if (i < ORDER.length - 1) { setTier(ORDER[i + 1]); return true; }
+  if (i < ORDER.length - 1) { setTier(ORDER[i + 1], key); return true; }
+  return false;
+}
+/** step back up after a long smooth stretch (so one slow moment never leaves a game stuck on low) */
+export function raiseTier(key = null) {
+  const i = ORDER.indexOf(Q.name);
+  if (i > 0) { setTier(ORDER[i - 1], key); return true; }
   return false;
 }

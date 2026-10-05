@@ -27,7 +27,7 @@ export function buildStadium(scene, T = {}) {
   const grassTex = canvasTex(512, 512, (g, w, h) => { const bands = 8; for (let i = 0; i < bands; i++) { g.fillStyle = i % 2 ? '#2f6e32' : '#3b8038'; g.fillRect(0, i * (h / bands), w, h / bands + 1); } noise(g, w, h, 14000, .12); }, [1, 16]);
   grassTex.anisotropy = 8;
   // photographic PBR surfaces (ambientCG, CC0): colour + normal + roughness maps, tiled
-  const DIRT_TINT = 0xd89a68;
+  const DIRT_TINT = 0xb9825c;
   const pbr = (t, rx, ry, extra = {}) => { const set = (x) => { const c = x.clone(); c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(rx, ry); c.anisotropy = 8; c.needsUpdate = true; return c; }; return new THREE.MeshStandardMaterial({ map: set(t.c), normalMap: set(t.n), roughnessMap: set(t.r), roughness: 1, ...extra }); };
   const mow = (m) => {          // mowing stripes: alternate bands of lighter and darker turf
     m.onBeforeCompile = (sh) => {
@@ -55,7 +55,7 @@ export function buildStadium(scene, T = {}) {
   const rubber = new THREE.Mesh(new THREE.BoxGeometry(1.8, .1, .4), mat({ color: 0xf2f2f2 })); rubber.position.set(0, .75, -16.5); scene.add(rubber);
   const plate = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .1, 5), mat({ color: 0xf4f4f4, roughness: .6 })); plate.position.set(0, .07, 0); scene.add(plate);
   [[19, -19], [0, -38], [-19, -19]].forEach(([x, z]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(1.6, .22, 1.6), mat({ color: 0xf4f4f4 })); b.position.set(x, .12, z); b.castShadow = true; scene.add(b); });
-  const chalk = new THREE.MeshBasicMaterial({ color: 0xf2f2f2 });
+  const chalk = mat({ color: 0xf2f2ee, roughness: 1 });                    // lit, so it catches the sun like real chalk instead of glowing
   [-1, 1].forEach((s) => { const l = new THREE.Mesh(new THREE.PlaneGeometry(.35, S.wallR).rotateX(-Math.PI / 2), chalk); l.position.set(s * S.wallR * .3536, .06, -S.wallR * .3536); l.rotation.y = -s * Math.PI / 4; scene.add(l); });
   [-1, 1].forEach((s) => { const cx = s * 3.2, w = 3.3, d = 6.2, t = .14; [[0, -d / 2, w, t], [0, d / 2, w, t], [-w / 2, 0, t, d], [w / 2, 0, t, d]].forEach(([x, z, sx, sz]) => { const e = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz).rotateX(-Math.PI / 2), chalk); e.position.set(cx + x, .05, z); scene.add(e); }); });
   S.zones = {};
