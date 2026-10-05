@@ -2,6 +2,7 @@
 // words from their class (e.g. a CKLA unit's Tricky Words) is just editing these arrays.
 // Progress lives in the shared per-child profile (src/learn/profile.js); this file only makes the questions.
 import { settings, saveSettings, levelOf as profileLevel, recordItem, recordSkill, choose } from './learn/profile.js';
+import { firstSoundQ, unitForLevel } from './learn/reading.js';
 export { settings, saveSettings };
 
 // Early sight / "tricky" words: [word, what the voice says]. The voice says an example for words that sound like letters.
@@ -53,6 +54,8 @@ function decodeQ(lvl, who) {
   const t = pickItem(who, CVC, 'read', (p) => `read:${p[0]}`), others = shuffle(CVC.filter((p) => p !== t && p[0][0] !== t[0][0])).slice(0, 2);
   return { id: `read:${t[0]}`, prompt: { say: 'Read the word. Then tap the picture!', big: t[0] }, choices: shuffle([t, ...others]).map((p) => ({ emoji: p[1], correct: p === t })), answerSay: `The word says ${t[0]}.` };
 }
+/** CKLA teaches letter SOUNDS first (names arrive in Unit 6): "Which one starts with /m/?", only with sounds her unit has taught */
+function soundQ(lvl, who) { return firstSoundQ(who, unitForLevel(profileLevel(who, 'reading')), lastId) || sightQ(lvl, who); }
 function firstLetterQ(lvl, who) {
   const t = pickItem(who, CVC, 'first', (p) => `first:${p[0][0]}`), L = t[0][0];
   const others = shuffle(CVC.filter((p) => p[0][0] !== L)).slice(0, 2);
@@ -60,8 +63,8 @@ function firstLetterQ(lvl, who) {
 }
 
 const MIX = [
-  [[sightQ, 6], [firstLetterQ, 4]],                                 // starter: sight words + first letters
-  [[sightQ, 3], [picWordQ, 3], [firstLetterQ, 2], [decodeQ, 2]],    // medium: adds picture words and reading short words
+  [[sightQ, 6], [soundQ, 4]],                                       // starter: sight words + first sounds
+  [[sightQ, 3], [picWordQ, 3], [soundQ, 2], [decodeQ, 2]],          // medium: adds picture words and reading short words
   [[sightQ, 3], [picWordQ, 2], [decodeQ, 5]],                       // tricky: mostly reading short words
 ];
 

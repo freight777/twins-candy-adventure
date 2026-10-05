@@ -68,7 +68,7 @@ export const ui = {
   quiz(q, { retry = true } = {}) {
     return new Promise((resolve) => {
       const root = $('#quiz'), box = $('#quiz .q-choices');
-      root.classList.remove('hidden'); $('#quiz .q-big').textContent = q.prompt.big; box.innerHTML = '';
+      root.classList.remove('hidden'); const big = $('#quiz .q-big'); big.textContent = q.prompt.big; big.className = 'q-big ' + (q.prompt.bigClass || ''); box.innerHTML = '';
       const speak = () => say(q.prompt.say, 'narrator');
       $('#q-say').onclick = speak; speak();
       let wrong = 0, done = false;
