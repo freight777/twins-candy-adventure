@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#14234a" />
+  <link rel="icon" type="image/png" href="./icon-192.png" />
+  <title>Tony's Home Run Derby</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="loading"><div class="l-uni">&#9918;</div><div class="l-text">Getting the ballpark ready...</div></div>
+
+  <div id="ui">
+    <div id="hud" class="hidden">
+      <a id="home" href="./" aria-label="All games">&#127968;</a>
+      <div id="hrbox">&#9918; <span id="hr">0</span> <small>home runs</small></div>
+      <div id="outsbox"><small>OUTS</small><div id="outs"></div></div>
+    </div>
+    <div id="cue" class="hidden"></div>
+    <div id="bigtext" class="hidden"></div>
+    <div id="tapL" class="tap"><span>&#11013;&#65039;</span></div>
+    <div id="tapR" class="tap"><span>&#10145;&#65039;</span></div>
+
+    <div id="title" class="hidden">
+      <div class="logo"><div class="logo-small">&#127967; Tony's &#127967;</div><div class="logo-big">Home Run<br>Derby</div></div>
+      <div class="title-bottom">
+        <button id="play" aria-label="Play"><span>&#9654;</span></button>
+        <div class="row"><button id="lbBtn" class="pill">&#127942; Leaderboard</button><button id="helper" class="pill">Helper arrows: ON</button></div>
+      </div>
+    </div>
+
+    <div id="over" class="hidden card">
+      <h2>Great game!</h2>
+      <div class="big"><span id="final">0</span> <small>home runs</small></div>
+      <input id="name" maxlength="10" placeholder="Name" autocomplete="off" />
+      <button id="save" class="pill pink">Save my score</button>
+      <div id="boardmini"></div>
+      <button id="again" class="pill green">&#8635; Play again</button>
+    </div>
+    <div id="board" class="hidden card"><h2>&#127942; Leaderboard</h2><div id="boardfull"></div><button id="closeBoard" class="pill">Close</button></div>
+  </div>
+  <script type="module" src="/src/derby/game.js"></script>
+</body>
+</html>

@@ -132,6 +132,11 @@ export const sfx = {
   hop: () => tone(330, 0.12, { slide: 2, vol: 0.25, type: 'triangle' }),
   womp: () => { tone(300, 0.25, { type: 'sawtooth', slide: 0.5, vol: 0.18 }); tone(220, 0.4, { type: 'sawtooth', slide: 0.5, vol: 0.18, delay: 0.25 }); },
   creak: () => tone(70, 1.6, { type: 'sawtooth', slide: 1.8, vol: 0.12 }),
+  crack: () => { noise(.06, { vol: .7, from: 5000, to: 1500, q: .5, type: 'highpass' }); tone(190, .14, { type: 'square', slide: .4, vol: .35 }); tone(900, .08, { type: 'triangle', slide: .5, vol: .2 }); },
+  cheer: () => { noise(2.4, { vol: .4, from: 500, to: 1900, q: .4 }); noise(2.0, { vol: .25, from: 1200, to: 800, q: .3, delay: .3 }); },
+  charge: () => { [[523.25, 0], [659.25, .14], [783.99, .28], [1046.5, .42], [783.99, .62], [1046.5, .76]].forEach(([f, d]) => tone(f, .22, { type: 'square', vol: .12, delay: d, wet: .2 })); },
+  strike: () => { tone(220, .22, { type: 'sawtooth', slide: .6, vol: .2 }); noise(.12, { vol: .3, from: 1500, to: 500 }); },
+  swoosh: () => noise(.18, { vol: .3, from: 600, to: 3500, q: .8 }),
   collect: (i = 0) => tone(784 * Math.pow(1.122, i % 6), 0.3, { vol: 0.22, type: 'triangle', wet: .3 }),
 };
 
@@ -147,6 +152,7 @@ const SONGS = {
   cat:    { bpm: 84,  swing: 0,   chords: [[48, MAJ], [43, MAJ], [45, MIN], [40, MIN], [41, MAJ], [48, MAJ], [41, MAJ], [43, MAJ]], scale: PENT(72), lead: 'bell', drums: 0, pad: .08 },
   forest: { bpm: 108, swing: .06, chords: [[52, MAJ], [48, MAJ], [45, MIN], [50, MAJ], [52, MAJ], [43, MAJ], [45, MIN], [48, MAJ]], scale: PENT(76), lead: 'bell', drums: 1, pad: .08 },
   ocean: { bpm: 86, swing: .04, chords: [[50, MAJ7], [47, MIN7], [43, MAJ7], [45, DOM7], [50, MAJ7], [47, MIN7], [52, MIN7], [45, DOM7]], scale: PENT(74), lead: 'bell', drums: 0, pad: .1 },
+  park: { bpm: 112, swing: .05, chords: [[48, MAJ], [53, MAJ], [55, MAJ], [48, MAJ]], scale: PENT(72), lead: 'pluck', drums: 1, pad: .05 },
   castle: { bpm: 100, swing: 0,   chords: [[48, MAJ], [41, MAJ], [43, MAJ], [48, MAJ]], scale: PENT(60), lead: 'bell', drums: 0, pad: .1 },
 };
 let cur = null, timer = null, nextT = 0, step = 0, phrase = [], phraseOld = [], lastIdx = 3;
