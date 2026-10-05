@@ -208,6 +208,21 @@ export function buildStadium(scene, T = {}) {
     for (let a = 0; a < 8; a++) for (let b = 0; b < 3; b++) { const lamp = new THREE.Mesh(new THREE.CircleGeometry(1.2, 12), lampM); lamp.position.set(-10.5 + a * 3, -2.6 + b * 2.7, .75); bank.add(lamp); }
     const gl = glowSprite(0xfff0c8, 46, .2); gl.position.copy(bank.position); scene.add(gl); glows.push(gl);
   }
+  // flags waving on the roof edge (navy pennants with a white star; the cloth ripples in the vertex shader)
+  const FU = { time: { value: 0 } };
+  const flagTex = canvasTex(256, 150, (g, w, h) => { g.fillStyle = '#14234a'; g.fillRect(0, 0, w, h); g.fillStyle = '#f2f2ee'; g.fillRect(0, h - 22, w, 10); g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 22 : 50; g.lineTo(w / 2 + Math.cos(a) * r, h / 2 - 8 + Math.sin(a) * r); } g.closePath(); g.fill(); });
+  const flagMat = new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide, roughness: .85 });
+  flagMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uFlagT = FU.time;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uFlagT;').replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat fk = (position.x + 4.) / 8.; transformed.z += sin(position.x * 1.1 - uFlagT * 4.2 + position.y * .6) * 1.1 * fk; transformed.y += sin(position.x * .8 - uFlagT * 3.1) * .25 * fk;');
+  };
+  flagMat.customProgramCacheKey = () => 'flag';
+  for (let i = 0; i < 13; i++) {
+    const th = lerp(-1.25, 1.25, i / 12), base = P3(th, wallR(th) + TIERS[2].off - 1.5, roofY + 1);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(.14, .2, 15, 8), mat({ color: 0xd8dae0, metalness: .4 })); pole.position.copy(base); pole.position.y += 7.5; scene.add(pole);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(8, 4.8, 14, 4), flagMat); flag.position.copy(base); flag.position.y += 12.4;
+    flag.lookAt(0, flag.position.y, 0); flag.translateX(4.2); scene.add(flag);
+  }
   // the video board (it shows the score); mounted on the upper-deck fascia right of center
   const sbC = document.createElement('canvas'); sbC.width = 1280; sbC.height = 720; const sbT = new THREE.CanvasTexture(sbC); sbT.colorSpace = THREE.SRGBColorSpace; sbT.anisotropy = 4;
   const bth = .3, bw = 44, bh = 24.75, boardPos = P3(bth, wallR(bth) + TIERS[2].off - 4, 58);
@@ -324,7 +339,7 @@ export function buildStadium(scene, T = {}) {
   S.update = (dt, t) => {
     S.clouds.forEach((m) => { m.position.x += dt * .8; if (m.position.x > 400) m.position.x = -400; });
     S.flashes.forEach((f) => { f.t -= dt; f.sp.material.opacity = f.t < .12 && f.t > 0 ? .9 : 0; if (f.t < -rand(1, 5)) f.t = rand(.5, 4); });
-    S.cheering = Math.max(0, S.cheering - dt); U.cheer.value = Math.min(1, S.cheering); U.time.value = t;
+    S.cheering = Math.max(0, S.cheering - dt); U.cheer.value = Math.min(1, S.cheering); U.time.value = t; FU.time.value = t;
     ledT.offset.x = (t * .02) % 1;
   };
   S.cheer = (sec = 3) => { S.cheering = sec; };
