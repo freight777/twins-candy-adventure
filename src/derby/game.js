@@ -7,7 +7,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { Q, loadTier, lowerTier, raiseTier } from '../quality.js';
+import { Q, loadTier, setTier, lowerTier, raiseTier } from '../quality.js';
 import { skyEnv } from '../env.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, glowSprite, canvasTex, RAINBOW } from '../util.js';
 import { unlock, playMusic, stopMusic, say, sfx, crowdBed } from '../audio.js';
@@ -27,7 +27,8 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPrefer
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
-loadTier('derbyTier');                                 // this game remembers its own quality tier (and never remembers 'low')
+loadTier('derbyTier');
+try { if (!localStorage.getItem('derbyTier') && matchMedia('(pointer: coarse)').matches) setTier('medium', null); } catch { /* ignore */ }      // touch devices start smooth and step up once they prove they can                                 // this game remembers its own quality tier (and never remembers 'low')
 const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
 const composer = new EffectComposer(renderer, rt);
 const scene = new THREE.Scene();
@@ -310,8 +311,8 @@ function adapt(raw) {
   const now = performance.now(); if (!gfx.auto || now < gfx.mute || document.hidden || raw >= .5) return;
   gfx.frames++; if (raw > .03) gfx.slow++; if (raw < .02) gfx.fast++; else gfx.fast = 0;
   const change = () => { applyTier(); resize(); try { if (Q.name === 'low') localStorage.removeItem('derbyTier'); else localStorage.setItem('derbyTier', Q.name); } catch { /* ignore */ } };
-  if (gfx.frames >= 100) { if (gfx.slow > 55 && lowerTier(null)) { gfx.lowered++; gfx.noRaise = now + 45000; gfx.fast = 0; change(); } gfx.slow = gfx.frames = 0; }
-  if (gfx.fast >= 300 && now > gfx.noRaise && gfx.lowered < 3 && raiseTier(null)) { gfx.fast = 0; change(); }
+  if (gfx.frames >= 100) { if (gfx.slow > 55 && lowerTier(null)) { gfx.lowered++; gfx.noRaise = gfx.raisedAt && now - gfx.raisedAt < 25000 ? Infinity : now + 45000; gfx.fast = 0; change(); } gfx.slow = gfx.frames = 0; }
+  if (gfx.fast >= 300 && now > gfx.noRaise && gfx.lowered < 3 && raiseTier(null)) { gfx.fast = 0; gfx.raisedAt = now; change(); }
 }
 renderer.setAnimationLoop(() => {
   if (!stadium || !batter || !pitcher) return;
