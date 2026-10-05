@@ -120,10 +120,10 @@ export function buildStadium(scene, T = {}) {
       for (let i = 0; i < 260; i++) { const [px, py] = [Math.random() * SZ, Math.random() * SZ], r = 14 + Math.random() * 46, gr = g.createRadialGradient(px, py, 0, px, py, r); const dark = Math.random() < .6; gr.addColorStop(0, dark ? 'rgba(70,38,20,.16)' : 'rgba(255,220,180,.10)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.beginPath(); g.arc(px, py, r, 0, 7); g.fill(); }   // mottling so the tiles never repeat
       [-1, 1].forEach((s) => {                                                              // batter's boxes: packed, darker clay and a few footprints
         const [bx, by] = P(s * 3.2, 0), bw = 3.3 / SCALE, bh = 6.2 / SCALE, gr = g.createRadialGradient(bx, by, 10, bx, by, bh * .7); gr.addColorStop(0, 'rgba(60,32,18,.42)'); gr.addColorStop(1, 'rgba(60,32,18,0)'); g.fillStyle = gr; g.fillRect(bx - bw * 1.3, by - bh * .85, bw * 2.6, bh * 1.7);
-        for (let i = 0; i < 7; i++) { const fx = bx + (Math.random() - .5) * bw * .8, fy = by + (Math.random() - .5) * bh * .8; g.save(); g.translate(fx, fy); g.rotate((Math.random() - .5) * 1.2 + (s > 0 ? 0 : Math.PI) + Math.PI / 2); g.fillStyle = 'rgba(40,20,10,.2)'; g.beginPath(); g.ellipse(0, 0, 6, 15, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(255,235,210,.08)'; g.beginPath(); g.ellipse(-1.5, -1.5, 4, 10, 0, 0, 7); g.fill(); g.restore(); }
+        for (let i = 0; i < 7; i++) { const fx = bx + (Math.random() - .5) * bw * .8, fy = by + (Math.random() - .5) * bh * .8; g.save(); g.translate(fx, fy); g.rotate((Math.random() - .5) * 1.2 + (s > 0 ? 0 : Math.PI) + Math.PI / 2); g.fillStyle = 'rgba(40,20,10,.2)'; g.beginPath(); g.ellipse(0, 0, 6, 15, 0, 0, 7); g.fill(); g.restore(); }
       });
       { const [px, py] = P(0, 0), gr = g.createRadialGradient(px, py, 8, px, py, 150); gr.addColorStop(0, 'rgba(50,28,16,.38)'); gr.addColorStop(1, 'rgba(50,28,16,0)'); g.fillStyle = gr; g.beginPath(); g.arc(px, py, 150, 0, 7); g.fill(); }   // trampled around the plate
-      for (let i = 0; i < 90; i++) { const s = Math.random() < .5 ? -1 : 1, [lx, ly] = P(s * (3.2 + (Math.random() - .5) * 3.3), (Math.random() - .5) * 6.2); g.fillStyle = `rgba(255,255,250,${.04 + Math.random() * .09})`; g.beginPath(); g.ellipse(lx, ly, 5 + Math.random() * 16, 2 + Math.random() * 4, Math.random() * 3, 0, 7); g.fill(); }   // chalk scuffs in the boxes
+      for (let i = 0; i < 36; i++) { const s = Math.random() < .5 ? -1 : 1, [lx, ly] = P(s * (3.2 + (Math.random() - .5) * 3.3), (Math.random() - .5) * 6.2); g.fillStyle = `rgba(255,255,250,${.025 + Math.random() * .05})`; g.beginPath(); g.ellipse(lx, ly, 5 + Math.random() * 16, 2 + Math.random() * 4, Math.random() * 3, 0, 7); g.fill(); }   // chalk scuffs in the boxes
     });
     wear.wrapS = wear.wrapT = THREE.ClampToEdgeWrapping; wear.repeat.set(1, 1);
     const decal = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: wear, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, fog: true }));
@@ -355,7 +355,7 @@ export function buildStadium(scene, T = {}) {
   });
   fans.instanceColor.needsUpdate = true; fans.frustumCulled = false; scene.add(fans); S.fanMesh = fans; S.fanTotal = FAN;
   S.setDensity = (f) => { fans.count = Math.max(1, Math.floor(FAN * clamp(f, .1, 1))); };
-  S.flashes = []; for (let i = 0; i < 40; i++) { const sp = glowSprite(0xffffff, 3, 0); const f = S.fans[Math.floor(Math.random() * S.fans.length)]; sp.position.set(f.x, f.y + 1, f.z); scene.add(sp); S.flashes.push({ sp, t: rand(0, 6) }); }
+  S.flashes = []; for (let i = 0; i < 80; i++) { const sp = glowSprite(0xffffff, 3, 0); const f = S.fans[Math.floor(Math.random() * S.fans.length)]; sp.position.set(f.x, f.y + 1, f.z); scene.add(sp); S.flashes.push({ sp, t: rand(0, 6) }); }
 
   // ---- lighting: low warm afternoon sun, soft sky fill, long shadows ----
   const hemi = new THREE.HemisphereLight(0xbcd4ff, 0x4a5a3a, T.hdr ? .25 : .7); scene.add(hemi);
@@ -390,7 +390,8 @@ export function buildStadium(scene, T = {}) {
 
   S.update = (dt, t) => {
     S.clouds.forEach((m) => { m.position.x += dt * .8; if (m.position.x > 400) m.position.x = -400; });
-    S.flashes.forEach((f) => { f.t -= dt; f.sp.material.opacity = f.t < .12 && f.t > 0 ? .9 : 0; if (f.t < -rand(1, 5)) f.t = rand(.5, 4); });
+    const nFlash = S.mode === 'night' ? 80 : 28;                       // more cameras popping at a night game
+    S.flashes.forEach((f, i) => { if (i >= nFlash) { f.sp.material.opacity = 0; return; } f.t -= dt; f.sp.material.opacity = f.t < .12 && f.t > 0 ? .95 : 0; if (f.t < -rand(1, 5)) f.t = rand(.5, 4); });
     S.cheering = Math.max(0, S.cheering - dt); U.cheer.value = Math.min(1, S.cheering); U.time.value = t; FU.time.value = t;
     ledT.offset.x = (t * .02) % 1;
     if (boardFlash) { boardFlash.t -= dt; boardFlash.k -= dt; if (boardFlash.t <= 0) { boardFlash = null; setScoreBase(...lastScore); } else if (boardFlash.k <= 0) { boardFlash.k = .22; boardFlash.inv = !boardFlash.inv; drawFlash(boardFlash.inv); } }
