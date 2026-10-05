@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { canvasTex, clamp, lerp } from '../util.js';
 import { loadMannequin, loadBody, createSkinnedRig } from './skinned.js';
+import { makeBat, makeGlove, makeBallMesh } from './props.js';
 
 const sph = (r, w = 24, h = 16) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 20) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -131,10 +132,7 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
   backPlate.position.set(0, 1.1, .64); if (torso) torso.add(backPlate);
   // bat
   const pivot = new THREE.Group(); root.add(pivot);
-  const wood = new THREE.MeshPhysicalMaterial({ color: 0xc89a5a, roughness: .35, clearcoat: .5 });
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.15, .055, 2.25, 24), wood); barrel.rotation.z = -Math.PI / 2; barrel.position.x = 1.42; barrel.castShadow = true; pivot.add(barrel);
-  const handle = new THREE.Mesh(cyl(.05, .05, .55, 14), new THREE.MeshStandardMaterial({ color: 0x241810, roughness: .8 })); handle.rotation.z = Math.PI / 2; handle.position.x = .15; pivot.add(handle);
-  const knob = new THREE.Mesh(sph(.085, 14, 10), new THREE.MeshStandardMaterial({ color: 0x241810 })); knob.position.x = -.14; pivot.add(knob);
+  pivot.add(makeBat());
   if (!rig.skinned) [0, .35].forEach((x) => { const g = new THREE.Mesh(sph(.12, 14, 10), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .7 })); g.position.x = x; pivot.add(g); });
   const IDLE = 8, START = 10, RATE = 1.5, CONTACT = clip.center, axisQ = new THREE.Quaternion(), tmpQ = new THREE.Quaternion(), SWEET = 2.0;
   let anim = null, hold = null, baseX = 0, off = 0, offT = 0;
@@ -178,14 +176,14 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
 export function createPitcher(clips) {
   const clip = clips.pitch, skin = skinMat(0xc08a63), gray = cloth(0xd6d9df), red = cloth(0xb81f30);
   const rig = clips.mannequin
-    ? createSkinnedRig(clips.mannequin, { skin: 0xd2a07a, hair: 0x2a1c12, jersey: 0xc9ccd2, pants: 0xbfc2c9, under: 0xb81f30, sock: 0xb81f30, shoes: 0x111114, stripes: false, cap: 0xb81f30, bill: true, curl: .5 })
+    ? createSkinnedRig(clips.mannequin, { skin: 0xcf9d78, hair: 0x2a1c12, jersey: 0xaeb3bc, pants: 0xa6acb6, under: 0x9a1b2b, sock: 0x9a1b2b, shoes: 0x111114, stripes: false, cap: 0x9a1b2b, bill: true, curl: .5 })
     : createRig({ torsoMat: gray, legMat: gray, armMat: gray, foreMat: new THREE.MeshPhysicalMaterial({ color: 0xc08a63, roughness: .55 }), helmet: red, skin, ears: false });
   const { root } = rig, REL_IDX = clip.center;
-  const mitt = new THREE.Mesh(sph(.3, 16, 12), new THREE.MeshStandardMaterial({ color: 0x6a3a1c, roughness: .6 })); mitt.castShadow = true; root.add(mitt);
-  const ballM = new THREE.Mesh(sph(.2, 16, 12), new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: .55 })); root.add(ballM);
+  const mitt = makeGlove(); root.add(mitt);
+  const ballM = makeBallMesh(.115); ballM.castShadow = true; root.add(ballM);
   let hands = null, holding = true;
   const setF = pitcherSet(frameAt(clip, 0));
-  const drivePose = (F) => { hands = rig.drive(F, Math.PI); mitt.position.copy(hands.L); ballM.visible = holding; ballM.position.copy(hands.R); };
+  const drivePose = (F) => { hands = rig.drive(F, Math.PI); mitt.position.copy(hands.L); if (rig.handQ) mitt.quaternion.copy(rig.handQ('L')); ballM.visible = holding; ballM.position.copy(hands.R); };
   const at = (idx) => { const k = smooth(idx / 24), F = blend(setF, frameAt(clip, idx), k); drivePose(F); };
   holding = false; drivePose(frameAt(clip, REL_IDX)); const relLocal = hands.R.clone(); holding = true; drivePose(setF);
   return {

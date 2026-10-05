@@ -269,6 +269,8 @@ export function createSkinnedRig(template, o) {
   const toeH = (bp('DEF-toeL').y - minY.v / s + OFF.shoe) * s;
   const rig = {
     root, skinned: true, B, hs, hc, meshes, gb, wp,
+    /** how far a hand has turned from its rest orientation, in the rig's own space (to orient things held in it) */
+    handQ(K) { const b = gb(`DEF-hand.${K}`), rq = root.getWorldQuaternion(new THREE.Quaternion()).invert(); return rq.multiply(wq(b).multiply(restWQ[b.name].clone().invert())); },
     drive(F, headYaw = 0) {
       Object.values(B).forEach((b) => { b.quaternion.copy(rest[b.name].q); b.position.copy(rest[b.name].p); });
       root.updateMatrixWorld(true);

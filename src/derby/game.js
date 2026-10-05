@@ -13,10 +13,12 @@ import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, glowSprite, c
 import { unlock, playMusic, stopMusic, say, sfx } from '../audio.js';
 import { buildStadium } from './stadium.js';
 import { createTracer } from './tracer.js';
+import { makeBallMesh } from './props.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { createBatter, createPitcher, loadClips } from './players.js';
 
 const $ = (s) => document.querySelector(s);
+let stadium, batter, pitcher, ball, ballShadow, zoneGlow, tracer, hrTracer, blobB, blobP;
 
 // ---------------------------------------------------------------- renderer (same glossy pipeline as the other 3D games)
 const canvas = $('#c');
@@ -44,7 +46,7 @@ const grade = new ShaderPass({
 const gtao = new GTAOPass(scene, camera, 256, 256); gtao.blendIntensity = 0.9; gtao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.4, thickness: 1.2, scale: 1.2, samples: 12 });
 const bokeh = new BokehPass(scene, camera, { focus: 13, aperture: 0.00016, maxblur: 0.006 });
 composer.addPass(new RenderPass(scene, camera)); composer.addPass(gtao); composer.addPass(bokeh); composer.addPass(bloom); composer.addPass(new OutputPass()); composer.addPass(grade);
-function applyTier() { const pr = Math.min(window.devicePixelRatio, Q.pr); bloom.enabled = Q.bloom; gtao.enabled = bokeh.enabled = !!Q.post; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
+function applyTier() { const pr = Math.min(window.devicePixelRatio, Q.pr); if (stadium) stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1); bloom.enabled = Q.bloom; gtao.enabled = bokeh.enabled = !!Q.post; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
 function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(54 / 2)) / a)), 34, 62); camera.updateProjectionMatrix(); }
 applyTier(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
@@ -78,7 +80,6 @@ const ballPath = (lane, k, type = 'fast') => {
   return new THREE.Vector3(x, y, lerp(REL.z, -0.2, kk));
 };
 const flightTime = () => Math.max(1.6, 2.6 - Math.floor(S.hr / 4) * 0.12);
-let stadium, batter, pitcher, ball, ballShadow, zoneGlow, tracer, hrTracer, blobB, blobP;
 const camLook = new THREE.Vector3(0, 3.0, -18);
 
 async function boot() {
@@ -89,7 +90,7 @@ async function boot() {
   const T = { grass: await loadT('grass'), dirt: await loadT('dirt'), conc: await loadT('conc') };
   let hdr = null; try { hdr = await new HDRLoader().loadAsync(`${BASE}assets/derby/hdr/orlando_stadium_2k.hdr`); hdr.mapping = THREE.EquirectangularReflectionMapping; } catch (e) { console.warn('HDRI failed', e); }
   T.hdr = !!hdr;
-  stadium = buildStadium(scene, T);
+  stadium = buildStadium(scene, T); stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1);
   if (hdr) { scene.environment = hdr; scene.background = hdr; scene.environmentIntensity = 1.0; scene.backgroundIntensity = 1.0; stadium.sky.visible = false; stadium.clouds.forEach((c) => (c.visible = false)); }
   else { scene.environment = skyEnv(renderer, 'park', { top: 0x6fb4ff, mid: 0xfff4e6, bottom: 0xb8e8a8, sun: [25, 40, -20], sunPower: 6 }); scene.environmentIntensity = 0.35; }
   scene.fog = new THREE.Fog(0xc8d8e8, 260, 820);
@@ -99,19 +100,7 @@ async function boot() {
   pitcher = createPitcher(clips); pitcher.root.position.set(0, .7, 0); pitcher.root.position.z = -15.0 - pitcher.releaseWorld().z; REL.copy(pitcher.releaseWorld()); scene.add(pitcher.root);
   scene.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.type !== 'PlaneGeometry') { /* shadows only for the players */ } });
   [batter.root, pitcher.root].forEach((r) => r.traverse((o) => { if (o.isMesh) o.castShadow = true; }));
-  // a baseball: white leather with the two curved rows of red stitches
-  const ballTex = canvasTex(512, 256, (g, w, h) => {
-    g.fillStyle = '#f4f1ea'; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 1800; i++) { g.fillStyle = `rgba(120,100,80,${Math.random() * .06})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
-    [0, 1].forEach((side) => {
-      for (let x = 0; x <= w; x += 2) {
-        const ph = (x / w) * Math.PI * 2 * 2, y = h / 2 + (side ? -1 : 1) * h * .23 * Math.sin(ph), dy = (side ? -1 : 1) * h * .23 * Math.cos(ph) * (Math.PI * 4 / w);
-        g.fillStyle = '#c0282d'; g.beginPath(); g.arc(x, y, 3.2, 0, 7); g.fill();
-        if (x % 12 === 0) { const nx = -dy, ny = 1, nl = Math.hypot(nx, ny); g.strokeStyle = '#c0282d'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(x - nx / nl * 10, y - ny / nl * 10); g.lineTo(x + nx / nl * 10, y + ny / nl * 10); g.stroke(); }
-      }
-    });
-  });
-  ball = new THREE.Group(); ball.add(new THREE.Mesh(new THREE.SphereGeometry(.16, 28, 20), new THREE.MeshStandardMaterial({ map: ballTex, roughness: .55 })));
+  ball = new THREE.Group(); ball.add(makeBallMesh(.16));
   const bg = glowSprite(0xffffff, 1.1, .3); ball.add(bg); ball.userData.glow = bg; ball.visible = false; scene.add(ball);
   ballShadow = new THREE.Mesh(new THREE.CircleGeometry(.4, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .3, depthWrite: false })); ballShadow.visible = false; scene.add(ballShadow);
   tracer = createTracer(scene, { n: 14, px: 3, opacity: .35 }); hrTracer = createTracer(scene, { n: 46, px: 9, color: 0xffe9a8, opacity: .9 });
@@ -283,5 +272,5 @@ renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
   update(dt); composer.render(dt); adapt(raw);
 });
-window.derby = { S, camera, get batter() { return batter; }, get pitcher() { return pitcher; }, get ball() { return ball; }, swing, start };
+window.derby = { S, camera, renderer, passes: { gtao, bokeh, bloom, grade }, get stadium() { return stadium; }, get batter() { return batter; }, get pitcher() { return pitcher; }, get ball() { return ball; }, swing, start };
 boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });
