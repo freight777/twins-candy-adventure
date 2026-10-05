@@ -14,11 +14,12 @@ import { unlock, playMusic, stopMusic, say, sfx } from '../audio.js';
 import { buildStadium } from './stadium.js';
 import { createTracer } from './tracer.js';
 import { makeBallMesh } from './props.js';
+import { createSwingTrail } from './swingtrail.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { createBatter, createPitcher, loadClips } from './players.js';
 
 const $ = (s) => document.querySelector(s);
-let stadium, batter, pitcher, ball, ballShadow, zoneGlow, tracer, hrTracer, blobB, blobP;
+let stadium, batter, pitcher, ball, ballShadow, zoneGlow, tracer, hrTracer, blobB, blobP, swingTrail, baseFov = 54;
 
 // ---------------------------------------------------------------- renderer (same glossy pipeline as the other 3D games)
 const canvas = $('#c');
@@ -47,7 +48,7 @@ const gtao = new GTAOPass(scene, camera, 256, 256); gtao.blendIntensity = 0.9; g
 const bokeh = new BokehPass(scene, camera, { focus: 13, aperture: 0.00016, maxblur: 0.006 });
 composer.addPass(new RenderPass(scene, camera)); composer.addPass(gtao); composer.addPass(bokeh); composer.addPass(bloom); composer.addPass(new OutputPass()); composer.addPass(grade);
 function applyTier() { const pr = Math.min(window.devicePixelRatio, Q.pr); if (stadium) { stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1); stadium.setShadows(Q.name); } bloom.enabled = Q.bloom; gtao.enabled = bokeh.enabled = !!Q.post; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
-function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(54 / 2)) / a)), 34, 62); camera.updateProjectionMatrix(); }
+function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = a; baseFov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(54 / 2)) / a)), 34, 62); camera.fov = baseFov; camera.updateProjectionMatrix(); }
 applyTier(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
 
@@ -68,7 +69,7 @@ function boardHTML(hl) {
 const timers = new Timers(), fx = new Fx(scene, 1200);
 const sleep = (s) => new Promise((r) => timers.after(s, r));
 const anim = (dur, fn, e = ease.inOut) => new Promise((r) => timers.tween(dur, fn, { ease: e, done: r }));
-const S = { state: 'boot', hr: 0, outs: 0, flight: null, lastLanes: [], time: 0, camMode: 'home', over: false };
+const S = { state: 'boot', hr: 0, outs: 0, flight: null, lastLanes: [], time: 0, camMode: 'home', over: false, timeScale: 1, stop: null, punch: 0 };
 const WIN = 0.55, LATE = 0.3;                          // seconds before / after the ball reaches the plate: a wide window
 const LANE_X = 0.8, REL = new THREE.Vector3(0.4, 5.2, -15.0), PLATE_PT = (lane) => new THREE.Vector3(lane * LANE_X, HIT_Y, -0.2);
 let HIT_Y = 3.3;
@@ -115,7 +116,7 @@ async function boot() {
   ball = new THREE.Group(); ball.add(makeBallMesh(.16));
   const bg = glowSprite(0xffffff, 1.1, .3); ball.add(bg); ball.userData.glow = bg; ball.visible = false; scene.add(ball);
   ballShadow = new THREE.Mesh(new THREE.CircleGeometry(.4, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .3, depthWrite: false })); ballShadow.visible = false; scene.add(ballShadow);
-  tracer = createTracer(scene, { n: 14, px: 3, opacity: .35 }); hrTracer = createTracer(scene, { n: 46, px: 9, color: 0xffe9a8, opacity: .9 });
+  swingTrail = createSwingTrail(scene); tracer = createTracer(scene, { n: 14, px: 3, opacity: .35 }); hrTracer = createTracer(scene, { n: 46, px: 9, color: 0xffe9a8, opacity: .9 });
   const blobTex = canvasTex(128, 128, (g, w, h) => { const gr = g.createRadialGradient(64, 64, 6, 64, 64, 62); gr.addColorStop(0, 'rgba(0,0,0,.6)'); gr.addColorStop(.5, 'rgba(0,0,0,.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
   const mkBlob = () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, fog: false })); m.renderOrder = 1; scene.add(m); return m; };
   blobB = mkBlob(); blobP = mkBlob();
@@ -125,7 +126,7 @@ async function boot() {
 }
 const show = (sel, on = true) => $(sel).classList.toggle('hidden', !on);
 const taps = (on) => document.querySelectorAll('.tap').forEach((e) => e.classList.toggle('hidden', !on));
-const banner = (txt, cls = '', sec = 2) => { const b = $('#bigtext'); b.textContent = txt; b.className = cls; show('#bigtext'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; if (sec) timers.after(sec, () => show('#bigtext', false)); };
+const banner = (txt, cls = '', sec = 2, sub = '') => { const b = $('#bigtext'); b.textContent = txt; if (sub) { const sm = document.createElement('small'); sm.textContent = sub; b.appendChild(sm); } b.className = cls; show('#bigtext'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; if (sec) timers.after(sec, () => show('#bigtext', false)); };
 const cue = (txt, cls = '') => { const c = $('#cue'); c.textContent = txt; c.className = cls; show('#cue', !!txt); };
 const setHud = () => { $('#hr').textContent = S.hr; $('#outs').innerHTML = [0, 1, 2].map((i) => `<i class="${i < S.outs ? 'out' : ''}"></i>`).join(''); stadium.setScore(S.hr, S.outs, prefs.name); };
 
@@ -169,7 +170,7 @@ async function outcome(res, lane) {
     // swing, the ball jumps to the bat, then launches
     const type = S.flight.type, k0 = S.flight.t / S.flight.F, to = ballPath(lane, 1, type);
     batter.setOffset(lane * LANE_X);
-    batter.swing(() => { sfx.crack(); fx.burst(to, { count: 30, colors: [0xffffff, 0xffe14d, 0xffa030], speed: 6, gravity: -3, life: .7, size: 1 }); });
+    batter.swing(() => { sfx.crack(); S.stop = { t: 0 }; S.punch = 1; fx.burst(to, { count: 30, colors: [0xffffff, 0xffe14d, 0xffa030], speed: 6, gravity: -3, life: .7, size: 1 }); });
     sfx.swoosh();
     await anim(batter.contactDelay, (e) => ball.position.copy(ballPath(lane, lerp(k0, 1, e), type)), ease.out);
     await homeRun(to);
@@ -196,7 +197,8 @@ async function homeRun(from) {
   S.state = 'flying';
   const ang = rand(-.62, .62), end = stadium.landing(ang);
   const dur = 3.4, peak = 44; S.camMode = 'ball'; stadium.cheer(7);
-  banner('HOME RUN!', 'good', 3.4); say('Home run!', 'counter'); sfx.cheer(); sfx.charge();
+  const ft = Math.round(clamp(Math.hypot(end.x, end.z) * 2.8, 395, 505) / 5) * 5, mph = Math.round(rand(98, 113));
+  banner('HOME RUN!', 'good', 3.4, `${ft} ft  \u2022  ${mph} mph`); say('Home run!', 'counter'); sfx.cheer(); sfx.charge();
   ballShadow.visible = false;
   await anim(dur, (k) => {
     ball.position.set(lerp(from.x, end.x, k), lerp(from.y, end.y, k) + 4 * peak * k * (1 - k), lerp(from.z, end.z, k));
@@ -254,10 +256,12 @@ function update(dt) {
     if (f.t > f.F + LATE) { f.resolved = true; f.resolve({ type: 'late' }); }
   }
   grade.uniforms.time.value = t; groundShadow(blobB, batter.rig); groundShadow(blobP, pitcher.rig);
+  if (batter.swinging) { const [a, b] = batter.barrel(); swingTrail.update(a, b, dt); } else swingTrail.update(null, null, dt);
   if (S.debugCam) { camera.position.copy(S.debugCam.p); camera.lookAt(S.debugCam.l); ribbons(); return; }
   // camera: behind home plate; during a home run it swings to follow the ball
   const home = new THREE.Vector3(Math.sin(t * .2) * .6, 5.2, 12);
   camera.position.lerp(home, 1 - Math.exp(-2 * dt));
+  if (S.punch > .001) { const p = S.punch * S.punch; camera.position.x += (Math.random() - .5) * .22 * p; camera.position.y += (Math.random() - .5) * .16 * p; camera.fov = baseFov * (1 - .075 * p); camera.updateProjectionMatrix(); } else if (camera.fov !== baseFov) { camera.fov = baseFov; camera.updateProjectionMatrix(); }
   const want = S.camMode === 'ball' ? ball.position.clone() : new THREE.Vector3(0, 3.0, -18);
   camLook.lerp(want, 1 - Math.exp(-(S.camMode === 'ball' ? 6 : 2.5) * dt)); camera.lookAt(camLook);
   stadium.sun.target.position.set(0, 0, -8);
@@ -282,7 +286,10 @@ function adapt(raw) {
 }
 renderer.setAnimationLoop(() => {
   if (!stadium || !batter || !pitcher) return;
-  const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
+  const raw = clock.getDelta(), real = Math.min(raw, 0.05);
+  if (S.stop) { S.stop.t += real; const k = S.stop.t; S.timeScale = k < .11 ? .08 : lerp(.08, 1, clamp((k - .11) / .32, 0, 1)); if (k > .45) { S.timeScale = 1; S.stop = null; } }
+  S.punch = Math.max(0, S.punch - real * 3.2);
+  const dt = real * S.timeScale;
   update(dt); composer.render(dt); adapt(raw);
 });
 window.derby = { S, camera, renderer, passes: { gtao, bokeh, bloom, grade }, get stadium() { return stadium; }, get batter() { return batter; }, get pitcher() { return pitcher; }, get ball() { return ball; }, swing, start };

@@ -79,12 +79,13 @@ export function buildStadium(scene, T = {}) {
   const grassMat = T.grass ? mow(pbr(T.grass, 150, 150, { color: 0xe4f2d0 })) : null;
   const grass = new THREE.Mesh(new THREE.CircleGeometry(230, 64).rotateX(-Math.PI / 2), grassMat || mat({ map: grassTex })); grass.position.set(0, -.02, -60); grass.receiveShadow = true; scene.add(grass);
   const dirtTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#b57b4a'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(80,40,10,.18)'; g.lineWidth = 2; for (let y = 0; y < h; y += 9) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + Math.random() * 4); g.stroke(); } noise(g, w, h, 6000, .25); }, [6, 6]);
-  const dirt = T.dirt ? pbr(T.dirt, 4, 4, { color: DIRT_TINT }) : mat({ map: dirtTex, roughness: 1 });
+  const soft = new THREE.Vector2(.75, .75);                       // gentler pebbles: infield clay is fine-grained
+  const dirt = T.dirt ? pbr(T.dirt, 7, 7, { color: DIRT_TINT, normalScale: soft }) : mat({ map: dirtTex, roughness: 1 });
   // infield: bases at the corners of a 90-ft diamond. Dirt base paths form the diamond's edges, the inside is grass,
   // and there is dirt around home, the mound and each base (second base sits in the dirt too).
   const dirtShapeTex = dirtTex.clone(); dirtShapeTex.repeat.set(1 / 7, 1 / 7); dirtShapeTex.needsUpdate = true;
-  const dirtFlat = T.dirt ? pbr(T.dirt, .2, .2, { color: DIRT_TINT }) : mat({ map: dirtShapeTex, roughness: 1 });
-  const dirtBase = T.dirt ? pbr(T.dirt, 2, 2, { color: DIRT_TINT }) : dirtFlat;
+  const dirtFlat = T.dirt ? pbr(T.dirt, .38, .38, { color: DIRT_TINT, normalScale: soft }) : mat({ map: dirtShapeTex, roughness: 1 });
+  const dirtBase = T.dirt ? pbr(T.dirt, 3.4, 3.4, { color: DIRT_TINT, normalScale: soft }) : dirtFlat;
   const diamond = (half, cs) => { const pts = [[0, cs - half], [half, cs], [0, cs + half], [-half, cs]]; const sh = new THREE.Shape(); pts.forEach(([x, y], i) => sh[i ? 'lineTo' : 'moveTo'](x, y)); sh.closePath(); return sh; };
   const ringShape = diamond(19 + 4.4, 19); ringShape.holes.push(diamond(19 - 5, 19));
   const ring = new THREE.Mesh(new THREE.ShapeGeometry(ringShape).rotateX(-Math.PI / 2), dirtFlat); ring.position.y = .015; ring.receiveShadow = true; scene.add(ring);
@@ -120,6 +121,13 @@ export function buildStadium(scene, T = {}) {
     const th = rad(deg), tex = canvasTex(256, 160, (g, w, h) => { g.fillStyle = '#f2f2ee'; g.font = '800 120px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + 6); });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 6), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
     m.position.copy(P3(th, wallR(th) - .15, 3.8)); m.lookAt(0, 3.8, 0); scene.add(m);
+  });
+  // a few sponsor boards on the wall (generic names, muted colours so they sit quietly behind the action)
+  [[-1.15, 'ICE POPS', '#1b2a4d', '#ffd24d'], [-.95, 'CITY BANK', '#e9e9e4', '#14234a'], [-.58, 'SPEED TIRES', '#222a3a', '#ffffff'], [-.19, 'SLUGGER SNACKS', '#14234a', '#ffffff'],
+    [.19, 'BIG DOG HOT DOGS', '#7a1c24', '#ffffff'], [.58, 'DERBY DAY', '#14234a', '#ffd24d'], [.95, 'HOME RUN JUICE', '#222a3a', '#ffffff'], [1.15, 'PLAY BALL', '#e9e9e4', '#14234a']].forEach(([th, txt, bg, fg]) => {
+    const tex = canvasTex(512, 104, (g, w, h) => { g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 4; g.strokeRect(6, 6, w - 12, h - 12); g.fillStyle = fg; g.font = '800 54px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + 3, w - 40); });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(18.5, 3.76), new THREE.MeshStandardMaterial({ map: tex, roughness: .6, polygonOffset: true, polygonOffsetFactor: -2 }));
+    m.position.copy(P3(th, wallR(th) - .12, 4.3)); m.lookAt(0, 4.3, 0); scene.add(m);
   });
   [-1, 1].forEach((s) => { const th = s * rad(45), pole = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, 32, 10), mat({ color: 0xe8c020 })); pole.position.copy(P3(th, wallR(th), 16)); scene.add(pole); });
   // batter's eye: the big dark screen behind center field so hitters can see the ball

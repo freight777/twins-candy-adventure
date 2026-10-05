@@ -78,9 +78,9 @@ export function createSkinnedRig(template, o) {
 
   // ---- the uniform: cloth shell grown off the body ----
   const col = (c) => new THREE.Color(c);
-  const PAL = { jersey: col(o.jersey), sleeve: col(o.jersey), pants: col(o.pants), under: col(o.under ?? o.forearm), sock: col(o.sock ?? o.pants), shoe: col(o.shoes), glove: col(o.glove ?? 0x1a1a1e), strap: col(o.strap ?? 0xf0f0ea), belt: col(o.belt ?? 0x14161c) };
-  const OFF = { jersey: .034, sleeve: .02, belt: .04, pants: .034, under: .013, sock: .013, shoe: .02, glove: .009, strap: .013 };
-  const beltY = bp('DEF-hips').y + (bp('DEF-spine001').y - bp('DEF-hips').y) * .62, kneeY = bp('DEF-shinL').y, hemY = kneeY - (bp('DEF-thighL').y - kneeY) * .3, shoeTop = bp('DEF-footL').y + .04;
+  const PAL = { collar: col(o.under ?? o.forearm), sole: col(o.sole ?? 0xdcd8d0), jersey: col(o.jersey), sleeve: col(o.jersey), pants: col(o.pants), under: col(o.under ?? o.forearm), sock: col(o.sock ?? o.pants), shoe: col(o.shoes), glove: col(o.glove ?? 0x1a1a1e), strap: col(o.strap ?? 0xf0f0ea), belt: col(o.belt ?? 0x14161c) };
+  const OFF = { collar: .034, sole: .02, jersey: .034, sleeve: .02, belt: .04, pants: .034, under: .013, sock: .013, shoe: .02, glove: .009, strap: .013 };
+  const beltY = bp('DEF-hips').y + (bp('DEF-spine001').y - bp('DEF-hips').y) * .62, kneeY = bp('DEF-shinL').y, hemY = kneeY - (bp('DEF-thighL').y - kneeY) * .3, shoeTop = bp('DEF-footL').y + .04, collarY = bp('DEF-neck').y - .052, soleY = bp('DEF-toeL').y - .005;
   const NONE = [0, 0, 0, 0];
   const torsoAxis = [0, bp('DEF-spine001').z, o.stripes ? 54 : 0, 0];
   const legAxis = (x) => [x, bp('DEF-thighL').z, o.stripes ? 30 : 0, 0];
@@ -101,10 +101,10 @@ export function createSkinnedRig(template, o) {
     if (/^shoulder/.test(n)) return ['sleeve', armAxis(side)];
     if (/^thigh/.test(n)) return ['pants', legAxis(bp(`DEF-thigh${side}`).x)];
     if (/^shin/.test(n)) return p.y > hemY ? ['pants', legAxis(bp(`DEF-thigh${side}`).x)] : p.y > shoeTop ? ['sock', NONE] : ['shoe', NONE];
-    if (/^(foot|toe)/.test(n)) return ['shoe', NONE];
+    if (/^(foot|toe)/.test(n)) return [p.y < soleY ? 'sole' : 'shoe', NONE];
     if (p.y < beltY - .022) return ['pants', legAxis(p.x >= 0 ? bp('DEF-thighL').x : bp('DEF-thighR').x)];
     if (p.y < beltY + .022) return ['belt', NONE];
-    return ['jersey', torsoAxis];
+    return [p.y > collarY ? 'collar' : 'jersey', p.y > collarY ? NONE : torsoAxis];
   };
   const shellMat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .85, sheen: .35, sheenRoughness: .6, sheenColor: new THREE.Color(0xffffff), side: THREE.DoubleSide });
   shellMat.onBeforeCompile = (sh) => {
@@ -168,11 +168,11 @@ export function createSkinnedRig(template, o) {
   const hc = regionBB.head.getCenter(V()), hs = regionBB.head.getSize(V()), headBone = gb('DEF-head');
   const eyeBB = new THREE.Box3(); meshes.filter((m) => m.name === 'Eyes').forEach((m) => eyeBB.expandByObject(m, true));
   const eyeY = eyeBB.isEmpty() ? hc.y : eyeBB.getCenter(V()).y, hx = hs.x / 2, hz = hs.z / 2;
-  const capMat = o.helmet ? new THREE.MeshPhysicalMaterial({ color: o.cap, roughness: .28, clearcoat: 1, clearcoatRoughness: .08 }) : new THREE.MeshPhysicalMaterial({ color: o.cap, roughness: .9, sheen: .25, sheenRoughness: .7, sheenColor: new THREE.Color(o.cap) });
+  const capMat = o.helmet ? new THREE.MeshPhysicalMaterial({ color: o.cap, roughness: .3, clearcoat: .8, clearcoatRoughness: .12, envMapIntensity: .55 }) : new THREE.MeshPhysicalMaterial({ color: o.cap, roughness: .9, sheen: .25, sheenRoughness: .7, sheenColor: new THREE.Color(o.cap) });
   // hair under the cap (short and dark), then the cap itself with its brim above the brows so the eyes stay clear
   const hairMat = new THREE.MeshStandardMaterial({ color: o.hair ?? 0x14100e, roughness: .9 });
   const top = regionBB.head.max.y, cy = hc.y + hs.y * .08, ry = top + .03 - cy, rimY = eyeY + hs.y * .2, thR = Math.acos(clamp((rimY - cy) / ry, -.95, .95)), cz = hc.z - hz * .02, rz = hz * 1.05;
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 18, Math.PI + .25, Math.PI - .5, thR - .1, 1.0), hairMat); hair.scale.set(hx * 1.04, ry * 1.0, hz * .96); hair.castShadow = true;
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 18, Math.PI + .12, Math.PI - .24, thR - .3, 1.2), hairMat); hair.scale.set(hx * 1.075, ry * 1.02, hz * 1.0); hair.castShadow = true;
   attach(headBone, hair, V(hc.x, cy, cz));
   const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 36, 24, 0, Math.PI * 2, 0, thR), capMat); dome.scale.set(hx * 1.09, ry * 1.04, rz * 1.04); dome.castShadow = true;
   attach(headBone, dome, V(hc.x, cy, cz), new THREE.Quaternion().setFromEuler(new THREE.Euler(-.06, 0, 0)));

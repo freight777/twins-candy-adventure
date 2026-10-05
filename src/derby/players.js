@@ -146,17 +146,17 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
   const contactLocal = cp.hands.L.clone().addScaledVector(cp.axis, SWEET);       // sweet spot of the bat at contact (in rig space)
   pose(idleFrame); axisQ.copy(pivot.quaternion); pose(idleFrame);
   const api = {
-    rig, root, pivot, torso, contactLocal, contactY: contactLocal.y, contactDelay: (CONTACT - START) / 60 / RATE,
+    swinging: false, rig, root, pivot, torso, contactLocal, contactY: contactLocal.y, contactDelay: (CONTACT - START) / 60 / RATE,
     /** stand so the bat meets the ball over the plate */
     placeAt(x, z) { baseX = x - contactLocal.x; off = 0; offT = 0; root.position.set(baseX, 0, z - contactLocal.z); },
     /** step a little toward the side the ball is on, so the bat meets it there */
     setOffset(v) { offT = v; },
     contactWorld() { return root.localToWorld(contactLocal.clone()); },
     swing(arg1, arg2) {
-      const cb = typeof arg1 === 'function' ? arg1 : arg2; let f = START, hit = false; api._back = null;
+      const cb = typeof arg1 === 'function' ? arg1 : arg2; let f = START, hit = false; api._back = null; api.swinging = true;
       anim = (dt) => {
         f += dt * 60 * RATE; if (!hit && f >= CONTACT) { hit = true; cb && cb(); }
-        if (f >= clip.count - 1) { hold = frameAt(clip, clip.count - 1); anim = null; api._back = 0; return; }
+        if (f >= clip.count - 1) { hold = frameAt(clip, clip.count - 1); anim = null; api._back = 0; api.swinging = false; return; }
         pose(blend(idleFrame, frameAt(clip, f), smooth((f - START) / (CONTACT - 14 - START))));   // bat starts upright, then follows the real swing path
       };
     },
@@ -166,7 +166,9 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
       if (api._back != null && api._back < 1) { api._back = Math.min(1, api._back + dt * 2.2); pose(blend(hold, idleFrame, api._back * api._back * (3 - 2 * api._back))); return; }
       const F = copyFrame(idleFrame); F.hips.y += Math.sin(t * 1.8) * .015; F.rwr.y += Math.sin(t * 1.8 + 1) * .02; pose(F);
     },
-    unswing() { anim = null; api._back = 1; offT = 0; },
+    unswing() { anim = null; api._back = 1; offT = 0; api.swinging = false; },
+    /** two points along the barrel in world space (for the swing trail) */
+    barrel() { pivot.updateWorldMatrix(true, false); return [pivot.localToWorld(V(1.1, 0, 0)), pivot.localToWorld(V(2.5, 0, 0))]; },
   };
   return api;
 }
