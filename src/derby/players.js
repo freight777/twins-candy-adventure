@@ -164,7 +164,9 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
       off += (offT - off) * (1 - Math.exp(-16 * dt)); root.position.x = baseX + off;
       if (anim) { anim(dt); return; }
       if (api._back != null && api._back < 1) { api._back = Math.min(1, api._back + dt * 2.2); pose(blend(hold, idleFrame, api._back * api._back * (3 - 2 * api._back))); return; }
-      const F = copyFrame(idleFrame); F.hips.y += Math.sin(t * 1.8) * .015; F.rwr.y += Math.sin(t * 1.8 + 1) * .02; pose(F);
+      const F = copyFrame(idleFrame), w = t * 2.7, wg = V(Math.sin(w * .5) * .035, Math.sin(w) * .075, Math.cos(w) * .055);        // breathing, a little weight shift, and the bat waggle batters do while they wait
+      F.hips.y += Math.sin(t * 1.8) * .015; F.hips.x += Math.sin(t * 1.1) * .02; F.chest.x += Math.sin(t * 1.1 + .4) * .02;
+      ['lwr', 'rwr', 'lfin', 'rfin'].forEach((k) => F[k].add(wg)); pose(F);
     },
     unswing() { anim = null; api._back = 1; offT = 0; api.swinging = false; },
     /** two points along the barrel in world space (for the swing trail) */

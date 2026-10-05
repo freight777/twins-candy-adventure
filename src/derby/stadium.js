@@ -149,8 +149,13 @@ export function buildStadium(scene, T = {}) {
   [-1, 1].forEach((s) => { const th = s * rad(45), pole = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, 32, 10), mat({ color: 0xe8c020 })); pole.position.copy(P3(th, wallR(th), 16)); scene.add(pole); });
   // batter's eye: the big dark screen behind center field so hitters can see the ball
   const eyeW = 2 * wallR(0) * sin(EYE), eye = new THREE.Mesh(new THREE.BoxGeometry(eyeW, 27, 5), mat({ color: 0x0b0d12, roughness: .7 })); eye.position.set(0, 13.5, -wallR(0) - 3.2); scene.add(eye);
-  const louverTex = canvasTex(64, 8, (g, w, h) => { g.fillStyle = '#10131a'; g.fillRect(0, 0, w, h); g.fillStyle = '#070809'; g.fillRect(0, 0, 2, h); }, [eyeW / 2, 1]);
-  const eyeFace = new THREE.Mesh(new THREE.PlaneGeometry(eyeW, 27), mat({ map: louverTex, roughness: .6 })); eyeFace.position.set(0, 13.5, -wallR(0) - .65); scene.add(eyeFace);
+  const louverTex = canvasTex(128, 256, (g, w, h) => {              // dark panelled screen: faint vertical seams, a slightly lighter top where the lights reach it
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#171b24'); gr.addColorStop(.5, '#0d1016'); gr.addColorStop(1, '#07080b'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(255,255,255,.07)'; g.fillRect(0, 0, 2, h); g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(2, 0, 3, h);
+    for (let y = 40; y < h; y += 48) { g.fillStyle = 'rgba(255,255,255,.035)'; g.fillRect(0, y, w, 2); }
+  }, [eyeW / 4, 1]);
+  const eyeFace = new THREE.Mesh(new THREE.PlaneGeometry(eyeW, 27), mat({ map: louverTex, roughness: .55, metalness: .15 })); eyeFace.position.set(0, 13.5, -wallR(0) - .65); scene.add(eyeFace);
+  const eyeTop = new THREE.Mesh(new THREE.BoxGeometry(eyeW + 1.4, .9, 5.8), mat({ color: 0x2a2f3a, roughness: .6 })); eyeTop.position.set(0, 27.3, -wallR(0) - 3.2); scene.add(eyeTop);
 
   // ---- the stands: three stepped decks (seat backs and aisles drawn in the shader), concrete, a roof with a white frieze ----
   const concrete = T.conc ? pbr(T.conc, 40, 2, { color: 0x8c909b, side: THREE.DoubleSide }) : mat({ color: 0x70737b, side: THREE.DoubleSide });
