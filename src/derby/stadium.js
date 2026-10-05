@@ -111,6 +111,26 @@ export function buildStadium(scene, T = {}) {
   // warning track: a band of dirt that follows the wall all the way around
   const trackMat = T.dirt ? pbr(T.dirt, 40, 3, { color: 0xa87650 }) : mat({ color: 0x9a5f3a });
   const track = new THREE.Mesh(ribbon(TH0, TH1, 160, (th) => [[wallR(th) - 8.5, .02, 0], [wallR(th) + .01, .02, 1]]), trackMat); track.receiveShadow = true; scene.add(track);
+  // wear on the clay: packed dark patches, footprints in the batter's boxes, scuffs on the chalk and a stride hole in front of the rubber (a transparent decal over the dirt)
+  {
+    const SZ = 1024, SCALE = 40 / SZ;                                    // 40 units wide, centred on the plate
+    const wear = canvasTex(SZ, SZ, (g) => {
+      g.clearRect(0, 0, SZ, SZ);
+      const P = (x, z) => [SZ / 2 + x / SCALE, SZ / 2 + (z + .3) / SCALE];                 // world -> canvas (z up the field is -)
+      for (let i = 0; i < 260; i++) { const [px, py] = [Math.random() * SZ, Math.random() * SZ], r = 14 + Math.random() * 46, gr = g.createRadialGradient(px, py, 0, px, py, r); const dark = Math.random() < .6; gr.addColorStop(0, dark ? 'rgba(70,38,20,.16)' : 'rgba(255,220,180,.10)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.beginPath(); g.arc(px, py, r, 0, 7); g.fill(); }   // mottling so the tiles never repeat
+      [-1, 1].forEach((s) => {                                                              // batter's boxes: packed, darker clay and a few footprints
+        const [bx, by] = P(s * 3.2, 0), bw = 3.3 / SCALE, bh = 6.2 / SCALE, gr = g.createRadialGradient(bx, by, 10, bx, by, bh * .7); gr.addColorStop(0, 'rgba(60,32,18,.42)'); gr.addColorStop(1, 'rgba(60,32,18,0)'); g.fillStyle = gr; g.fillRect(bx - bw * 1.3, by - bh * .85, bw * 2.6, bh * 1.7);
+        for (let i = 0; i < 7; i++) { const fx = bx + (Math.random() - .5) * bw * .8, fy = by + (Math.random() - .5) * bh * .8; g.save(); g.translate(fx, fy); g.rotate((Math.random() - .5) * 1.2 + (s > 0 ? 0 : Math.PI) + Math.PI / 2); g.fillStyle = 'rgba(40,20,10,.2)'; g.beginPath(); g.ellipse(0, 0, 6, 15, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(255,235,210,.08)'; g.beginPath(); g.ellipse(-1.5, -1.5, 4, 10, 0, 0, 7); g.fill(); g.restore(); }
+      });
+      { const [px, py] = P(0, 0), gr = g.createRadialGradient(px, py, 8, px, py, 150); gr.addColorStop(0, 'rgba(50,28,16,.38)'); gr.addColorStop(1, 'rgba(50,28,16,0)'); g.fillStyle = gr; g.beginPath(); g.arc(px, py, 150, 0, 7); g.fill(); }   // trampled around the plate
+      for (let i = 0; i < 90; i++) { const s = Math.random() < .5 ? -1 : 1, [lx, ly] = P(s * (3.2 + (Math.random() - .5) * 3.3), (Math.random() - .5) * 6.2); g.fillStyle = `rgba(255,255,250,${.04 + Math.random() * .09})`; g.beginPath(); g.ellipse(lx, ly, 5 + Math.random() * 16, 2 + Math.random() * 4, Math.random() * 3, 0, 7); g.fill(); }   // chalk scuffs in the boxes
+    });
+    wear.wrapS = wear.wrapT = THREE.ClampToEdgeWrapping; wear.repeat.set(1, 1);
+    const decal = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: wear, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, fog: true }));
+    decal.position.set(0, .03, -.3); decal.renderOrder = 0; scene.add(decal); S.wear = decal;
+    const moundWear = canvasTex(256, 256, (g, w, h) => { g.clearRect(0, 0, w, h); let gr = g.createRadialGradient(w / 2, h * .62, 6, w / 2, h * .62, 80); gr.addColorStop(0, 'rgba(45,24,12,.5)'); gr.addColorStop(1, 'rgba(45,24,12,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); gr = g.createRadialGradient(w / 2, h * .36, 4, w / 2, h * .36, 46); gr.addColorStop(0, 'rgba(255,225,190,.22)'); gr.addColorStop(1, 'rgba(255,225,190,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+    const md = new THREE.Mesh(new THREE.PlaneGeometry(8, 8).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: moundWear, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })); md.position.set(0, .71, -15.8); scene.add(md);
+  }
   const mound = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 5, .7, 32), dirt); mound.position.set(0, .35, -16.5); mound.receiveShadow = true; scene.add(mound);
   const rubber = new THREE.Mesh(new THREE.BoxGeometry(1.8, .1, .4), mat({ color: 0xf2f2f2 })); rubber.position.set(0, .75, -16.5); scene.add(rubber);
   const plate = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .1, 5), mat({ color: 0xf4f4f4, roughness: .6 })); plate.position.set(0, .07, 0); scene.add(plate);
@@ -262,6 +282,16 @@ export function buildStadium(scene, T = {}) {
     g.fillStyle = '#9fb0d8'; g.font = '700 54px Arial, sans-serif'; g.fillText('OUTS', 920, 600); sbT.needsUpdate = true;
   };
   S.setScore(0, 0);
+  /** flash a big message on the video board for a few seconds (then the score comes back) */
+  let boardFlash = null, lastScore = [0, 0, 'Tony'];
+  const setScoreBase = S.setScore; S.setScore = (hr, outs, name) => { lastScore = [hr, outs, name]; if (!boardFlash) setScoreBase(hr, outs, name); };
+  S.celebrate = (text, sub, sec = 4) => { boardFlash = { text, sub, t: sec, k: 0 }; };
+  const drawFlash = (inv) => {
+    const g = sbC.getContext('2d'), W = 1280, H = 720; g.fillStyle = inv ? '#ffd24d' : '#0b1a3a'; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 18; i++) { g.save(); g.translate(W / 2, H / 2); g.rotate(i * Math.PI / 9); g.fillStyle = inv ? 'rgba(255,255,255,.35)' : 'rgba(255,210,77,.12)'; g.beginPath(); g.moveTo(0, 0); g.lineTo(W, -60); g.lineTo(W, 60); g.closePath(); g.fill(); g.restore(); }
+    g.textAlign = 'center'; g.lineJoin = 'round'; g.font = '800 170px Arial, sans-serif'; g.lineWidth = 18; g.strokeStyle = inv ? '#14234a' : '#000'; g.strokeText(boardFlash.text, W / 2, H / 2 + 20); g.fillStyle = inv ? '#e8334a' : '#ffd24d'; g.fillText(boardFlash.text, W / 2, H / 2 + 20);
+    g.font = '800 80px Arial, sans-serif'; g.lineWidth = 10; g.strokeStyle = '#14234a'; g.strokeText(boardFlash.sub, W / 2, H / 2 + 140); g.fillStyle = '#fff'; g.fillText(boardFlash.sub, W / 2, H / 2 + 140); sbT.needsUpdate = true;
+  };
 
   // ---- the crowd: painted fans (skin tones, hair, caps, shirts; about a third cheering) seated in the rows as camera-facing cutouts ----
   const CW = 96, CH = 128, COLS = 8, ROWS = 6;
@@ -310,7 +340,7 @@ export function buildStadium(scene, T = {}) {
     sh.uniforms.uCheer = U.cheer; sh.uniforms.uTime = U.time;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aCell; attribute float aPh; uniform float uCheer, uTime;')
       .replace('#include <uv_vertex>', `#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = uv * vec2(${(1 / COLS).toFixed(4)}, ${(1 / ROWS).toFixed(4)}) + aCell;\n#endif`)
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat hop = abs(sin(uTime * 9. + aPh * 6.2831)) * uCheer;\ntransformed.y = transformed.y * (1. + .2 * uCheer * step(.4, fract(aPh * 7.31))) + hop * .5;');
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat hop = abs(sin(uTime * 9. + aPh * 6.2831)) * uCheer, fid = step(.9, fract(aPh * 13.7)) * max(0., sin(uTime * 2.1 + aPh * 91.)) * .12;\ntransformed.y = transformed.y * (1. + .2 * uCheer * step(.4, fract(aPh * 7.31))) + hop * .5 + fid;');
   };
   crowdMat.customProgramCacheKey = () => 'crowd2';
   const fans = new THREE.InstancedMesh(fanGeo, crowdMat, FAN), d = new THREE.Object3D(), col = new THREE.Color();
@@ -363,6 +393,7 @@ export function buildStadium(scene, T = {}) {
     S.flashes.forEach((f) => { f.t -= dt; f.sp.material.opacity = f.t < .12 && f.t > 0 ? .9 : 0; if (f.t < -rand(1, 5)) f.t = rand(.5, 4); });
     S.cheering = Math.max(0, S.cheering - dt); U.cheer.value = Math.min(1, S.cheering); U.time.value = t; FU.time.value = t;
     ledT.offset.x = (t * .02) % 1;
+    if (boardFlash) { boardFlash.t -= dt; boardFlash.k -= dt; if (boardFlash.t <= 0) { boardFlash = null; setScoreBase(...lastScore); } else if (boardFlash.k <= 0) { boardFlash.k = .22; boardFlash.inv = !boardFlash.inv; drawFlash(boardFlash.inv); } }
   };
   S.cheer = (sec = 3) => { S.cheering = sec; };
   /** a point on the seats (lower or middle deck) in the direction `ang` (radians off center field) */
