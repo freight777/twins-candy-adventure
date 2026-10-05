@@ -1,12 +1,8 @@
 import './mermaid.css';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { Q, loadTier, lowerTier } from '../quality.js';
+import { createPipeline } from '../engine/pipeline.js';
+import { Q } from '../engine/quality.js';
 import { skyEnv } from '../env.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, RAINBOW, stripedGeo } from '../util.js';
 import { unlock, playMusic, say, sfx, stopSpeech, playScore, stopScore } from '../audio.js';
@@ -20,32 +16,12 @@ const SCALE = 1.15;
 
 // ---------------------------------------------------------------- renderer (same glossy pipeline as the other 3D games)
 const canvas = $('#c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 0.85;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-loadTier();
-const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
-const composer = new EffectComposer(renderer, rt);
+const gfx = createPipeline(canvas, { exposure: 0.85, bloom: { strength: 0.22, radius: 0.6, threshold: 0.95 }, grade: { sat: 1.12, con: 1.05 } });
+const renderer = gfx.renderer;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 1800);
-const renderPass = new RenderPass(scene, camera);
-const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.6, 0.95);
-const grade = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, sat: { value: 1.12 }, con: { value: 1.05 } },
-  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float sat, con; varying vec2 vUv;
-    void main(){ vec4 t = texture2D(tDiffuse, vUv); float l = dot(t.rgb, vec3(.2126,.7152,.0722));
-      vec3 c = mix(vec3(l), t.rgb, sat); c = (c - .5)*con + .5; gl_FragColor = vec4(clamp(c, 0., 1.), t.a); }`,
-});
-composer.addPass(renderPass); composer.addPass(bloom); composer.addPass(new OutputPass()); composer.addPass(grade);
-function applyTier() { const pr = Math.min(window.devicePixelRatio, Q.pr); bloom.enabled = Q.bloom; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
-function resize() {
-  const w = innerWidth, h = innerHeight, a = w / h;
-  renderer.setSize(w, h, false); composer.setSize(w, h);
-  camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(76 / 2)) / a)), 42, 82); camera.updateProjectionMatrix();
-}
-applyTier(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
+gfx.onResize = (a) => { camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(76 / 2)) / a)), 42, 82); camera.updateProjectionMatrix(); };
+gfx.setScene(scene, camera); gfx.applyTier();
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
 
 // ---------------------------------------------------------------- the cast
@@ -379,14 +355,7 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 
 // ---------------------------------------------------------------- go
-const clock = new THREE.Clock(); let slow = 0, frames = 0;
-renderer.setAnimationLoop(() => {
-  if (!W) return;
-  const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
-  update(dt); composer.render(dt);
-  if (raw > 0.03 && raw < 0.5) slow++;
-  if (++frames === 150) { if (slow > 80 && lowerTier()) { applyTier(); resize(); } slow = 0; frames = 0; }
-});
+gfx.start((dt) => { if (!W) return false; update(dt); });
 $('#play').addEventListener('click', () => { unlock(); playMusic('ocean'); play(); });
 window.mermaidGame = { S, scene, camera, get W() { return W; }, get hero() { return hero; }, get friends() { return friends; }, get lucy() { return lucy; }, tp: (i) => { S.idx = i; placeHero(i / (N - 1)); }, force: (name, double = false) => { S.forceCard = { c: COLORS.find((c) => c.name === name), double }; } };
 boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });

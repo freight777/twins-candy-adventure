@@ -1,11 +1,7 @@
 import './uni.css';
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { Q, loadTier, lowerTier } from '../quality.js';
+import { createPipeline } from '../engine/pipeline.js';
+import { Q } from '../engine/quality.js';
 import { skyEnv } from '../env.js';
 import { preloadModels } from '../assets.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, RAINBOW } from '../util.js';
@@ -21,37 +17,16 @@ const SCALE = 1.1;
 
 // ---------------------------------------------------------------- renderer (same glossy pipeline as the candy game)
 const canvas = $('#c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 0.82;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-loadTier();
-const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
-const composer = new EffectComposer(renderer, rt);
+const gfx = createPipeline(canvas, { exposure: 0.82, bloom: { strength: 0.12, radius: 0.5, threshold: 1.0 }, grade: { sat: 1.14, con: 1.05 } });
+const renderer = gfx.renderer;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 1800);
-const renderPass = new RenderPass(scene, camera);
-const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.12, 0.5, 1.0);
-const grade = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, sat: { value: 1.14 }, con: { value: 1.05 } },
-  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float sat, con; varying vec2 vUv;
-    void main(){ vec4 t = texture2D(tDiffuse, vUv); float l = dot(t.rgb, vec3(.2126,.7152,.0722));
-      vec3 c = mix(vec3(l), t.rgb, sat); c = (c - .5)*con + .5; gl_FragColor = vec4(clamp(c, 0., 1.), t.a); }`,
-});
-composer.addPass(renderPass); composer.addPass(bloom); composer.addPass(new OutputPass()); composer.addPass(grade);
-function applyTier() {
-  const pr = Math.min(window.devicePixelRatio, Q.pr);
-  bloom.enabled = Q.bloom; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight);
-}
 let houseResizeHook = null;
-function resize() {
-  const w = innerWidth, h = innerHeight, a = w / h;
-  renderer.setSize(w, h, false); composer.setSize(w, h);
+gfx.onResize = (a) => {
   camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(76 / 2)) / a)), 42, 82); camera.updateProjectionMatrix();
   if (houseResizeHook) houseResizeHook(a);
-}
-applyTier(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
+};
+gfx.applyTier();
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
 
 // ---------------------------------------------------------------- the cast
@@ -442,15 +417,10 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 
 // ---------------------------------------------------------------- go
-const clock = new THREE.Clock(); let slow = 0, frames = 0;
-renderer.setAnimationLoop(() => {
-  if (!W) return;
-  const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
-  if (S.house) { S.house.update(dt); renderPass.scene = S.house.scene; renderPass.camera = S.house.camera; }
-  else { update(dt); renderPass.scene = scene; renderPass.camera = camera; }
-  composer.render(dt);
-  if (raw > 0.03 && raw < 0.5) slow++;
-  if (++frames === 150) { if (slow > 80 && lowerTier()) { applyTier(); resize(); } slow = 0; frames = 0; }
+gfx.start((dt) => {
+  if (!W) return false;
+  if (S.house) { S.house.update(dt); gfx.setScene(S.house.scene, S.house.camera); }
+  else { update(dt); gfx.setScene(scene, camera); }
 });
 $('#play').addEventListener('click', () => { unlock(); playMusic('forest'); play(); });
 window.uniGame = { S, scene, camera, get friends() { return friends; }, visit, leave, get W() { return W; }, tp: (i) => { S.idx = i; placeUni(i / (N - 1)); }, force: (name, double = false) => { S.forceCard = { c: COLORS.find((c) => c.name === name), double }; } };

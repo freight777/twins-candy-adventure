@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Timers, Fx, clamp, linearizeFrag } from './util.js';
-import { Q } from './quality.js';
+import { Q } from './engine/quality.js';
 
 const hitMat = new THREE.MeshBasicMaterial({ visible: false });
 const visibleChain = (o) => { while (o) { if (!o.visible) return false; o = o.parent; } return true; };

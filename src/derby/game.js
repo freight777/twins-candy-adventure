@@ -1,13 +1,10 @@
 import './derby.css';
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { Q, loadTier, setTier, lowerTier, raiseTier } from '../quality.js';
+import { createPipeline } from '../engine/pipeline.js';
+import { Q, auto as autoTier, chooseTier } from '../engine/quality.js';
 import { skyEnv } from '../env.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, glowSprite, canvasTex, RAINBOW } from '../util.js';
 import { unlock, playMusic, stopMusic, say, sfx, crowdBed } from '../audio.js';
@@ -21,19 +18,10 @@ import { createBatter, createPitcher, loadClips } from './players.js';
 const $ = (s) => document.querySelector(s);
 let stadium, batter, pitcher, ball, ballShadow, zoneGlow, tracer, hrTracer, blobB, blobP, swingTrail, baseFov = 54, replay = null;
 
-// ---------------------------------------------------------------- renderer (same glossy pipeline as the other 3D games)
+// ---------------------------------------------------------------- renderer: the shared pipeline (src/engine/pipeline.js) plus this game's broadcast extras
 const canvas = $('#c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
-loadTier('derbyTier');
-try { if (!localStorage.getItem('derbyTier') && matchMedia('(pointer: coarse)').matches) setTier('medium', null); } catch { /* ignore */ }      // touch devices start smooth and step up once they prove they can                                 // this game remembers its own quality tier (and never remembers 'low')
-const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
-const composer = new EffectComposer(renderer, rt);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, 1, 0.5, 1500);
-const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.08, 0.4, 1.05);
 const grade = new ShaderPass({
   uniforms: { tDiffuse: { value: null }, sat: { value: 1.0 }, con: { value: 1.08 }, time: { value: 0 }, grain: { value: .03 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
@@ -51,10 +39,12 @@ const bokeh = new BokehPass(scene, camera, { focus: 13, aperture: 0.00016, maxbl
 const depthSkip = [];
 function collectDepthSkip() { depthSkip.length = 0; scene.traverse((o) => { const m = o.material; if (o.isSprite || o.isPoints || (o.isMesh && m && (Array.isArray(m) ? m.some((x) => x.transparent) : m.transparent))) depthSkip.push(o); }); }
 [gtao, bokeh].forEach((p) => { const run = p.render.bind(p); p.render = (...args) => { const vis = depthSkip.map((o) => o.visible); depthSkip.forEach((o) => (o.visible = false)); try { run(...args); } finally { depthSkip.forEach((o, i) => (o.visible = vis[i])); } }; });
-composer.addPass(new RenderPass(scene, camera)); composer.addPass(gtao); composer.addPass(bokeh); composer.addPass(bloom); composer.addPass(new OutputPass()); composer.addPass(grade);
-function applyTier() { const pr = Math.min(window.devicePixelRatio, Q.pr); if (stadium) { stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1); stadium.setShadows(Q.name); } bloom.enabled = Q.bloom; gtao.enabled = bokeh.enabled = !!Q.post; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
-function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = a; baseFov = a < 1 ? clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(54 / 2)) / a)), 34, 62) : 54 * clamp(Math.pow(a, -.4), .8, 1); camera.fov = baseFov; camera.updateProjectionMatrix(); }
-applyTier(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
+const pipe = createPipeline(canvas, { toneMapping: THREE.ACESFilmicToneMapping, exposure: 0.95, bloom: { strength: 0.08, radius: 0.4, threshold: 1.05 }, gradePass: grade, extraPasses: [gtao, bokeh] });
+const renderer = pipe.renderer, bloom = pipe.bloomPass;
+pipe.setScene(scene, camera);
+pipe.onTier = (q) => { if (stadium) { stadium.setDensity(q.name === 'low' ? .45 : q.name === 'medium' ? .75 : 1); stadium.setShadows(q.name); } gtao.enabled = bokeh.enabled = !!q.post; };
+pipe.onResize = (a) => { camera.aspect = a; baseFov = a < 1 ? clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(54 / 2)) / a)), 34, 62) : 54 * clamp(Math.pow(a, -.4), .8, 1); camera.fov = baseFov; camera.updateProjectionMatrix(); };
+pipe.applyTier();
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
 
 // ---------------------------------------------------------------- settings & leaderboard (kept on this device)
@@ -264,9 +254,8 @@ addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'a')
 $('#play').addEventListener('click', start);
 $('#lbBtn').addEventListener('click', () => { $('#boardfull').innerHTML = boardHTML(); show('#board'); });
 $('#closeBoard').addEventListener('click', () => show('#board', false));
-const gfxLabel = () => { $('#gfx').textContent = `Graphics: ${gfx.auto ? 'Auto' : 'Best'}`; };
-$('#gfx').addEventListener('click', () => { gfx.auto = !gfx.auto; store.set('derbyGfx', gfx.auto ? 'auto' : 'high'); if (!gfx.auto) { Q.name !== 'high' && (loadTierHigh()); } gfxLabel(); });
-function loadTierHigh() { while (Q.name !== 'high' && raiseTier(null)); applyTier(); resize(); }
+const gfxLabel = () => { $('#gfx').textContent = `Graphics: ${autoTier.on ? 'Auto' : Q.name === 'high' ? 'Best' : Q.name}`; };
+$('#gfx').addEventListener('click', () => { chooseTier(autoTier.on ? 'high' : null); pipe.applyTier(); gfxLabel(); });      // Best = always the top tier (remembered); Auto = adjusts itself
 $('#time').addEventListener('click', () => setTime(prefs.time === 'night' ? 'day' : 'night'));
 $('#helper').addEventListener('click', () => { prefs.helper = !prefs.helper; store.set('derbyHelper', prefs.helper); $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`; });
 $('#save').addEventListener('click', () => { const nm = ($('#name').value || 'Tony').trim().slice(0, 10) || 'Tony'; const at = Date.now(); saveScore(nm, S.hr); const all = scores(); $('#boardmini').innerHTML = boardHTML(all.find((s) => s.name === nm && s.hr === S.hr)?.at); $('#save').disabled = true; $('#save').textContent = 'Saved ✅'; });
@@ -310,22 +299,11 @@ function groundShadow(blob, rig) {
   blob.position.set((a.x + b.x) / 2, .055, (a.z + b.z) / 2); blob.scale.set(2.6 + sp * .7, 1, 2.1 + sp * .45);
 }
 
-const clock = new THREE.Clock(); const gfx = { auto: store.get('derbyGfx', 'auto') !== 'high', slow: 0, frames: 0, fast: 0, mute: performance.now() + 4500, noRaise: 0, lowered: 0 };
-document.addEventListener('visibilitychange', () => { gfx.mute = performance.now() + 3000; gfx.slow = gfx.frames = gfx.fast = 0; });
-function adapt(raw) {
-  const now = performance.now(); if (!gfx.auto || now < gfx.mute || document.hidden || raw >= .5) return;
-  gfx.frames++; if (raw > .03) gfx.slow++; if (raw < .02) gfx.fast++; else gfx.fast = 0;
-  const change = () => { applyTier(); resize(); try { if (Q.name === 'low') localStorage.removeItem('derbyTier'); else localStorage.setItem('derbyTier', Q.name); } catch { /* ignore */ } };
-  if (gfx.frames >= 100) { if (gfx.slow > 55 && lowerTier(null)) { gfx.lowered++; gfx.noRaise = gfx.raisedAt && now - gfx.raisedAt < 25000 ? Infinity : now + 45000; gfx.fast = 0; change(); } gfx.slow = gfx.frames = 0; }
-  if (gfx.fast >= 300 && now > gfx.noRaise && gfx.lowered < 3 && raiseTier(null)) { gfx.fast = 0; gfx.raisedAt = now; change(); }
-}
-renderer.setAnimationLoop(() => {
-  if (!stadium || !batter || !pitcher) return;
-  const raw = clock.getDelta(), real = Math.min(raw, 0.05);
-  if (S.stop) { S.stop.t += real; const k = S.stop.t; S.timeScale = k < .11 ? .08 : lerp(.08, 1, clamp((k - .11) / .32, 0, 1)); if (k > .45) { S.timeScale = 1; S.stop = null; } }
+pipe.start((real) => {
+  if (!stadium || !batter || !pitcher) return false;
+  if (S.stop) { S.stop.t += real; const k = S.stop.t; S.timeScale = k < .11 ? .08 : lerp(.08, 1, clamp((k - .11) / .32, 0, 1)); if (k > .45) { S.timeScale = 1; S.stop = null; } }   // hit-stop
   S.punch = Math.max(0, S.punch - real * 3.2);
-  const dt = real * S.timeScale;
-  update(dt); composer.render(dt); adapt(raw);
+  update(real * S.timeScale);
 });
 window.derby = { S, scene, camera, renderer, passes: { gtao, bokeh, bloom, grade }, get stadium() { return stadium; }, get batter() { return batter; }, get pitcher() { return pitcher; }, get ball() { return ball; }, swing, start };
 boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });
