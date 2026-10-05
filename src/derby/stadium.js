@@ -89,7 +89,10 @@ export function buildStadium(scene, T = {}) {
   const mow = (m) => {          // mowing stripes: alternate bands of lighter and darker turf
     m.onBeforeCompile = (sh) => {
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix*vec4(transformed,1.)).xyz;');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(.78, 1.08, step(.5, fract(vWP.z/9.)));');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;').replace('#include <color_fragment>', `#include <color_fragment>
+        float stripe = step(.5, fract(vWP.z / 9.)), dia = abs(step(.5, fract((vWP.x + vWP.z) / 13.)) - step(.5, fract((vWP.x - vWP.z) / 13.)));
+        float outer = smoothstep(46., 62., length(vWP.xz - vec2(0., -20.)));            // straight bands in the infield, a diamond cross-cut pattern out in the grass
+        diffuseColor.rgb *= mix(.8, 1.07, mix(stripe, dia, outer));`);
     };
     m.customProgramCacheKey = () => 'mow'; return m;
   };
