@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 // Free (CC0) art we load: Kenney Food Kit + Nature Kit models, Poly Haven sky photos. See CREDITS.md.
 const BASE = import.meta.env.BASE_URL;
@@ -19,8 +20,10 @@ export const HDR_FILES = { beach: 'kloofendal_48d_partly_cloudy_puresky', candy:
 /** onProgress.cb(0..1) is told as each model / sky photo arrives (drives the loading bar) */
 export const onProgress = { cb: null };
 /** Load these models and sky photos (default: everything). Missing files are skipped; the scenes fall back to shapes built in code. */
+/** the models are meshopt-compressed with WebP textures (tools/asset-diet.mjs); one loader with the decoder for everything */
+const gltf = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 export async function preloadAssets(renderer, list = MODEL_LIST, { hdr = Object.keys(HDR_FILES) } = {}) {
-  const loader = new GLTFLoader();
+  const loader = gltf;
   let done = 0; const total = list.length + hdr.length, tick = () => onProgress.cb?.(++done / total);
   const jobs = list.map(async (n) => {
     if (!store[n]) try { store[n] = (await loader.loadAsync(`${BASE}assets/models/${n}.glb`)).scene; } catch (e) { console.warn('model failed to load:', n, e); }
@@ -44,7 +47,7 @@ export async function preloadAssets(renderer, list = MODEL_LIST, { hdr = Object.
 
 /** Load just these models (e.g. 'food/sundae') into the shared store. */
 export async function preloadModels(names) {
-  const loader = new GLTFLoader();
+  const loader = gltf;
   let done = 0;
   await Promise.all(names.map(async (n) => {
     if (!store[n]) try { store[n] = (await loader.loadAsync(`${BASE}assets/models/${n}.glb`)).scene; } catch (e) { console.warn('model failed to load:', n, e); }

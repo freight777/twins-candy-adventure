@@ -1,0 +1,10 @@
+{
+  "name": "ae-games-tools",
+  "private": true,
+  "description": "Build-time asset tools (not installed by the deploy). Run npm install here once.",
+  "type": "module",
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.5.1",
+    "sharp": "^0.35.5"
+  }
+}

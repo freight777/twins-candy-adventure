@@ -20,9 +20,9 @@ function clip(file, outFile, { centerFrame, before, after, aim, kind }) {
   return { P, dt };
 }
 // swing: pitcher direction in the BVH is +Z (the lead foot strides toward +Z); in the game the pitcher is toward -Z
-clip('public/assets/mocap/124_07.bvh', 'public/assets/mocap/swing.json', { centerFrame: 341 + 4, before: 80, after: 130, aim: { from: [0, 1], to: [0, -1] }, kind: 'swing' });
+clip('tools/mocap/124_07.bvh', 'public/assets/mocap/swing.json', { centerFrame: 341 + 4, before: 80, after: 130, aim: { from: [0, 1], to: [0, -1] }, kind: 'swing' });
 // pitch: release direction from the throwing hand's velocity
-const { P, dt } = load('public/assets/mocap/124_01.bvh'), rel = 445;
+const { P, dt } = load('tools/mocap/124_01.bvh'), rel = 445;
 const v = [P[rel + 3].rwr[0] - P[rel - 3].rwr[0], P[rel + 3].rwr[2] - P[rel - 3].rwr[2]], vl = Math.hypot(...v);
 console.log('pitch release dir', v.map((x) => +(x / vl).toFixed(2)));
-clip('public/assets/mocap/124_01.bvh', 'public/assets/mocap/pitch.json', { centerFrame: rel, before: 250, after: 90, aim: { from: [v[0] / vl, v[1] / vl], to: [0, 1] }, kind: 'pitch' });
+clip('tools/mocap/124_01.bvh', 'public/assets/mocap/pitch.json', { centerFrame: rel, before: 250, after: 90, aim: { from: [v[0] / vl, v[1] / vl], to: [0, 1] }, kind: 'pitch' });

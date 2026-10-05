@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { canvasTex, clamp, lerp } from '../util.js';
-import { loadMannequin, loadBody, createSkinnedRig } from './skinned.js';
+import { loadBody, createSkinnedRig } from './skinned.js';
 import { makeBat, makeGlove, makeBallMesh } from './props.js';
 
 const sph = (r, w = 24, h = 16) => new THREE.SphereGeometry(r, w, h);
@@ -13,7 +13,7 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 export async function loadClips(base = '/') {
   const get = async (f) => { const c = await (await fetch(`${base}assets/mocap/${f}`)).json(); c.idx = {}; c.names.forEach((n, i) => (c.idx[n] = i * 3)); c.count = c.frames.length; return c; };
   const [swing, pitch] = await Promise.all([get('swing.json'), get('pitch.json')]);
-  let mannequin = null; try { mannequin = await loadBody(base); } catch (e) { console.warn('human body failed to load, trying the mannequin', e); try { mannequin = await loadMannequin(base); } catch (e2) { console.warn('skinned body failed to load, using the simple body', e2); } }
+  let mannequin = null; try { mannequin = await loadBody(base); } catch (e) { console.warn('human body failed to load, using the simple body', e); }
   return { swing, pitch, mannequin };
 }
 /** joint positions at a (fractional) frame index */

@@ -1,6 +1,6 @@
 const { load, sub, len, dot } = require('./convert-bvh.cjs');
 const r1 = (v) => v.map((x) => +x.toFixed(1));
-for (const [file, kind] of [['public/assets/mocap/124_07.bvh', 'swing'], ['public/assets/mocap/124_01.bvh', 'pitch']]) {
+for (const [file, kind] of [['tools/mocap/124_07.bvh', 'swing'], ['tools/mocap/124_01.bvh', 'pitch']]) {
   const { P, dt } = load(file), n = P.length;
   const sp = (name) => P.map((_, f) => { let s = 0, c = 0; for (let k = -4; k <= 4; k++) { const g = f + k; if (g > 10 && g < n) { s += len(sub(P[g][name], P[g - 1][name])) / dt; c++; } } return c ? s / c : 0; });
   const sl = sp('lwr'), sr = sp('rwr');

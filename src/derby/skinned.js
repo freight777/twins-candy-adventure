@@ -7,12 +7,6 @@ import { canvasTex, clamp } from '../util.js';
 // real cloth geometry (a smoothed, thickened shell grown off the body) and posed from motion-capture joint positions.
 // Each frame every bone is aimed at its captured child joint ("aim retargeting").
 
-/** the older plain mannequin (kept as a fallback) */
-export async function loadMannequin(base = '/') {
-  const gltf = await new GLTFLoader().loadAsync(`${base}assets/derby/char/AnimationLibrary_Godot_Standard.gltf`);
-  gltf.scene.updateMatrixWorld(true);
-  return gltf.scene;
-}
 export async function loadBody(base = '/') {
   const gltf = await new GLTFLoader().loadAsync(`${base}assets/derby/char/ubc/male.gltf`);
   gltf.scene.userData.kind = 'ubc';

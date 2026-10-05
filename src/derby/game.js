@@ -81,10 +81,10 @@ const ballPath = (lane, k, type = 'fast') => {
 const flightTime = () => Math.max(1.6, 2.6 - Math.floor(S.hr / 4) * 0.12);
 const camLook = new THREE.Vector3(0, 3.0, -18);
 const env = { dayFallback: null, night: null, hdr: null, failed: false, job: null };
-/** the daytime sky photo (Poly Haven "Orlando Stadium" HDRI, CC0) is a 6 MB download, so it is only fetched when someone actually chooses Day */
+/** the daytime sky photo (Poly Haven "Orlando Stadium" HDRI, CC0, 1k) is only fetched when someone actually chooses Day */
 function ensureHdr() {
   if (env.hdr || env.failed) return Promise.resolve(env.hdr);
-  return env.job || (env.job = new HDRLoader().loadAsync(`${import.meta.env.BASE_URL}assets/derby/hdr/orlando_stadium_2k.hdr`).then((h) => { h.mapping = THREE.EquirectangularReflectionMapping; env.hdr = h; return h; }).catch((e) => { console.warn('HDRI failed', e); env.failed = true; return null; }));
+  return env.job || (env.job = new HDRLoader().loadAsync(`${import.meta.env.BASE_URL}assets/derby/hdr/orlando_stadium_1k.hdr`).then((h) => { h.mapping = THREE.EquirectangularReflectionMapping; env.hdr = h; return h; }).catch((e) => { console.warn('HDRI failed', e); env.failed = true; return null; }));
 }
 /** day game or night game under the lights */
 async function setTime(mode) {

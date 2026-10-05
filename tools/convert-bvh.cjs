@@ -56,7 +56,7 @@ function analyze(file, kind) {
 module.exports = { load, names, analyze, sub, len, dot };
 
 if (require.main === module) {
-  const sw = analyze('public/assets/mocap/124_07.bvh', 'swing'), pi = analyze('public/assets/mocap/124_01.bvh', 'pitch');
+  const sw = analyze('tools/mocap/124_07.bvh', 'swing'), pi = analyze('tools/mocap/124_01.bvh', 'pitch');
   // diagnostics for the swing: where do the feet / shoulders go?
   const P = sw.P; const f0 = 0, fc = sw.pr;
   const show = (f) => ({ hips: P[f].hips.map((v) => +v.toFixed(1)), lsh: P[f].lsh.map((v) => +v.toFixed(1)), rsh: P[f].rsh.map((v) => +v.toFixed(1)), lank: P[f].lankle.map((v) => +v.toFixed(1)), rank: P[f].rankle.map((v) => +v.toFixed(1)), lwr: P[f].lwr.map((v) => +v.toFixed(1)), rwr: P[f].rwr.map((v) => +v.toFixed(1)) });
