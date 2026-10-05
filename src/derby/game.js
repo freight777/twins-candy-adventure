@@ -18,24 +18,24 @@ const $ = (s) => document.querySelector(s);
 const canvas = $('#c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 0.85;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 loadTier();
 const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
 const composer = new EffectComposer(renderer, rt);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 2000);
-const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.18, 0.5, 1.0);
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.08, 0.4, 1.05);
 const grade = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, sat: { value: 1.12 }, con: { value: 1.05 } },
+  uniforms: { tDiffuse: { value: null }, sat: { value: 1.0 }, con: { value: 1.08 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float sat, con; varying vec2 vUv;
     void main(){ vec4 t = texture2D(tDiffuse, vUv); float l = dot(t.rgb, vec3(.2126,.7152,.0722));
-      vec3 c = mix(vec3(l), t.rgb, sat); c = (c - .5)*con + .5; gl_FragColor = vec4(clamp(c, 0., 1.), t.a); }`,
+      vec3 c = mix(vec3(l), t.rgb, sat); c = (c - .5)*con + .5; vec2 q = vUv - .5; c *= 1. - dot(q, q)*.9; gl_FragColor = vec4(clamp(c, 0., 1.), t.a); }`,
 });
 composer.addPass(new RenderPass(scene, camera)); composer.addPass(bloom); composer.addPass(new OutputPass()); composer.addPass(grade);
 function applyTier() { const pr = Math.min(window.devicePixelRatio, Q.pr); bloom.enabled = Q.bloom; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
-function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(70 / 2)) / a)), 46, 80); camera.updateProjectionMatrix(); }
+function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(54 / 2)) / a)), 34, 62); camera.updateProjectionMatrix(); }
 applyTier(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
 
@@ -58,26 +58,26 @@ const sleep = (s) => new Promise((r) => timers.after(s, r));
 const anim = (dur, fn, e = ease.inOut) => new Promise((r) => timers.tween(dur, fn, { ease: e, done: r }));
 const S = { state: 'boot', hr: 0, outs: 0, flight: null, lastLanes: [], time: 0, camMode: 'home', over: false };
 const WIN = 0.55;                                       // seconds either side of the plate: a wide window
-const LANE_X = 1.0, REL = new THREE.Vector3(0, 2.6, -15.6), PLATE_PT = (lane) => new THREE.Vector3(lane * LANE_X, 1.6, -0.2);
+const LANE_X = 1.0, HIT_Y = 3.3, REL = new THREE.Vector3(0.4, 5.2, -15.0), PLATE_PT = (lane) => new THREE.Vector3(lane * LANE_X, HIT_Y, -0.2);
 const flightTime = () => Math.max(1.6, 2.6 - Math.floor(S.hr / 4) * 0.12);
 let stadium, batter, pitcher, ball, ballShadow, zoneGlow;
-const camLook = new THREE.Vector3(0, 2.4, -18);
+const camLook = new THREE.Vector3(0, 3.0, -18);
 
 async function boot() {
   await new Promise((r) => setTimeout(r, 30));
   stadium = buildStadium(scene);
   scene.environment = skyEnv(renderer, 'park', { top: 0x6fb4ff, mid: 0xfff4e6, bottom: 0xb8e8a8, sun: [25, 40, -20], sunPower: 6 }); scene.environmentIntensity = 0.35;
-  scene.fog = new THREE.Fog(0xcfe6ff, 220, 700);
+  scene.fog = new THREE.Fog(0xc8d8e8, 260, 820);
   scene.traverse((o) => { const m = o.material; if (m && m.isShaderMaterial && !m.userData.lin) { m.fragmentShader = linearizeFrag(m.fragmentShader); m.userData.lin = true; m.needsUpdate = true; } });
-  batter = createBatter('JUDGE', '99'); batter.root.position.set(-2.4, 0, 0.2); scene.add(batter.root);
-  pitcher = createPitcher(); pitcher.root.position.set(0, .6, -16.5); scene.add(pitcher.root);
+  batter = createBatter('JUDGE', '99'); batter.root.position.set(-3.0, 0, 0.4); scene.add(batter.root);
+  pitcher = createPitcher(); pitcher.root.position.set(0, .7, -16.5); scene.add(pitcher.root);
   scene.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.type !== 'PlaneGeometry') { /* shadows only for the players */ } });
   [batter.root, pitcher.root].forEach((r) => r.traverse((o) => { if (o.isMesh) o.castShadow = true; }));
-  ball = new THREE.Group(); ball.add(new THREE.Mesh(new THREE.SphereGeometry(.3, 20, 14), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .35 })));
-  const seam = new THREE.Mesh(new THREE.TorusGeometry(.22, .018, 6, 24), new THREE.MeshBasicMaterial({ color: 0xd03030 })); seam.rotation.y = Math.PI / 2; ball.add(seam);
-  const bg = glowSprite(0xffffff, 2.2, .5); ball.add(bg); ball.userData.glow = bg; ball.visible = false; scene.add(ball);
+  ball = new THREE.Group(); ball.add(new THREE.Mesh(new THREE.SphereGeometry(.22, 24, 16), new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: .55 })));
+  const seam = new THREE.Mesh(new THREE.TorusGeometry(.17, .014, 6, 24), new THREE.MeshBasicMaterial({ color: 0xb02828 })); seam.rotation.y = Math.PI / 2; ball.add(seam);
+  const bg = glowSprite(0xffffff, 1.4, .35); ball.add(bg); ball.userData.glow = bg; ball.visible = false; scene.add(ball);
   ballShadow = new THREE.Mesh(new THREE.CircleGeometry(.4, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .3, depthWrite: false })); ballShadow.visible = false; scene.add(ballShadow);
-  camera.position.set(0, 4.4, 9.5); camera.lookAt(camLook);
+  camera.position.set(0, 5.2, 12); camera.lookAt(camLook);
   $('#loading').classList.add('done'); setTimeout(() => $('#loading').remove(), 800);
   S.state = 'title'; taps(false); show('#title'); $('#name').value = prefs.name; $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`;
 }
@@ -118,7 +118,7 @@ async function pitchOnce() {
   S.flight = null; pitcher.idle(0);
 }
 
-function laneTheta(lane) { return Math.atan2(.9, 2.3 + lane * LANE_X * .5) * 0.5; }
+function laneTheta(lane) { const px = batter.root.position.x + batter.pivot.position.x, pz = batter.root.position.z + batter.pivot.position.z; return Math.atan2(-(-0.2 - pz), lane * LANE_X - px); }
 
 async function outcome(res, lane) {
   cue(''); const zone = stadium.zones[lane]; zone.material.opacity = 0;
@@ -156,7 +156,7 @@ async function homeRun(from) {
   ballShadow.visible = false;
   await anim(dur, (k) => {
     ball.position.set(lerp(from.x, end.x, k), lerp(from.y, end.y, k) + 4 * peak * k * (1 - k), lerp(from.z, end.z, k));
-    ball.scale.setScalar(1 + k * 5.5); ball.rotation.x += .4;
+    ball.scale.setScalar(1 + k * 9); ball.rotation.x += .4;
     if (Math.random() < .8) fx.burst(ball.position, { count: 2, colors: [0xffffff, 0xffe14d, 0xff9f2e], speed: 1, gravity: -1, life: .8, size: 1.2 });
   }, ease.linear);
   S.hr++; setHud(); sfx.tada();
@@ -197,18 +197,18 @@ function update(dt) {
   const f = S.flight;
   if (f && !f.resolved) {
     f.t += dt; const k = f.t / f.F;
-    ball.position.set(lerp(REL.x, f.lane * LANE_X, k), lerp(REL.y, 1.6, k) + Math.sin(Math.min(k, 1) * Math.PI) * .5, lerp(REL.z, -0.2, k));
-    ball.rotation.x += dt * 14; ballShadow.position.set(ball.position.x, .06, ball.position.z); ballShadow.scale.setScalar(clamp(1 - ball.position.y * .08, .4, 1));
-    ball.scale.setScalar(1 + clamp(k, 0, 1.2) * .9);
+    ball.position.set(lerp(REL.x, f.lane * LANE_X, k), lerp(REL.y, HIT_Y, k) + Math.sin(Math.min(k, 1) * Math.PI) * .6, lerp(REL.z, -0.2, k));
+    ball.rotation.x += dt * 14; ballShadow.position.set(ball.position.x, .06, ball.position.z); ballShadow.scale.setScalar(clamp(1 - ball.position.y * .06, .4, 1));
+    ball.scale.setScalar(1 + clamp(k, 0, 1.2) * 1.4);
     const near = Math.abs(f.t - f.F) <= WIN, z = stadium.zones[f.lane];
     z.material.opacity = near ? .9 : clamp(k - .3, 0, .5) * .6; z.material.color.set(near ? 0x7bff9a : 0xffffff);
     if (near && !f.said) { f.said = true; cue(prefs.helper ? 'NOW!' : '', 'now'); sfx.ting(); }
     if (f.t > f.F + WIN) { f.resolved = true; f.resolve({ type: 'late' }); }
   }
   // camera: behind home plate; during a home run it swings to follow the ball
-  const home = new THREE.Vector3(Math.sin(t * .2) * .6, 4.4, 9.5);
+  const home = new THREE.Vector3(Math.sin(t * .2) * .6, 5.2, 12);
   camera.position.lerp(home, 1 - Math.exp(-2 * dt));
-  const want = S.camMode === 'ball' ? ball.position.clone() : new THREE.Vector3(0, 2.3, -18);
+  const want = S.camMode === 'ball' ? ball.position.clone() : new THREE.Vector3(0, 3.0, -18);
   camLook.lerp(want, 1 - Math.exp(-(S.camMode === 'ball' ? 6 : 2.5) * dt)); camera.lookAt(camLook);
   stadium.sun.target.position.set(0, 0, -8);
 }
