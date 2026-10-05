@@ -122,7 +122,7 @@ function createRig({ torsoMat, legMat, armMat, foreMat, helmet, skin, ears }) {
 export function createBatter(clips, name = 'JUDGE', number = '99') {
   const clip = clips.swing, skin = skinMat(), navy = cloth(0x10203f), stripes = cloth(0xffffff, { map: pinstripe('#f7f7f4', '#14234a') });
   const rig = clips.mannequin
-    ? createSkinnedRig(clips.mannequin, { skin: 0x7a4c34, hair: 0x120e0c, jersey: 0xf3f1ea, pants: 0xf3f1ea, under: 0x14223f, sock: 0x14223f, shoes: 0x0f0f12, glove: 0x15151a, strap: 0xf2f2ee, belt: 0x10131a, gloves: true, stripes: true, cap: 0x14203a, helmet: true, earFlap: true, bill: true, back: { name, number }, curl: 1.0 })
+    ? createSkinnedRig(clips.mannequin, { skin: 0x7a4c34, hair: 0x120e0c, jersey: 0xf3f1ea, pants: 0xf3f1ea, under: 0x14223f, sock: 0x14223f, shoes: 0x0f0f12, glove: 0x15151a, strap: 0xf2f2ee, belt: 0x10131a, gloves: true, elbowGuard: true, stripes: true, cap: 0x14203a, helmet: true, earFlap: true, bill: true, back: { name, number }, curl: 1.0 })
     : createRig({ torsoMat: stripes, legMat: stripes, armMat: navy, foreMat: navy, helmet: navy, skin, ears: true });
   const { root, torso } = rig;
   // name and number on the back: a plate that sits just off the jersey and curves around the body so nothing is buried in it

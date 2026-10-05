@@ -78,8 +78,8 @@ export function createSkinnedRig(template, o) {
 
   // ---- the uniform: cloth shell grown off the body ----
   const col = (c) => new THREE.Color(c);
-  const PAL = { collar: col(o.under ?? o.forearm), sole: col(o.sole ?? 0xdcd8d0), jersey: col(o.jersey), sleeve: col(o.jersey), pants: col(o.pants), under: col(o.under ?? o.forearm), sock: col(o.sock ?? o.pants), shoe: col(o.shoes), glove: col(o.glove ?? 0x1a1a1e), strap: col(o.strap ?? 0xf0f0ea), belt: col(o.belt ?? 0x14161c) };
-  const OFF = { collar: .034, sole: .02, jersey: .034, sleeve: .02, belt: .04, pants: .034, under: .013, sock: .013, shoe: .02, glove: .009, strap: .013 };
+  const PAL = { guard: col(o.guard ?? 0x16171b), collar: col(o.under ?? o.forearm), sole: col(o.sole ?? 0xdcd8d0), jersey: col(o.jersey), sleeve: col(o.jersey), pants: col(o.pants), under: col(o.under ?? o.forearm), sock: col(o.sock ?? o.pants), shoe: col(o.shoes), glove: col(o.glove ?? 0x1a1a1e), strap: col(o.strap ?? 0xf0f0ea), belt: col(o.belt ?? 0x14161c) };
+  const OFF = { guard: .021, collar: .034, sole: .02, jersey: .034, sleeve: .02, belt: .04, pants: .034, under: .013, sock: .013, shoe: .02, glove: .009, strap: .013 };
   const beltY = bp('DEF-hips').y + (bp('DEF-spine001').y - bp('DEF-hips').y) * .62, kneeY = bp('DEF-shinL').y, hemY = kneeY - (bp('DEF-thighL').y - kneeY) * .3, shoeTop = bp('DEF-footL').y + .04, collarY = bp('DEF-neck').y - .052, soleY = bp('DEF-toeL').y - .005;
   const NONE = [0, 0, 0, 0];
   const torsoAxis = [0, bp('DEF-spine001').z, o.stripes ? 54 : 0, 0];
@@ -96,8 +96,8 @@ export function createSkinnedRig(template, o) {
     const n = cn.replace('DEF-', ''), side = /[LR]$/.test(n) ? n.slice(-1) : '', t = alongLimb(n, p);
     if (/^(head|neck)/.test(n)) return null;
     if (/^(f_|thumb|hand)/.test(n)) return o.gloves ? [/^hand/.test(n) && t < .3 ? 'strap' : 'glove', NONE] : null;
-    if (/^forearm/.test(n)) return ['under', NONE];
-    if (/^upper_arm/.test(n)) return t < .62 ? ['sleeve', armAxis(side)] : ['under', NONE];
+    if (/^forearm/.test(n)) return [o.elbowGuard && side === 'R' && t < .34 ? 'guard' : 'under', NONE];
+    if (/^upper_arm/.test(n)) return t < .62 ? ['sleeve', armAxis(side)] : [o.elbowGuard && side === 'R' && t > .8 ? 'guard' : 'under', NONE];
     if (/^shoulder/.test(n)) return ['sleeve', armAxis(side)];
     if (/^thigh/.test(n)) return ['pants', legAxis(bp(`DEF-thigh${side}`).x)];
     if (/^shin/.test(n)) return p.y > hemY ? ['pants', legAxis(bp(`DEF-thigh${side}`).x)] : p.y > shoeTop ? ['sock', NONE] : ['shoe', NONE];
