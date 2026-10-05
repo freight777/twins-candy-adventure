@@ -17,3 +17,5 @@ The raw files are in public/assets/mocap/; tools/export-clips.cjs turns them int
 - Surfaces: ambientCG Grass001, Ground054 and Concrete034 (https://ambientcg.com), public/assets/derby/tex/.
 - Players' bodies: Quaternius "Universal Animation Library" mannequin (https://quaternius.com), via https://github.com/J-Ponzo/gltf-universal-animation-library, public/assets/derby/char/.
   The uniforms, cap, helmet and name/number are made in code; the motion is the CMU data above.
+- Players' bodies and faces: Quaternius "Universal Base Characters" Superhero Male (CC0, https://quaternius.com/packs/universalbasecharacters.html), public/assets/derby/char/ubc/
+  (textures resized for the web). The baseball uniforms, caps, helmet, hair and name/number are generated in code (src/derby/skinned.js).

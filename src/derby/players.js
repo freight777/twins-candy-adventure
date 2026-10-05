@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { canvasTex, clamp, lerp } from '../util.js';
-import { loadMannequin, createSkinnedRig } from './skinned.js';
+import { loadMannequin, loadBody, createSkinnedRig } from './skinned.js';
 
 const sph = (r, w = 24, h = 16) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 20) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -12,7 +12,7 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 export async function loadClips(base = '/') {
   const get = async (f) => { const c = await (await fetch(`${base}assets/mocap/${f}`)).json(); c.idx = {}; c.names.forEach((n, i) => (c.idx[n] = i * 3)); c.count = c.frames.length; return c; };
   const [swing, pitch] = await Promise.all([get('swing.json'), get('pitch.json')]);
-  let mannequin = null; try { mannequin = await loadMannequin(base); } catch (e) { console.warn('skinned body failed to load, using the simple body', e); }
+  let mannequin = null; try { mannequin = await loadBody(base); } catch (e) { console.warn('human body failed to load, trying the mannequin', e); try { mannequin = await loadMannequin(base); } catch (e2) { console.warn('skinned body failed to load, using the simple body', e2); } }
   return { swing, pitch, mannequin };
 }
 /** joint positions at a (fractional) frame index */
@@ -121,7 +121,7 @@ function createRig({ torsoMat, legMat, armMat, foreMat, helmet, skin, ears }) {
 export function createBatter(clips, name = 'JUDGE', number = '99') {
   const clip = clips.swing, skin = skinMat(), navy = cloth(0x10203f), stripes = cloth(0xffffff, { map: pinstripe('#f7f7f4', '#14234a') });
   const rig = clips.mannequin
-    ? createSkinnedRig(clips.mannequin, { skin: 0x8a5a3c, hands: 0x1b1b1e, forearm: 0x10203f, sleeve: 0x10203f, pants: 0xf4f4f0, jersey: 0xf4f4f0, shoes: 0x111114, stripes: true, cap: 0x10203f, earFlap: true, bill: false, back: { name, number }, curl: 1.15 })
+    ? createSkinnedRig(clips.mannequin, { skin: 0x7a4c34, hair: 0x120e0c, jersey: 0xf3f1ea, pants: 0xf3f1ea, under: 0x14223f, sock: 0x14223f, shoes: 0x0f0f12, glove: 0x15151a, strap: 0xf2f2ee, belt: 0x10131a, gloves: true, stripes: true, cap: 0x14203a, helmet: true, earFlap: true, bill: true, back: { name, number }, curl: 1.0 })
     : createRig({ torsoMat: stripes, legMat: stripes, armMat: navy, foreMat: navy, helmet: navy, skin, ears: true });
   const { root, torso } = rig;
   // name and number on the back: a plate that sits just off the jersey and curves around the body so nothing is buried in it
@@ -178,7 +178,7 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
 export function createPitcher(clips) {
   const clip = clips.pitch, skin = skinMat(0xc08a63), gray = cloth(0xd6d9df), red = cloth(0xb81f30);
   const rig = clips.mannequin
-    ? createSkinnedRig(clips.mannequin, { skin: 0xc08a63, hands: 0xc08a63, forearm: 0xb81f30, sleeve: 0xc9ccd3, pants: 0xc2c5cd, jersey: 0xd0d3d9, shoes: 0x111114, stripes: false, cap: 0xb81f30, bill: true, curl: .5 })
+    ? createSkinnedRig(clips.mannequin, { skin: 0xd2a07a, hair: 0x2a1c12, jersey: 0xc9ccd2, pants: 0xbfc2c9, under: 0xb81f30, sock: 0xb81f30, shoes: 0x111114, stripes: false, cap: 0xb81f30, bill: true, curl: .5 })
     : createRig({ torsoMat: gray, legMat: gray, armMat: gray, foreMat: new THREE.MeshPhysicalMaterial({ color: 0xc08a63, roughness: .55 }), helmet: red, skin, ears: false });
   const { root } = rig, REL_IDX = clip.center;
   const mitt = new THREE.Mesh(sph(.3, 16, 12), new THREE.MeshStandardMaterial({ color: 0x6a3a1c, roughness: .6 })); mitt.castShadow = true; root.add(mitt);
