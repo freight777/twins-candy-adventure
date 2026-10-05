@@ -174,5 +174,7 @@ export function buildStadium(scene, T = {}) {
     }
   };
   S.cheer = (sec = 3) => { S.cheering = sec; };
+  /** a point on the seats (lower or middle deck) in the direction `ang` (radians off center field) */
+  S.landing = (ang) => { const k = Math.random() < .65 ? 0 : 1, [r0, r1] = tiers[k], h = 16 + k * 3, f = rand(.2, .8), r = lerp(r0, r1, f), y = 8 + k * 19 + lerp(-h / 2, h / 2, 1 - f) + 1.0; return new THREE.Vector3(Math.sin(centerAng + ang) * r, y, Math.cos(centerAng + ang) * r); };
   return S;
 }

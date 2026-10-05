@@ -70,26 +70,76 @@ export function createSkinnedRig(template, o) {
   };
   const hc = regionBB.head.getCenter(V()), hs = regionBB.head.getSize(V()), hr = Math.max(hs.x, hs.z) * .5;
   const capMat = new THREE.MeshPhysicalMaterial({ color: o.cap, roughness: .85, sheen: .3, sheenColor: new THREE.Color(o.cap) });
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(hr * 1.08, 28, 20, 0, Math.PI * 2, 0, Math.PI * .56), capMat); dome.castShadow = true;
-  attach(gb('DEF-head'), dome, V(hc.x, hc.y + hs.y * .06, hc.z - hr * .06));
-  if (o.bill) { const bill = new THREE.Mesh(new THREE.CylinderGeometry(hr * 1.02, hr * 1.02, hr * .1, 24, 1, false, 0, Math.PI), capMat); bill.scale.set(1, 1, 1.5); bill.castShadow = true; attach(gb('DEF-head'), bill, V(hc.x, hc.y + hs.y * .12, hc.z + hr * .1), new THREE.Quaternion().setFromEuler(new THREE.Euler(.3, 0, 0))); }
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(hr * 1.08, 28, 20, 0, Math.PI * 2, 0, Math.PI * .44), capMat); dome.castShadow = true;
+  attach(gb('DEF-head'), dome, V(hc.x, hc.y + hs.y * .14, hc.z - hr * .08));
+  if (o.bill) { const bill = new THREE.Mesh(new THREE.CylinderGeometry(hr * 1.02, hr * 1.02, hr * .1, 24, 1, false, -Math.PI / 2, Math.PI), capMat); bill.scale.set(1, 1, 1.15); bill.castShadow = true; attach(gb('DEF-head'), bill, V(hc.x, hc.y + hs.y * .14 + hr * .2, hc.z + hr * .1), new THREE.Quaternion().setFromEuler(new THREE.Euler(.12, 0, 0))); }   // brim sits above the brows and barely dips, so the eyes stay clear
   if (o.earFlap) { const f = new THREE.Mesh(new THREE.SphereGeometry(hr * .42, 14, 10), capMat); f.scale.set(.5, 1, .9); attach(gb('DEF-head'), f, V(hc.x + hr * .98, hc.y - hs.y * .04, hc.z)); }
   // face: eyes with whites and irises, eyebrows, ears and a mouth
   [-1, 1].forEach((sd) => {
     const hb = gb('DEF-head'), ex = hc.x + sd * hr * .36, ey = hc.y + hs.y * .02, ez = regionBB.head.max.z - hr * .03;
-    const white = new THREE.Mesh(new THREE.SphereGeometry(hr * .1, 14, 10), new THREE.MeshStandardMaterial({ color: 0xf4f0ea, roughness: .35 })); white.scale.set(1.15, .8, .6); attach(hb, white, V(ex, ey, ez));
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(hr * .055, 12, 8), new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: .2 })); attach(hb, iris, V(ex, ey, ez + hr * .045));
+    const white = new THREE.Mesh(new THREE.SphereGeometry(hr * .12, 14, 10), new THREE.MeshStandardMaterial({ color: 0xf4f0ea, roughness: .35 })); white.scale.set(1.15, .8, .6); attach(hb, white, V(ex, ey, ez));
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(hr * .065, 12, 8), new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: .2 })); attach(hb, iris, V(ex, ey, ez + hr * .045));
     const brow = new THREE.Mesh(new THREE.BoxGeometry(hr * .32, hr * .05, hr * .06), new THREE.MeshStandardMaterial({ color: 0x1a1210, roughness: .9 })); attach(hb, brow, V(ex, ey + hr * .17, ez + hr * .01), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -sd * .12)));
     const ear = new THREE.Mesh(new THREE.SphereGeometry(hr * .16, 12, 8), new THREE.MeshPhysicalMaterial({ color: o.skin, roughness: .55 })); ear.scale.set(.5, 1, .8); attach(hb, ear, V(hc.x + sd * hr * 1.0, hc.y - hs.y * .02, hc.z - hr * .1));
   });
   const mouth = new THREE.Mesh(new THREE.BoxGeometry(hr * .3, hr * .035, hr * .05), new THREE.MeshStandardMaterial({ color: 0x5a2a22, roughness: .6 })); attach(gb('DEF-head'), mouth, V(hc.x, hc.y - hs.y * .22, regionBB.head.max.z - hr * .02));
   const nose = new THREE.Mesh(new THREE.SphereGeometry(hr * .12, 12, 8), new THREE.MeshPhysicalMaterial({ color: o.skin, roughness: .55 })); attach(gb('DEF-head'), nose, V(hc.x, hc.y - hs.y * .1, regionBB.head.max.z + hr * .01));
   if (o.back) {
-    // measure where the jersey surface really is on the upper back (a ray from behind), so the plate sits on it
-    const sc = regionBB.spine.getCenter(V()), py = sc.y + .12; meshes.forEach((m) => m.updateMatrixWorld(true));
-    const ray = new THREE.Raycaster(V(sc.x, py, regionBB.spine.min.z - 3), V(0, 0, 1), 0, 8), hit = ray.intersectObjects(meshes, false)[0], zb = hit ? hit.point.z : regionBB.spine.min.z;
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(.78, 1.02), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.DoubleSide, map: canvasTex(256, 330, (g, w, h) => { g.fillStyle = '#10203f'; g.textAlign = 'center'; g.font = '700 46px Arial, sans-serif'; g.fillText(o.back.name.slice(0, 8), w / 2, 70); g.font = '700 190px Arial, sans-serif'; g.fillText(o.back.number, w / 2, 262); }) }));
-    attach(gb('DEF-spine.003'), plate, V(sc.x, py, zb - .015), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0)));
+    // Name + number as a decal skinned onto the jersey itself: every vertex of the plate is projected onto the real back surface
+    // (a ray from behind) and takes that surface's bone weights, so it bends with the torso instead of floating off it.
+    const sc = regionBB.spine.getCenter(V()), PW = .7, PH = .9, NX = 12, NY = 16, cy = sc.y - .1, z0 = regionBB.spine.min.z - 3;
+    const cand = meshes.map((m) => {
+      m.updateMatrixWorld(true);
+      const g = m.geometry, n = g.attributes.position.count, w = [], idx = g.index ? g.index.array : null, nt = (idx ? idx.length : n) / 3, tris = [];
+      for (let i = 0; i < n; i++) w.push(m.getVertexPosition(i, V()).applyMatrix4(m.matrixWorld));
+      for (let t = 0; t < nt; t++) {
+        const i0 = idx ? idx[t * 3] : t * 3, i1 = idx ? idx[t * 3 + 1] : t * 3 + 1, i2 = idx ? idx[t * 3 + 2] : t * 3 + 2, p = [w[i0], w[i1], w[i2]];
+        if (p.some((q) => Math.abs(q.x - sc.x) < PW / 2 + .4 && Math.abs(q.y - cy) < PH / 2 + .4 && q.z < sc.z + .3)) tris.push([i0, i1, i2, ...p]);
+      }
+      return tris.map((t) => [...t, m]);
+    }).flat();                                              // every triangle that could be the back, from both body meshes (they share one skeleton)
+    const ray = new THREE.Ray(V(), V(0, 0, 1)), tmp = V(), bary = V();
+    const cast = (list, x, y) => {
+      ray.origin.set(x, y, z0); let bt = Infinity, best = null;
+      for (const tr of list) { const r = ray.intersectTriangle(tr[3], tr[4], tr[5], false, tmp); if (r) { const t = r.z - z0; if (t < bt) { bt = t; best = { tr, point: r.clone() }; } } }
+      return best;
+    };
+    if (cand.length) {
+      const base = meshes[0], list = cand;
+      const pg = new THREE.PlaneGeometry(PW, PH, NX, NY), np = pg.attributes.position.count, pa = pg.attributes.position;
+      const P = new Float32Array(np * 3), N = new Float32Array(np * 3), SI = new Uint8Array(np * 4), SW = new Float32Array(np * 4), got = new Array(np).fill(false);
+      const inv = new THREE.Matrix4().copy(base.matrixWorld).invert(), nl = V(), pw = V(), acc = new Map();
+      for (let i = 0; i < np; i++) {
+        const hit = cast(list, sc.x - pa.getX(i), cy + pa.getY(i)); if (!hit) continue;
+        const [i0, i1, i2, A, Bq, C, hm] = hit.tr, hg = hm.geometry, si = hg.attributes.skinIndex, sw = hg.attributes.skinWeight, nr = hg.attributes.normal; THREE.Triangle.getBarycoord(hit.point, A, Bq, C, bary);
+        const ids = [i0, i1, i2], bw = [bary.x, bary.y, bary.z]; nl.set(0, 0, 0); acc.clear();
+        ids.forEach((vi, k) => {
+          nl.x += nr.getX(vi) * bw[k]; nl.y += nr.getY(vi) * bw[k]; nl.z += nr.getZ(vi) * bw[k];
+          for (let c = 0; c < 4; c++) { const wgt = [sw.getX(vi), sw.getY(vi), sw.getZ(vi), sw.getW(vi)][c], bi = [si.getX(vi), si.getY(vi), si.getZ(vi), si.getW(vi)][c]; if (wgt > 0) acc.set(bi, (acc.get(bi) || 0) + wgt * bw[k]); }
+        });
+        nl.normalize();
+        pw.copy(hit.point).addScaledVector(nl.clone().transformDirection(base.matrixWorld), .014).applyMatrix4(inv);   // a hair off the cloth
+        P.set([pw.x, pw.y, pw.z], i * 3); N.set([nl.x, nl.y, nl.z], i * 3);
+        const top = [...acc.entries()].sort((p, q) => q[1] - p[1]).slice(0, 4), tot = top.reduce((u, e) => u + e[1], 0) || 1;
+        top.forEach(([bi, wgt], c) => { SI[i * 4 + c] = bi; SW[i * 4 + c] = wgt / tot; });
+        got[i] = true;
+      }
+      for (let i = 0; i < np; i++) {                           // vertices whose ray missed copy their nearest neighbour that hit
+        if (got[i]) continue; let j = -1, bd = Infinity;
+        for (let k = 0; k < np; k++) if (got[k]) { const d = (pa.getX(k) - pa.getX(i)) ** 2 + (pa.getY(k) - pa.getY(i)) ** 2; if (d < bd) { bd = d; j = k; } }
+        if (j >= 0) { for (let c = 0; c < 3; c++) { P[i * 3 + c] = P[j * 3 + c]; N[i * 3 + c] = N[j * 3 + c]; } for (let c = 0; c < 4; c++) { SI[i * 4 + c] = SI[j * 4 + c]; SW[i * 4 + c] = SW[j * 4 + c]; } }
+      }
+      pg.setAttribute('position', new THREE.BufferAttribute(P, 3)); pg.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+      pg.setAttribute('skinIndex', new THREE.BufferAttribute(SI, 4)); pg.setAttribute('skinWeight', new THREE.BufferAttribute(SW, 4));
+      const tex = canvasTex(256, 330, (c, w, h) => {
+        c.textAlign = 'center'; c.lineJoin = 'round'; c.strokeStyle = '#ffffff'; c.fillStyle = '#10203f';
+        const put = (txt, font, y, lw) => { c.font = font; c.lineWidth = lw; c.strokeText(txt, w / 2, y); c.fillText(txt, w / 2, y); };   // white edge so it reads over the pinstripes
+        put(o.back.name.slice(0, 8), '800 58px Arial, sans-serif', 72, 9); put(o.back.number, '800 215px Arial, sans-serif', 292, 16);
+      });
+      const plate = new THREE.SkinnedMesh(pg, new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: .85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      plate.position.copy(base.position); plate.quaternion.copy(base.quaternion); plate.scale.copy(base.scale); plate.frustumCulled = false;
+      base.parent.add(plate); plate.bind(base.skeleton, base.bindMatrix); plate.updateMatrixWorld(true);
+    }
   }
 
   // ---- posing: copy the captured limb directions and body orientation, so differences in body proportions do not matter ----

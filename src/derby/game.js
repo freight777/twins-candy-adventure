@@ -9,7 +9,7 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { Q, loadTier, lowerTier } from '../quality.js';
 import { skyEnv } from '../env.js';
-import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, glowSprite, RAINBOW } from '../util.js';
+import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, glowSprite, canvasTex, RAINBOW } from '../util.js';
 import { unlock, playMusic, stopMusic, say, sfx } from '../audio.js';
 import { buildStadium } from './stadium.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
@@ -89,9 +89,20 @@ async function boot() {
   pitcher = createPitcher(clips); pitcher.root.position.set(0, .7, 0); pitcher.root.position.z = -15.0 - pitcher.releaseWorld().z; REL.copy(pitcher.releaseWorld()); scene.add(pitcher.root);
   scene.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.type !== 'PlaneGeometry') { /* shadows only for the players */ } });
   [batter.root, pitcher.root].forEach((r) => r.traverse((o) => { if (o.isMesh) o.castShadow = true; }));
-  ball = new THREE.Group(); ball.add(new THREE.Mesh(new THREE.SphereGeometry(.22, 24, 16), new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: .55 })));
-  const seam = new THREE.Mesh(new THREE.TorusGeometry(.17, .014, 6, 24), new THREE.MeshBasicMaterial({ color: 0xb02828 })); seam.rotation.y = Math.PI / 2; ball.add(seam);
-  const bg = glowSprite(0xffffff, 1.4, .35); ball.add(bg); ball.userData.glow = bg; ball.visible = false; scene.add(ball);
+  // a baseball: white leather with the two curved rows of red stitches
+  const ballTex = canvasTex(512, 256, (g, w, h) => {
+    g.fillStyle = '#f4f1ea'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 1800; i++) { g.fillStyle = `rgba(120,100,80,${Math.random() * .06})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+    [0, 1].forEach((side) => {
+      for (let x = 0; x <= w; x += 2) {
+        const ph = (x / w) * Math.PI * 2 * 2, y = h / 2 + (side ? -1 : 1) * h * .23 * Math.sin(ph), dy = (side ? -1 : 1) * h * .23 * Math.cos(ph) * (Math.PI * 4 / w);
+        g.fillStyle = '#c0282d'; g.beginPath(); g.arc(x, y, 3.2, 0, 7); g.fill();
+        if (x % 12 === 0) { const nx = -dy, ny = 1, nl = Math.hypot(nx, ny); g.strokeStyle = '#c0282d'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(x - nx / nl * 10, y - ny / nl * 10); g.lineTo(x + nx / nl * 10, y + ny / nl * 10); g.stroke(); }
+      }
+    });
+  });
+  ball = new THREE.Group(); ball.add(new THREE.Mesh(new THREE.SphereGeometry(.16, 28, 20), new THREE.MeshStandardMaterial({ map: ballTex, roughness: .55 })));
+  const bg = glowSprite(0xffffff, 1.1, .3); ball.add(bg); ball.userData.glow = bg; ball.visible = false; scene.add(ball);
   ballShadow = new THREE.Mesh(new THREE.CircleGeometry(.4, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .3, depthWrite: false })); ballShadow.visible = false; scene.add(ballShadow);
   camera.position.set(0, 5.2, 12); camera.lookAt(camLook);
   $('#loading').classList.add('done'); setTimeout(() => $('#loading').remove(), 800);
@@ -167,15 +178,16 @@ async function miss(msg) {
 
 async function homeRun(from) {
   S.state = 'flying';
-  const ang = rand(-.62, .62), R = stadium.wallR + rand(16, 40), end = new THREE.Vector3(Math.sin(ang) * R, rand(12, 24), -Math.cos(ang) * R);
+  const ang = rand(-.62, .62), end = stadium.landing(ang);
   const dur = 3.4, peak = 44; S.camMode = 'ball'; stadium.cheer(7);
   banner('HOME RUN!', 'good', 3.4); say('Home run!', 'counter'); sfx.cheer(); sfx.charge();
   ballShadow.visible = false;
   await anim(dur, (k) => {
     ball.position.set(lerp(from.x, end.x, k), lerp(from.y, end.y, k) + 4 * peak * k * (1 - k), lerp(from.z, end.z, k));
-    ball.scale.setScalar(1 + k * 9); ball.rotation.x += .4;
+    ball.scale.setScalar(1 + k * 3.2); ball.rotation.x += .5;
     if (Math.random() < .8) fx.burst(ball.position, { count: 2, colors: [0xffffff, 0xffe14d, 0xff9f2e], speed: 1, gravity: -1, life: .8, size: 1.2 });
   }, ease.linear);
+  ball.visible = false; fx.burst(end, { count: 40, colors: [0xffffff, 0xffe14d, 0xd8c8a0], speed: 5, gravity: -5, life: 1.1, size: 1.2 }); stadium.cheer(7);   // it drops into the seats and the fans go wild
   S.hr++; setHud(); sfx.tada();
   for (let i = 0; i < 7; i++) { fx.burst(new THREE.Vector3(end.x + rand(-45, 45), rand(35, 70), end.z + rand(-25, 10)), { count: 70, colors: RAINBOW.concat([0xffffff, 0xffd84d]), speed: 12, gravity: -4, life: 2.2, size: 1.8 }); sfx.pop(); await sleep(.28); }
   ball.visible = false; S.camMode = 'home'; S.state = 'play';
@@ -216,7 +228,7 @@ function update(dt) {
     f.t += dt; const k = f.t / f.F;
     ball.position.copy(ballPath(f.lane, k));
     ball.rotation.x += dt * 14; ballShadow.position.set(ball.position.x, .06, ball.position.z); ballShadow.scale.setScalar(clamp(1 - ball.position.y * .06, .4, 1));
-    ball.scale.setScalar(1 + clamp(k, 0, 1.2) * 1.4);
+    ball.scale.setScalar(1 + clamp(k, 0, 1.2) * .8);
     const near = f.t >= f.F - WIN && f.t <= f.F + LATE, z = stadium.zones[f.lane];
     z.material.opacity = near ? .9 : clamp(k - .3, 0, .5) * .6; z.material.color.set(near ? 0x7bff9a : 0xffffff);
     if (near && !f.said) { f.said = true; cue(prefs.helper ? 'NOW!' : '', 'now'); sfx.ting(); }
@@ -239,5 +251,5 @@ renderer.setAnimationLoop(() => {
   if (raw > 0.03 && raw < 0.5) slow++;
   if (++frames === 150) { if (slow > 80 && lowerTier()) { applyTier(); resize(); } slow = 0; frames = 0; }
 });
-window.derby = { S, camera, get batter() { return batter; }, get ball() { return ball; }, swing, start };
+window.derby = { S, camera, get batter() { return batter; }, get pitcher() { return pitcher; }, get ball() { return ball; }, swing, start };
 boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });
