@@ -1,5 +1,6 @@
 import './uni.css';
 import { loading } from '../engine/loading.js';
+import { homeGate } from '../engine/gate.js';
 import * as THREE from 'three';
 import { createPipeline } from '../engine/pipeline.js';
 import { Q } from '../engine/quality.js';
@@ -13,6 +14,7 @@ import { createHouse, HOUSES } from './houses.js';
 import { model } from '../assets.js';
 
 const $ = (s) => document.querySelector(s);
+homeGate();
 const FEET = 0.82;                                   // standing height above the path line
 const SCALE = 1.1;
 

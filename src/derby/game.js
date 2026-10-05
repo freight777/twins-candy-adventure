@@ -1,5 +1,6 @@
 import './derby.css';
 import { loading } from '../engine/loading.js';
+import { homeGate } from '../engine/gate.js';
 import * as THREE from 'three';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -17,6 +18,7 @@ import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { createBatter, createPitcher, loadClips } from './players.js';
 
 const $ = (s) => document.querySelector(s);
+homeGate();
 let stadium, batter, pitcher, ball, ballShadow, zoneGlow, tracer, hrTracer, blobB, blobP, swingTrail, baseFov = 54, replay = null;
 
 // ---------------------------------------------------------------- renderer: the shared pipeline (src/engine/pipeline.js) plus this game's broadcast extras

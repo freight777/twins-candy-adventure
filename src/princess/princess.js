@@ -1,6 +1,8 @@
 import '../engine/fonts.css';
 import { FOODS, princessSVG, staffSVG, wallSVG, floorSVG, tableSVG } from './art.js';
 import { unlock, say as speak, sfx as fx } from '../audio.js';
+import { homeGate } from '../engine/gate.js';
+homeGate();
 
 const $ = (s) => document.querySelector(s);
 const princess = $('#princess'), plate = $('#plate'), quiz = $('#quiz'), butler = $('#butler');

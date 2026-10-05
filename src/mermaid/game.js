@@ -1,5 +1,6 @@
 import './mermaid.css';
 import { loading } from '../engine/loading.js';
+import { homeGate } from '../engine/gate.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createPipeline } from '../engine/pipeline.js';
@@ -12,6 +13,7 @@ import { createMermaid, createSeahorse, createDolphin, heartGeo, LOOKS } from '.
 import { ANTHEM } from './anthem.js';
 
 const $ = (s) => document.querySelector(s);
+homeGate();
 const HOVER = 2.3;                                   // swimming height above the path line
 const SCALE = 1.15;
 

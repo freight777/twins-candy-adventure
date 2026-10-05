@@ -1,5 +1,6 @@
 import './style.css';
 import { loading } from './engine/loading.js';
+import { holdGate, homeGate } from './engine/gate.js';
 import * as THREE from 'three';
 import { createPipeline } from './engine/pipeline.js';
 import { Q, auto as autoTier, chooseTier } from './engine/quality.js';
@@ -75,13 +76,15 @@ canvas.addEventListener('pointerdown', (e) => { unlock(); game.current && !game.
 canvas.addEventListener('pointermove', (e) => { game.current && game.current.onPointerMove(ndcOf(e), e.buttons > 0 || e.pointerType === 'touch'); });
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
 
-// Developer shortcuts (keyboard only): 1 beach, 2 tunnel, 3 cat room, 4 candy room
-window.addEventListener('keydown', (e) => {
-  const map = { 1: 'beach', 2: 'fall', 3: 'cat', 4: 'chocolate', 5: 'board', 6: 'castle', 7: 'warp', 8: 'wake' };
-  if (map[e.key]) { unlock(); game.started = true; game.goto(map[e.key]); }
-});
+// Developer shortcuts (keyboard, dev server only): 1 beach, 2 tunnel, 3 cat room, 4 candy room ...
+if (import.meta.env.DEV) {
+  window.addEventListener('keydown', (e) => {
+    const map = { 1: 'beach', 2: 'fall', 3: 'cat', 4: 'chocolate', 5: 'board', 6: 'castle', 7: 'warp', 8: 'wake' };
+    if (map[e.key]) { unlock(); game.started = true; game.goto(map[e.key]); }
+  });
+}
 
-// ---- hidden grown-ups menu: tap the top-right corner 3 times ----
+// ---- hidden grown-ups menu: hold the top-right corner for 2 seconds ----
 const SCENE_LIST = [['Beach', 'beach'], ['Tunnel fall', 'fall'], ['Cat room', 'cat'], ['Candy room', 'chocolate'], ['Board game', 'board'], ['Castle', 'castle'], ['Home again', 'wake']];
 const pscenes = document.getElementById('pscenes'), parentEl = document.getElementById('parent');
 SCENE_LIST.forEach(([label, name]) => {
@@ -94,11 +97,8 @@ SCENE_LIST.forEach(([label, name]) => {
   };
   pscenes.appendChild(b);
 });
-let taps = [];
-document.getElementById('secret').addEventListener('pointerdown', () => {
-  const now = performance.now(); taps = taps.filter((t) => now - t < 1800); taps.push(now);
-  if (taps.length >= 3) { taps = []; parentEl.classList.remove('hidden'); }
-});
+holdGate(document.getElementById('secret'), () => { gfxLabel(); parentEl.classList.remove('hidden'); });
+homeGate();
 document.getElementById('pclose').onclick = () => parentEl.classList.add('hidden');
 const LEVELS = [[0, 'off'], [0.3, 'quiet'], [0.5, 'medium'], [0.8, 'loud']];
 const pmute = document.getElementById('pmute'), pmusic = document.getElementById('pmusic');
