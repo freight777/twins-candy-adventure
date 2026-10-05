@@ -112,7 +112,7 @@ async function pitchOnce() {
   const lane = pickLane();
   cue('Here comes the pitch!'); pitcher.root.rotation.y = 0;
   const wind = 1.5; await anim(wind, (k) => pitcher.pose(k), ease.linear);
-  ball.visible = true; ballShadow.visible = true; ball.scale.setScalar(1); ball.position.copy(REL); sfx.swoosh(); anim(.6, (k) => pitcher.pose(1 + k * .36), ease.linear);
+  ball.visible = true; ballShadow.visible = true; ball.scale.setScalar(1); ball.position.copy(REL); pitcher.holdBall(false); sfx.swoosh(); anim(.6, (k) => pitcher.pose(1 + k * .36), ease.linear);
   S.flight = { t: 0, F: flightTime(), lane, resolved: false };
   cue(prefs.helper ? (lane < 0 ? '⬅️  LEFT!' : 'RIGHT!  ➡️') : '', 'side');
   const res = await new Promise((r) => (S.flight.resolve = r));

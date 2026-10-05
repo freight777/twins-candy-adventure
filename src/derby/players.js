@@ -19,6 +19,25 @@ function frameAt(c, f) {
   c.names.forEach((n) => { const o = c.idx[n]; F[n] = V(lerp(A[o], B[o], k), lerp(A[o + 1], B[o + 1], k), lerp(A[o + 2], B[o + 2], k)); });
   return F;
 }
+const copyFrame = (F) => { const o = {}; Object.keys(F).forEach((n) => (o[n] = F[n].clone())); return o; };
+const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+/** batting stance: hands by the rear shoulder, bat upright and tipped a little back over the shoulder, weight slightly on the back foot */
+function batterStance(F0) {
+  const F = copyFrame(F0), base = F.rsh.clone().add(V(.38, .12, .04)), a = V(.1, 1, .42).normalize();
+  F.lwr = base.clone().addScaledVector(a, -.1); F.rwr = base.clone().addScaledVector(a, .3);               // bottom hand, top hand
+  F.lfin = F.lwr.clone(); F.rfin = F.rwr.clone();
+  F.rel = F.rsh.clone().add(F.rwr).multiplyScalar(.5).add(V(.05, -.6, .3)); F.lel = F.lsh.clone().add(F.lwr).multiplyScalar(.5).add(V(.05, -.5, -.15));
+  F.hips.z += .1; F.chest.z += .08; F.neck.z += .14; F.head.z += .14;
+  return F;
+}
+/** pitcher's set position: sideways to the plate, feet planted, ball and glove together at the chest */
+function pitcherSet(F0) {
+  const F = copyFrame(F0), sv = F.rsh.clone().sub(F.lsh), yaw = Math.atan2(-sv.z, sv.x), fx = -Math.sin(yaw), fz = -Math.cos(yaw), hx = F.hips.x + fx * .55, hz = F.hips.z + fz * .55;
+  F.lwr = V(hx, 3.15, hz + .12); F.rwr = V(hx, 3.2, hz - .1); F.lfin = F.lwr.clone(); F.rfin = F.rwr.clone();
+  F.lel = F.lsh.clone().add(F.lwr).multiplyScalar(.5).add(V(0, -.5, .22)); F.rel = F.rsh.clone().add(F.rwr).multiplyScalar(.5).add(V(0, -.5, -.22));
+  const dy = F.lankle.y - .19; F.lankle.y -= dy; F.ltoe.y = Math.max(.1, F.ltoe.y - dy); F.lknee.y = Math.max(.9, F.lknee.y - dy * .6);
+  return F;
+}
 const blend = (A, B, k) => { const F = {}; Object.keys(A).forEach((n) => (F[n] = A[n].clone().lerp(B[n], k))); return F; };
 
 // ---------------------------------------------------------------- materials & helpers
@@ -117,7 +136,7 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
     tmpQ.setFromUnitVectors(V(1, 0, 0), axis); axisQ.slerp(tmpQ, .65); pivot.quaternion.copy(axisQ); pivot.position.copy(hands.L);
     return { axis, hands };
   };
-  const idleFrame = frameAt(clip, IDLE), contactFrame = frameAt(clip, CONTACT);
+  const idleFrame = batterStance(frameAt(clip, IDLE)), contactFrame = frameAt(clip, CONTACT);
   let cp = pose(contactFrame); axisQ.copy(pivot.quaternion); cp = pose(contactFrame);
   const contactLocal = cp.hands.L.clone().addScaledVector(cp.axis, SWEET);       // sweet spot of the bat at contact (in rig space)
   pose(idleFrame); axisQ.copy(pivot.quaternion); pose(idleFrame);
@@ -131,13 +150,13 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
       anim = (dt) => {
         f += dt * 60 * RATE; if (!hit && f >= CONTACT) { hit = true; cb && cb(); }
         if (f >= clip.count - 1) { hold = frameAt(clip, clip.count - 1); anim = null; api._back = 0; return; }
-        pose(frameAt(clip, f));
+        pose(blend(idleFrame, frameAt(clip, f), smooth((f - START) / (CONTACT - 14 - START))));   // bat starts upright, then follows the real swing path
       };
     },
     update(dt, t) {
       if (anim) { anim(dt); return; }
       if (api._back != null && api._back < 1) { api._back = Math.min(1, api._back + dt * 2.2); pose(blend(hold, idleFrame, api._back * api._back * (3 - 2 * api._back))); return; }
-      const F = frameAt(clip, IDLE); F.hips.y += Math.sin(t * 1.8) * .015; pose(F);
+      const F = copyFrame(idleFrame); F.hips.y += Math.sin(t * 1.8) * .015; F.rwr.y += Math.sin(t * 1.8 + 1) * .02; pose(F);
     },
     unswing() { anim = null; api._back = 1; },
   };
@@ -151,16 +170,20 @@ export function createPitcher(clips) {
   const rig = createRig({ torsoMat: gray, legMat: gray, armMat: gray, foreMat: new THREE.MeshPhysicalMaterial({ color: 0xc08a63, roughness: .55 }), helmet: red, skin, ears: false });
   const { root } = rig, REL_IDX = clip.center;
   const mitt = new THREE.Mesh(sph(.3, 16, 12), new THREE.MeshStandardMaterial({ color: 0x6a3a1c, roughness: .6 })); mitt.castShadow = true; root.add(mitt);
-  let hands = null;
-  const at = (idx) => { const F = frameAt(clip, idx); hands = rig.drive(F, Math.PI); mitt.position.copy(hands.L); return F; };
-  at(REL_IDX); const relLocal = hands.R.clone(); at(0);
+  const ballM = new THREE.Mesh(sph(.2, 16, 12), new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: .55 })); root.add(ballM);
+  let hands = null, holding = true;
+  const setF = pitcherSet(frameAt(clip, 0));
+  const drivePose = (F) => { hands = rig.drive(F, Math.PI); mitt.position.copy(hands.L); ballM.visible = holding; ballM.position.copy(hands.R); };
+  const at = (idx) => { const k = smooth(idx / 24), F = blend(setF, frameAt(clip, idx), k); drivePose(F); };
+  holding = false; drivePose(frameAt(clip, REL_IDX)); const relLocal = hands.R.clone(); holding = true; drivePose(setF);
   return {
     root, relLocal,
     /** release point of the ball in world space */
     releaseWorld() { root.updateMatrixWorld(true); return root.localToWorld(relLocal.clone()); },
     /** k 0..1 = the windup up to the release; k > 1 = the follow-through */
     pose(k) { at(k * REL_IDX); },
-    idle() { at(0); },
+    idle() { holding = true; drivePose(setF); },
+    holdBall(on) { holding = on; ballM.visible = on; },
     handWorld() { return root.localToWorld(hands.R.clone()); },
   };
 }
