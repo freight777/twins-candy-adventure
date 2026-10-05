@@ -111,17 +111,16 @@ export function createSkinnedRig(template, o) {
   const FAM = { collar: 0, sole: 0, jersey: 0, belt: 0, pants: 0, sock: 0, shoe: 0, sleeve: 1, under: 1, guard: 1, strap: 2, glove: 2 };     // 0 = body (coloured by height), 1 = arm (by distance out along the arm), 2 = hand
   const SU = {
     uJersey: { value: PAL.jersey }, uPants: { value: PAL.pants }, uUnder: { value: PAL.under }, uSock: { value: PAL.sock }, uShoe: { value: PAL.shoe }, uSole: { value: PAL.sole }, uBelt: { value: PAL.belt }, uCollar: { value: PAL.collar }, uGuard: { value: PAL.guard }, uGlove: { value: PAL.glove }, uStrap: { value: PAL.strap },
-    uY: { value: new THREE.Vector4(beltY, collarY, hemY, shoeTop) }, uY2: { value: new THREE.Vector4(soleY, sleeveX, strapX, o.elbowGuard ? 1 : 0) }, uG: { value: new THREE.Vector2(guardA, guardB) },
+    uY: { value: new THREE.Vector4(beltY, collarY, hemY, shoeTop) }, uY2: { value: new THREE.Vector4(soleY, sleeveX, strapX, o.elbowGuard ? 1 : 0) }, uG: { value: new THREE.Vector4(guardA, guardB, hx0, o.gloves ? 1 : 0) },
   };
   const shellMat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .9, specularIntensity: .4, sheen: .3, sheenRoughness: .6, sheenColor: new THREE.Color(0xffffff), side: THREE.DoubleSide });
   shellMat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, SU);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 aSt; attribute float aFam; flat varying vec4 vSt; flat varying float vFam; varying vec3 vRP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvSt = aSt; vFam = aFam; vRP = position;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n#ifdef USE_SHEEN\nmaterial.sheenColor = clamp(diffuseColor.rgb * .9 + .05, 0., 1.);       // fabric sheen takes the fabric colour (dark cloth stays dark)\n#endif').replace('#include <common>', '#include <common>\nflat varying vec4 vSt; flat varying float vFam; varying vec3 vRP;\nuniform vec3 uJersey, uPants, uUnder, uSock, uShoe, uSole, uBelt, uCollar, uGuard, uGlove, uStrap; uniform vec4 uY, uY2; uniform vec2 uG;').replace('#include <color_fragment>', `#include <color_fragment>
+    sh.fragmentShader = sh.fragmentShader.replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n#ifdef USE_SHEEN\nmaterial.sheenColor = clamp(diffuseColor.rgb * .9 + .05, 0., 1.);       // fabric sheen takes the fabric colour (dark cloth stays dark)\n#endif').replace('#include <common>', '#include <common>\nflat varying vec4 vSt; flat varying float vFam; varying vec3 vRP;\nuniform vec3 uJersey, uPants, uUnder, uSock, uShoe, uSole, uBelt, uCollar, uGuard, uGlove, uStrap; uniform vec4 uY, uY2, uG;').replace('#include <color_fragment>', `#include <color_fragment>
       float sOK = 0.; vec3 rc;
       if (vFam < .5) { float y = vRP.y; if (y > uY.y) rc = uCollar; else if (y > uY.x + .022) { rc = uJersey; sOK = 1.; } else if (y > uY.x - .022) rc = uBelt; else if (y > uY.z) { rc = uPants; sOK = 1.; } else if (y > uY.w) rc = uSock; else if (y > uY2.x) rc = uShoe; else rc = uSole; }
-      else if (vFam < 1.5) { float x = abs(vRP.x); if (x < uY2.y) { rc = uJersey; sOK = 1.; } else rc = (uY2.w > .5 && vRP.x < 0. && x > uG.x && x < uG.y) ? uGuard : uUnder; }
-      else rc = abs(vRP.x) < uY2.z ? uStrap : uGlove;
+      else { float x = abs(vRP.x); if (x < uY2.y) { rc = uJersey; sOK = 1.; } else if (uG.w > .5 && x > uG.z) rc = x < uY2.z ? uStrap : uGlove; else rc = (uY2.w > .5 && vRP.x < 0. && x > uG.x && x < uG.y) ? uGuard : uUnder; }
       diffuseColor.rgb = rc * vColor.rgb;                    // the vertex colour now only carries the baked occlusion
       if (vSt.z > .5 && sOK > .5) {                                   // pinstripes: evenly spaced lines around a torso / leg / arm axis, anti-aliased
         vec2 q = vSt.w < .5 ? vRP.xz - vSt.xy : vRP.yz - vSt.xy; float r = max(length(q), 1e-4); vec2 dir = q / r;
@@ -317,7 +316,8 @@ export function createSkinnedRig(template, o) {
       // keep the feet on the ground whatever the proportions
       const toeY = Math.min(wp(gb('DEF-toe.L')).y, wp(gb('DEF-toe.R')).y), want = root.getWorldPosition(V()).y + toeH, shift = want - toeY;
       if (Math.abs(shift) < 1.5) { hips.position.y += shift / holder.scale.x; root.updateMatrixWorld(true); }
-      return { L: root.worldToLocal(wp(gb('DEF-hand.L'))), R: root.worldToLocal(wp(gb('DEF-hand.R'))) };
+      const grip = (K) => { const h = gb(`DEF-hand.${K}`), m = gb(`DEF-f_middle.01.${K}`), hp = wp(h), c = hp.clone().lerp(wp(m), .55), pn = V(0, -1, 0).applyQuaternion(wq(h).multiply(restWQ[h.name].clone().invert())); return root.worldToLocal(c.addScaledVector(pn, .055 * s)); };
+      return { L: root.worldToLocal(wp(gb('DEF-hand.L'))), R: root.worldToLocal(wp(gb('DEF-hand.R'))), gL: grip('L'), gR: grip('R') };
     },
   };
   return rig;

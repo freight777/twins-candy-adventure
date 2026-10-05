@@ -48,6 +48,9 @@ const grade = new ShaderPass({
 // broadcast-style image: ambient occlusion where things meet, and a shallow depth of field that softens the crowd and far wall (top quality tier only)
 const gtao = new GTAOPass(scene, camera, 256, 256); gtao.blendIntensity = 0.9; gtao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.4, thickness: 1.2, scale: 1.2, samples: 12 });
 const bokeh = new BokehPass(scene, camera, { focus: 13, aperture: 0.00016, maxblur: 0.006 });
+const depthSkip = [];
+function collectDepthSkip() { depthSkip.length = 0; scene.traverse((o) => { const m = o.material; if (o.isSprite || o.isPoints || (o.isMesh && m && (Array.isArray(m) ? m.some((x) => x.transparent) : m.transparent))) depthSkip.push(o); }); }
+[gtao, bokeh].forEach((p) => { const run = p.render.bind(p); p.render = (...args) => { const vis = depthSkip.map((o) => o.visible); depthSkip.forEach((o) => (o.visible = false)); try { run(...args); } finally { depthSkip.forEach((o, i) => (o.visible = vis[i])); } }; });
 composer.addPass(new RenderPass(scene, camera)); composer.addPass(gtao); composer.addPass(bokeh); composer.addPass(bloom); composer.addPass(new OutputPass()); composer.addPass(grade);
 function applyTier() { const pr = Math.min(window.devicePixelRatio, Q.pr); if (stadium) { stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1); stadium.setShadows(Q.name); } bloom.enabled = Q.bloom; gtao.enabled = bokeh.enabled = !!Q.post; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
 function resize() { const w = innerWidth, h = innerHeight, a = w / h; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = a; baseFov = a < 1 ? clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(54 / 2)) / a)), 34, 62) : 54 * clamp(Math.pow(a, -.4), .8, 1); camera.fov = baseFov; camera.updateProjectionMatrix(); }
@@ -129,6 +132,7 @@ async function boot() {
   const mkBlob = () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, fog: false })); m.renderOrder = 1; scene.add(m); return m; };
   blobB = mkBlob(); blobP = mkBlob();
   camera.position.set(0, 5.2, 12); camera.lookAt(camLook); scene.environment = env.night; await setTime(prefs.time);
+  collectDepthSkip();
   try { await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 4000))]); } catch { /* the first frame will compile instead */ }       // build the shaders now, behind the loading screen, so the first frames are smooth
   $('#loading').classList.add('done'); setTimeout(() => $('#loading').remove(), 800);
   S.state = 'title'; taps(false); show('#title'); $('#name').value = prefs.name; $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`; gfxLabel();

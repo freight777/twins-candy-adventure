@@ -27,7 +27,7 @@ const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 /** batting stance: hands by the rear shoulder, bat upright and tipped a little back over the shoulder, weight slightly on the back foot */
 function batterStance(F0) {
   const F = copyFrame(F0), base = F.rsh.clone().add(V(.8, -.1, .18)), a = V(.12, 1, .4).normalize();
-  F.lwr = base.clone().addScaledVector(a, -.1); F.rwr = base.clone().addScaledVector(a, .3);               // bottom hand, top hand
+  F.lwr = base.clone().addScaledVector(a, -.03); F.rwr = base.clone().addScaledVector(a, .21);               // bottom hand, top hand
   F.lfin = F.lwr.clone(); F.rfin = F.rwr.clone();
   F.rel = F.rsh.clone().add(F.rwr).multiplyScalar(.5).add(V(.05, -.6, .3)); F.lel = F.lsh.clone().add(F.lwr).multiplyScalar(.5).add(V(.05, -.5, -.15));
   F.hips.z += .1; F.chest.z += .08; F.neck.z += .14; F.head.z += .14;
@@ -137,9 +137,9 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
   const IDLE = 8, START = 10, RATE = 1.5, CONTACT = clip.center, axisQ = new THREE.Quaternion(), tmpQ = new THREE.Quaternion(), SWEET = 2.0;
   let anim = null, hold = null, baseX = 0, off = 0, offT = 0;
   const pose = (F) => {
-    const hands = rig.drive(F, 0), axis = hands.R.clone().sub(hands.L); if (axis.lengthSq() < 1e-6) axis.set(1, 0, 0); axis.normalize();
-    tmpQ.setFromUnitVectors(V(1, 0, 0), axis); axisQ.slerp(tmpQ, .65); pivot.quaternion.copy(axisQ); pivot.position.copy(hands.L);
-    return { axis, hands };
+    const hands = rig.drive(F, 0), gL = hands.gL || hands.L, gR = hands.gR || hands.R, axis = gR.clone().sub(gL); if (axis.lengthSq() < 1e-6) axis.set(1, 0, 0); axis.normalize();
+    axisQ.setFromUnitVectors(V(1, 0, 0), axis); pivot.quaternion.copy(axisQ); pivot.position.copy(gL);
+    return { axis, hands: { L: gL, R: gR } };
   };
   const idleFrame = batterStance(frameAt(clip, IDLE)), contactFrame = frameAt(clip, CONTACT);
   let cp = pose(contactFrame); axisQ.copy(pivot.quaternion); cp = pose(contactFrame);
@@ -187,7 +187,7 @@ export function createPitcher(clips) {
   const ballM = makeBallMesh(.115); ballM.castShadow = true; root.add(ballM);
   let hands = null, holding = true;
   const setF = pitcherSet(frameAt(clip, 0));
-  const drivePose = (F) => { hands = rig.drive(F, Math.PI); mitt.position.copy(hands.L); if (rig.handQ) mitt.quaternion.copy(rig.handQ('L')); ballM.visible = holding; ballM.position.copy(hands.R); };
+  const drivePose = (F) => { hands = rig.drive(F, Math.PI); mitt.position.copy(hands.L); if (rig.handQ) mitt.quaternion.copy(rig.handQ('L')); ballM.visible = holding; ballM.position.copy(hands.gR || hands.R); };
   const at = (idx) => { const k = smooth(idx / 24), F = blend(setF, frameAt(clip, idx), k); drivePose(F); };
   holding = false; drivePose(frameAt(clip, REL_IDX)); const relLocal = hands.R.clone(); holding = true; drivePose(setF);
   return {
