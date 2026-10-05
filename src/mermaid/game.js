@@ -5,7 +5,7 @@ import { createPipeline } from '../engine/pipeline.js';
 import { Q } from '../engine/quality.js';
 import { skyEnv } from '../env.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, RAINBOW, stripedGeo } from '../util.js';
-import { unlock, playMusic, say, sfx, stopSpeech, playScore, stopScore } from '../audio.js';
+import { unlock, playMusic, say, sayAsync, sfx, stopSpeech, playScore, stopScore } from '../audio.js';
 import { buildOcean, COLORS, N, FRIEND_TILES } from './ocean.js';
 import { createMermaid, createSeahorse, createDolphin, heartGeo, LOOKS } from './mermaid.js';
 import { ANTHEM } from './anthem.js';
@@ -36,10 +36,12 @@ const timers = new Timers(), fx = new Fx(scene, 900);
 const sleep = (s) => new Promise((r) => timers.after(s, r));
 const anim = (dur, fn, e = ease.inOut) => new Promise((r) => timers.tween(dur, fn, { ease: e, done: r }));
 const ui = {
-  bubble(emoji, caption = '', voice = 'uni', speak = true) {
-    if (caption && speak) say(caption, voice);
+  /** resolves when the caption has been said (opts: priority, minMs) */
+  bubble(emoji, caption = '', voice = 'uni', speak = true, opts = {}) {
+    const said = caption && speak ? sayAsync(caption, voice, opts) : Promise.resolve(true);
     const b = $('#bubble'); b.classList.remove('hidden'); b.firstElementChild.textContent = emoji; b.lastElementChild.textContent = caption;
     b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
+    return said;
   },
   hideBubble() { $('#bubble').classList.add('hidden'); },
   hearts(n) { $('#starcount').textContent = n; },
@@ -214,12 +216,12 @@ async function meetFriend(f) {
   hero.lookToward(f.u.root.position.x - hero.root.position.x, f.u.root.position.z - hero.root.position.z, 1);
   f.u.lookToward(hero.root.position.x - f.u.root.position.x, hero.root.position.z - f.u.root.position.z, 1);
   sparkleAt(f.u.root.position.clone().add(new THREE.Vector3(0, 1.4, 0)), f.burst, 60, 6); sfx.sparkle(); bubblesAt(f.u.root.position.clone(), 12);
-  ui.bubble(`${f.emoji} \u{1F9DC}‍♀️`, f.line, f.voice);
+  const said = ui.bubble(`${f.emoji} \u{1F9DC}‍♀️`, f.line, f.voice, true, { priority: 2, minMs: 1800 });
   const hop = (u) => anim(.55, (k) => { u.lift = Math.sin(k * Math.PI) * 1.3; }, ease.linear);
-  await hop(f.u); await hop(hero); await sleep(1.8);
+  await hop(f.u); await hop(hero); await said; await sleep(.3);
   sparkleAt(hero.root.position.clone().add(new THREE.Vector3(0, 1.5, 0)), [0xff9ed8, 0xffffff, 0xff5fa4], 40, 5); sfx.magic(); addHearts(3);
   document.querySelectorAll('.fr')[f.i].classList.add('met');
-  ui.bubble('\u{1F31F}', `${f.name} joins the adventure!`, 'uni'); await sleep(2.2); ui.hideBubble();
+  await ui.bubble('\u{1F31F}', `${f.name} joins the adventure!`, 'uni', true, { priority: 2, minMs: 1500 }); await sleep(.4); ui.hideBubble();
   S.followers.push(f); S.mode = 'follow';
 }
 
@@ -255,20 +257,20 @@ async function finale() {
   hero.lookToward(f.x, f.z, 1);
   // Lucy, her twin
   const la = lucy.root.position.clone(), ld = dest.clone().addScaledVector(sd, 3.8).add(new THREE.Vector3(0, .1, 0));
-  ui.bubble('\u{1F9DC}‍♀️\u{1F9DC}‍♀️', "Esmae! It's me, Lucy! We're twins!", 'sparkle');
+  const lucySaid = ui.bubble('\u{1F9DC}‍♀️\u{1F9DC}‍♀️', "Esmae! It's me, Lucy! We're twins!", 'sparkle', true, { priority: 2, minMs: 2000 });
   S.lucySpeed = 1.3; lucy.lookToward(ld.x - la.x, ld.z - la.z, 1);
   await anim(1.6, (k) => { lucy.root.position.lerpVectors(la, ld, k); lucy.lookToward(f.x, f.z, .1); }); S.lucySpeed = 0;
   sparkleAt(lucy.root.position.clone().add(new THREE.Vector3(0, 1.4, 0)), [0xff9ed8, 0xffffff, 0xff5fa4], 80, 7); sfx.tada(); sfx.giggle();
   document.querySelectorAll('.fr')[3].classList.add('met'); addHearts(5);
   const hop = (u) => anim(.55, (k) => { u.lift = Math.sin(k * Math.PI) * 1.5; }, ease.linear);
-  await hop(lucy); await hop(hero); await sleep(2.0);
+  await hop(lucy); await hop(hero); await lucySaid; await sleep(.4);
   // the king and queen
-  ui.bubble('\u{1F451}', 'Welcome to the Mermaid Palace, Esmae! Thank you for spreading so much love.', 'king'); await sleep(5.2);
-  ui.bubble('\u{1F451}', 'You and your friends are so kind. We have gifts for you!', 'queen'); await sleep(4.2);
-  ui.bubble('\u{1F381} \u{1F496}', 'A lifetime supply of hair clips, toys, mermaid pets, and candy!', 'king');
+  await ui.bubble('\u{1F451}', 'Welcome to the Mermaid Palace, Esmae! Thank you for spreading so much love.', 'king', true, { priority: 2, minMs: 3000 }); await sleep(.4);
+  await ui.bubble('\u{1F451}', 'You and your friends are so kind. We have gifts for you!', 'queen', true, { priority: 2, minMs: 2500 }); await sleep(.3);
+  const gift = ui.bubble('\u{1F381} \u{1F496}', 'A lifetime supply of hair clips, toys, mermaid pets, and candy!', 'king', true, { priority: 2, minMs: 2500 });
   makeGifts(); sfx.magic(); sfx.fanfare();
   [king, queen].forEach((m) => sparkleAt(m.root.position.clone().add(new THREE.Vector3(0, 3, 0)), [0xffd84d, 0xffffff, 0xff9ed8], 60, 7));
-  await sleep(5.5);
+  await gift; await sleep(2.2);
   ui.hideBubble(); ui.show('#banner'); ui.show('#again'); stopSpeech(); playScore(ANTHEM);
   S.celebrate = true;
   $('#again').onclick = () => { $('#fade').style.opacity = 1; setTimeout(restart, 520); };
@@ -350,7 +352,7 @@ canvas.addEventListener('pointerdown', (e) => {
   const all = [{ u: hero, n: 'Esmae' }, ...friends.map((f) => ({ u: f.u, n: f.name })), { u: lucy, n: 'Lucy' }, { u: king, n: 'The King' }, { u: queen, n: 'The Queen' }];
   const hit = all.find((a) => a.u.root.visible && ray.intersectObject(a.u.root, true).length);
   if (!hit) return;
-  sfx.giggle(); say(hit.n + '!', 'uni'); sparkleAt(hit.u.root.position.clone().add(new THREE.Vector3(0, 1.8, 0)), RAINBOW.concat([0xffffff]), 36, 5); bubblesAt(hit.u.root.position.clone(), 10);
+  sfx.giggle(); say(hit.n + '!', 'uni', { priority: 0 }); sparkleAt(hit.u.root.position.clone().add(new THREE.Vector3(0, 1.8, 0)), RAINBOW.concat([0xffffff]), 36, 5); bubblesAt(hit.u.root.position.clone(), 10);
   anim(.5, (k) => { hit.u.lift = Math.sin(k * Math.PI) * 1.3; }, ease.linear);
 });
 

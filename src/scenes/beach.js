@@ -263,7 +263,7 @@ export class BeachScene extends BaseScene {
     if (p.z < SHORE + .3 && J.splash <= 0) { J.splash = .09; this.fx.burst(new THREE.Vector3(p.x, p.y + .3, p.z), { count: 3, colors: [0xffffff, 0x9be7ff], speed: 2, up: 2, gravity: -9, life: .6, size: .5 }); }
   }
   tapJackson() {
-    this.touch(); sfx.giggle(); this.game.ui.say('Jackson!', 'counter');
+    this.touch(); sfx.giggle(); this.game.ui.say('Jackson!', 'counter', { priority: 0 });
     const J = this.jack, p = J.tw.root.position;
     this.fx.burst(p.clone().add(new THREE.Vector3(0, 1.8, 0)), { count: 20, colors: [0xff6f91, 0xff9fcb, 0xffd84d], speed: 2.5, gravity: 1, life: 1.4, size: .9 });
     J.speed = 8; J.timer = 2.5; this.tm.tween(.5, (k) => (J.tw.root.position.y += Math.sin(k * Math.PI) * .05), { ease: ease.linear });

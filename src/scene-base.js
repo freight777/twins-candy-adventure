@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Timers, Fx, clamp, linearizeFrag } from './util.js';
 import { Q } from './engine/quality.js';
+import { sayAsync } from './audio.js';
 
 const hitMat = new THREE.MeshBasicMaterial({ visible: false });
 const visibleChain = (o) => { while (o) { if (!o.visible) return false; o = o.parent; } return true; };
@@ -57,6 +58,10 @@ export class BaseScene {
 
   enter() {}
   exit() {}
+  /** wait (in game time, so it pauses with the scene) */
+  wait(sec) { return new Promise((r) => this.tm.after(sec, r)); }
+  /** speak a line and wait until it has been said; if the scene has ended meanwhile the chain just stops */
+  line(text, who = 'narrator', opts = {}) { return sayAsync(text, who, opts).then((v) => (this.disposed ? new Promise(() => {}) : v)); }
   /** Sun-style light that casts soft shadows around whoever the camera is following. */
   useShadows(light, extent = 24) {
     this.shadowSun = light; this.shadowOffset = light.position.clone();
@@ -97,6 +102,7 @@ export class BaseScene {
   }
 
   dispose() {
+    this.disposed = true;
     this.game.party.group.removeFromParent();
     this.scene.traverse((o) => {
       if (o.geometry) o.geometry.dispose();

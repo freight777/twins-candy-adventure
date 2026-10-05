@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
-import { sfx, playMusic } from '../audio.js';
+import { sfx, playMusic, stopSpeech } from '../audio.js';
 import { makeCat } from '../cat.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
@@ -183,8 +183,9 @@ export class CatRoomScene extends BaseScene {
     const ui = this.game.ui;
     this.li++;
     if (this.li < this.lines.length) {
-      const [e, cap, fn] = this.lines[this.li];
-      ui.bubble(e, cap, 'cat'); fn(); this.talk = 3; this.lineT = 4;
+      const [e, cap, fn] = this.lines[this.li], li = this.li;
+      ui.bubble(e, cap, 'cat', false); fn(); this.talk = 3; this.lineStart = performance.now();
+      this.line(cap, 'cat', { priority: 2, minMs: 1800 }).then(() => { if (this.li === li && this.stage === 'dialogue') this.tm.after(.5, () => this.li === li && this.nextLine()); });
       return;
     }
     {
@@ -203,7 +204,7 @@ export class CatRoomScene extends BaseScene {
     if (this.stage === 'dialogue') {        // tap anywhere to hear the next bit
       this.ray.setFromCamera(ndc, this.camera);
       const hit = this.ray.intersectObjects(this.hits.filter((h) => h.parent === this.cat), false)[0];
-      if (hit) hit.object.userData.onTap(hit); else this.nextLine();
+      if (hit) hit.object.userData.onTap(hit); else if (performance.now() - (this.lineStart || 0) > 1200) { stopSpeech(); this.nextLine(); }   // excited tapping can't skip the whole story
       return;
     }
     super.onPointer(ndc);
@@ -278,7 +279,6 @@ export class CatRoomScene extends BaseScene {
     super.update(dt);
     const t = this.time, G = this.game, P = G.party;
     P.update(dt, t);
-    if (this.stage === 'dialogue') { this.lineT -= dt; if (this.lineT <= 0) this.nextLine(); }
     this.balloons.forEach((b) => { b.position.y += Math.sin(t * .8 + b.userData.p) * dt * .4; b.rotation.z = Math.sin(t + b.userData.p) * .08; });
     (this.pillars || []).forEach((p, i) => { p.userData.disc.rotation.z += dt * .4 * (i % 2 ? 1 : -1); });
     if (this.cat.visible) {

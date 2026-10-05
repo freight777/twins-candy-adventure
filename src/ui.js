@@ -1,5 +1,5 @@
 // Thin wrapper around the HTML overlay (title screen, who-is-playing buttons, speech bubbles, hints).
-import { say, sfx } from './audio.js';
+import { say, sayAsync, sfx } from './audio.js';
 const $ = (s) => document.querySelector(s);
 
 function portraitSVG(who) {
@@ -44,14 +44,15 @@ export const ui = {
   roll(show, fn) { const b = $('#roll'); b.classList.toggle('hidden', !show); if (show) b.onclick = fn; },
   setStars(n) { $('#starcount').textContent = n; },
 
-  /** Show a speech bubble (emoji + short caption). The caption is also spoken aloud, in the voice of `who`. */
-  bubble(emoji, caption = '', who = 'narrator', speak = true) {
-    if (caption && speak) say(caption, who);
+  /** Show a speech bubble (emoji + short caption). The caption is also spoken aloud, in the voice of `who`; resolves when it has been said. */
+  bubble(emoji, caption = '', who = 'narrator', speak = true, opts = {}) {
+    const said = caption && speak ? sayAsync(caption, who, opts) : Promise.resolve(true);
     const b = $('#bubble');
     b.classList.remove('hidden');
     b.firstElementChild.textContent = emoji;
     b.lastElementChild.textContent = caption;
     b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
+    return said;
   },
   hideBubble() { $('#bubble').classList.add('hidden'); },
 
@@ -76,11 +77,11 @@ export const ui = {
         const b = document.createElement('button'); b.className = 'q-choice' + (ch.text ? ' word' : ''); b.textContent = ch.text ?? ch.emoji; box.appendChild(b); ch.el = b;
         b.onclick = () => {
           if (done) return;
-          if (ch.correct) { b.classList.add('right'); sfx.chime(); say(wrong ? 'You got it!' : 'Yes! Great job!', 'counter'); return finish(true, 1500); }
+          if (ch.correct) { b.classList.add('right'); sfx.chime(); say(wrong ? 'You got it!' : 'Yes! Great job!', 'counter', { priority: 2 }); return finish(true, 1500); }
           wrong++; b.classList.add('wrong'); sfx.pop();
-          if (retry && wrong === 1) { setTimeout(() => say('Not quite. Try again!', 'counter'), 150); return; }
+          if (retry && wrong === 1) { setTimeout(() => say('Not quite. Try again!', 'counter', { priority: 2 }), 150); return; }
           q.choices.find((c) => c.correct).el.classList.add('reveal');                          // show the right answer and say it
-          setTimeout(() => say(q.answerSay, 'narrator'), 250);
+          setTimeout(() => say(q.answerSay, 'narrator', { priority: 2 }), 250);
           finish(false, 3000);
         };
       });

@@ -5,7 +5,7 @@ import { Q } from '../engine/quality.js';
 import { skyEnv } from '../env.js';
 import { preloadModels } from '../assets.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, RAINBOW } from '../util.js';
-import { unlock, playMusic, say, sfx, stopSpeech } from '../audio.js';
+import { unlock, playMusic, say, sayAsync, sfx, stopSpeech } from '../audio.js';
 import { buildWorld, COLORS, N, FRIEND_TILES, ICE_TILES } from './world.js';
 import { createUnicorn, LOOKS } from './unicorn.js';
 import { createHouse, HOUSES } from './houses.js';
@@ -43,10 +43,12 @@ const sleep = (s) => new Promise((r) => timers.after(s, r));
 const anim = (dur, fn, e = ease.inOut) => new Promise((r) => timers.tween(dur, fn, { ease: e, done: r }));
 
 const ui = {
-  bubble(emoji, caption = '', voice = 'uni', speak = true) {
-    if (caption && speak) say(caption, voice);
+  /** resolves when the caption has been said (opts: priority, minMs) */
+  bubble(emoji, caption = '', voice = 'uni', speak = true, opts = {}) {
+    const said = caption && speak ? sayAsync(caption, voice, opts) : Promise.resolve(true);
     const b = $('#bubble'); b.classList.remove('hidden'); b.firstElementChild.textContent = emoji; b.lastElementChild.textContent = caption;
     b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
+    return said;
   },
   hideBubble() { $('#bubble').classList.add('hidden'); },
   stars(n) { $('#starcount').textContent = n; },
@@ -240,13 +242,13 @@ async function meetFriend(f) {
   uni.lookToward(f.u.root.position.x - uni.root.position.x, f.u.root.position.z - uni.root.position.z, 1);
   f.u.lookToward(uni.root.position.x - f.u.root.position.x, uni.root.position.z - f.u.root.position.z, 1);
   sparkleAt(f.u.root.position.clone().add(new THREE.Vector3(0, 2.4, 0)), f.burst, 60, 6); sfx.sparkle();
-  ui.bubble(`${f.emoji} \u{1F984}`, f.line, f.voice);
+  const said = ui.bubble(`${f.emoji} \u{1F984}`, f.line, f.voice, true, { priority: 2, minMs: 1800 });
   const hop = (u) => anim(.5, (k) => { u.lift = Math.sin(k * Math.PI) * 1.3; }, ease.linear);
-  await hop(f.u); await hop(uni); await sleep(1.8);
+  await hop(f.u); await hop(uni); await said; await sleep(.3);
   sparkleAt(uni.root.position.clone().add(new THREE.Vector3(0, 3, 0)), [0xffe14d, 0xffffff, 0xff9ecb], 40, 5); sfx.magic();
   addStars(3);
   document.querySelectorAll('.fr')[f.i].classList.add('met');
-  ui.bubble('\u{1F31F}', `${f.name} joins the adventure!`, 'uni'); await sleep(2.2); ui.hideBubble();
+  await ui.bubble('\u{1F31F}', `${f.name} joins the adventure!`, 'uni', true, { priority: 2, minMs: 1500 }); await sleep(.4); ui.hideBubble();
   S.followers.push(f); S.mode = 'follow';
 }
 
@@ -254,8 +256,7 @@ async function finale() {
   S.mode = 'greet'; S.greeting = twin;
   for (const f of friends.filter((f) => !f.met)) await meetFriend(f);
   S.mode = 'finale';
-  ui.bubble('\u{1F3F0} ✨', 'The Rainbow Castle! We made it!', 'uni'); sfx.fanfare();
-  await sleep(2.6);
+  sfx.fanfare(); await ui.bubble('\u{1F3F0} ✨', 'The Rainbow Castle! We made it!', 'uni', true, { priority: 2, minMs: 2000 });
   const a = twin.root.position.clone(), uniP = uni.root.position.clone(), dest = uniP.clone().add(pathTan(1).multiplyScalar(4.2));
   twin.lookToward(uniP.x - a.x, uniP.z - a.z, 1);
   ui.bubble('\u{1F984}\u{1F984}', "Whoa! Another unicorn named Uni!", 'uni');
@@ -264,9 +265,9 @@ async function finale() {
   uni.lookToward(twin.root.position.x - uniP.x, twin.root.position.z - uniP.z, 1);
   sparkleAt(twin.root.position.clone().add(new THREE.Vector3(0, 2.4, 0)), RAINBOW.concat([0xffffff]), 90, 7); sfx.tada(); sfx.giggle();
   document.querySelectorAll('.fr')[4].classList.add('met');
-  ui.bubble('\u{1F495}', "Hi! I'm Uni too! We have the same name!", 'uni');
+  const said = ui.bubble('\u{1F495}', "Hi! I'm Uni too! We have the same name!", 'uni', true, { priority: 2, minMs: 2000 });
   const hop = (u) => anim(.55, (k) => { u.lift = Math.sin(k * Math.PI) * 1.5; }, ease.linear);
-  await hop(twin); await hop(uni); await sleep(2.4);
+  await hop(twin); await hop(uni); await said; await sleep(.4);
   addStars(5); S.twinMet = true;
   await royalGift();
   ui.hideBubble(); ui.show('#banner'); ui.show('#again'); sfx.fanfare(); stopSpeech(); say('You did it, Uni! You made it to the castle!', 'uni');
@@ -315,12 +316,12 @@ async function royalGift() {
     sparkleAt(p.clone().add(new THREE.Vector3(0, 3, 0)), [0xffd84d, 0xffffff, 0xff9ecb], 50, 6);
   });
   sfx.fanfare();
-  ui.bubble('👑', 'Welcome, brave Uni! You made it to the Rainbow Castle!', 'king'); await sleep(4.8);
-  ui.bubble('👑', 'Your kindness sparkles like magic! We have a gift for you!', 'queen'); await sleep(4.6);
-  ui.bubble('🍦 🎁', 'A lifetime supply of Uni treats!', 'king');
+  await ui.bubble('👑', 'Welcome, brave Uni! You made it to the Rainbow Castle!', 'king', true, { priority: 2, minMs: 2500 }); await sleep(.4);
+  await ui.bubble('👑', 'Your kindness sparkles like magic! We have a gift for you!', 'queen', true, { priority: 2, minMs: 2500 }); await sleep(.3);
+  const gift = ui.bubble('🍦 🎁', 'A lifetime supply of Uni treats!', 'king', true, { priority: 2, minMs: 2000 });
   makeTreats(); sfx.magic(); sfx.tada(); addStars(10);
   [kingU, queenU].forEach((m) => sparkleAt(m.root.position.clone().add(new THREE.Vector3(0, 4, 0)), RAINBOW.concat([0xffffff]), 70, 7));
-  await sleep(5.8);
+  await gift; await sleep(2.5);
 }
 
 // ---------------------------------------------------------------- visiting a friend's little house (mini-games)
@@ -412,7 +413,7 @@ canvas.addEventListener('pointerdown', (e) => {
   const all = [{ u: uni, n: 'Uni' }, ...friends.map((f) => ({ u: f.u, n: f.name })), { u: twin, n: 'Uni' }];
   const hit = all.find((a) => a.u.root.visible && ray.intersectObject(a.u.root, true).length);
   if (!hit) return;
-  sfx.giggle(); say(hit.n + '!', 'uni'); sparkleAt(hit.u.root.position.clone().add(new THREE.Vector3(0, 2.6, 0)), RAINBOW.concat([0xffffff]), 36, 5);
+  sfx.giggle(); say(hit.n + '!', 'uni', { priority: 0 }); sparkleAt(hit.u.root.position.clone().add(new THREE.Vector3(0, 2.6, 0)), RAINBOW.concat([0xffffff]), 36, 5);
   anim(.5, (k) => { hit.u.lift = Math.sin(k * Math.PI) * 1.3; }, ease.linear);
 });
 

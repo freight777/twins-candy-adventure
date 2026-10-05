@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
-import { sfx, playMusic } from '../audio.js';
+import { sfx, playMusic, sayAsync } from '../audio.js';
 import { model } from '../assets.js';
 import * as learn from '../learning.js';
 import { makeQuestion } from '../learning.js';
@@ -289,8 +289,8 @@ export class BoardScene extends BaseScene {
     for (let s = steps; s > 0; s--) {
       if (pl.idx >= N - 1) break;
       const n = steps - s + 1;                         // count UP as they hop: 1, 2, 3...
-      ui.bubble(KEYCAP(n), ''); ui.say(WORDS[n], 'counter');
-      await this.hop(pl, pl.idx + 1);
+      ui.bubble(KEYCAP(n), '');
+      await Promise.all([this.hop(pl, pl.idx + 1), sayAsync(WORDS[n], 'counter', { priority: 1, minMs: 320 })]);   // the hop rhythm follows the counting voice
     }
     ui.hideBubble();
     if (pl.idx >= N - 1) await this.reachFinish(pl);
@@ -376,7 +376,7 @@ export class BoardScene extends BaseScene {
       licorice: 'Licorice slide! Whee, back you go!', molasses: 'Sticky molasses! You get stuck for a turn!',
     }[type];
     ({ gum: sfx.boing, rainbow: sfx.magic, rush: sfx.sparkle, licorice: sfx.womp, molasses: sfx.womp })[type]();
-    this.game.ui.say(say, 'narrator');
+    this.game.ui.say(say, 'narrator', { priority: 0 });
     const icon = g.userData.icon;
     if (icon) { const s = icon.scale.x; this.tm.tween(.8, (k) => icon.scale.setScalar(s * (1 + Math.sin(k * Math.PI * 4) * .35 * (1 - k))), { ease: ease.linear, done: () => icon.scale.setScalar(s) }); }
     const col = { gum: [0xffd84d, 0xff6fb5, 0x62e0d0], rainbow: RAINBOW, rush: [0x62e0d0, 0xffffff, 0xffe14d], licorice: [0x2b2b3a, 0x7a4ed1, 0xffffff], molasses: [0x8a4b2a, 0xd9a05b, 0xffffff] }[type];

@@ -113,10 +113,20 @@ export class CastleScene extends BaseScene {
     playMusic('castle');
     P.walkTo(0, -2);
     const ui = G.ui;
+    this.ceremony(ui, P);
+  }
+
+  /** each line waits for the one before it to finish (and the walk-in to land) */
+  async ceremony(ui, P) {
     ui.bubble('\u{1F3F0} \u{1F451}', 'The castle!');
-    this.tm.after(4.5, () => { this.stage = 'greet'; this.wave(this.king); this.wave(this.queen); sfx.fanfare(); this.confetti(); P.both().forEach((t) => (t.mode = 'cheer')); ui.bubble('\u{1F451}\u{1F389}\u{1F389}', 'Congratulations Adalyn and Esmae!', 'king'); });
-    this.tm.after(9.5, () => { ui.bubble('\u{1F36C} \u{1F69A} \u{1F3E0}', 'Your candy is on its way to your house!', 'queen'); sfx.babble(9); this.wave(this.queen); P.both().forEach((t) => (t.mode = 'idle')); });
-    this.tm.after(15, () => { ui.bubble('\u{1F3E0} \u{1F4A4}', 'Time to go home!', 'king'); sfx.magic(); this.openPortal(); });
+    await this.wait(4.5);
+    this.stage = 'greet'; this.wave(this.king); this.wave(this.queen); sfx.fanfare(); this.confetti(); P.both().forEach((t) => (t.mode = 'cheer'));
+    ui.bubble('\u{1F451}\u{1F389}\u{1F389}', 'Congratulations Adalyn and Esmae!', 'king', false);
+    await this.line('Congratulations Adalyn and Esmae!', 'king', { priority: 2, minMs: 2500 }); await this.wait(.4);
+    ui.bubble('\u{1F36C} \u{1F69A} \u{1F3E0}', 'Your candy is on its way to your house!', 'queen', false); sfx.babble(9); this.wave(this.queen); P.both().forEach((t) => (t.mode = 'idle'));
+    await this.line('Your candy is on its way to your house!', 'queen', { priority: 2, minMs: 2500 }); await this.wait(.6);
+    ui.bubble('\u{1F3E0} \u{1F4A4}', 'Time to go home!', 'king', false); sfx.magic(); this.openPortal();
+    await this.line('Time to go home!', 'king', { priority: 2 });
   }
 
   confetti() {

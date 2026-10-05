@@ -31,8 +31,8 @@ if (typeof window !== 'undefined') {
   addEventListener('touchend', unlock, { capture: true, passive: true });
   // the iPad locked / the app went to the background: stop talking and pause the sound; wake it again on return
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { stopSpeech(); if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); }
-    else { unlock(); if (ctx) nextT = Math.max(nextT, ctx.currentTime + 0.1); if (hasTTS) window.speechSynthesis.resume(); }
+    if (document.hidden) { pauseSpeech(); if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); }
+    else { unlock(); if (ctx) nextT = Math.max(nextT, ctx.currentTime + 0.1); resumeSpeech(); }
   });
   addEventListener('pagehide', () => stopSpeech());
 }
@@ -64,22 +64,77 @@ function pickVoice(prefer) {
   for (const name of prefer) { const v = en.find((x) => x.name.includes(name)); if (v) return v; }
   return en.find((v) => v.default) || en[0] || null;
 }
-function duck(on) { if (musicBus && ctx) musicBus.gain.setTargetAtTime(on ? musicLevel * 0.35 : musicLevel, ctx.currentTime, 0.15); }
+export function duck(on) { if (musicBus && ctx) musicBus.gain.setTargetAtTime(on ? musicLevel * 0.35 : musicLevel, ctx.currentTime, 0.15); }
 
-/** Speak a line out loud as one of the characters ('narrator' | 'cat' | 'king' | 'queen' | 'counter'). */
-export function say(text, who = 'narrator') {
-  if (!hasTTS || !voicesOn || muted || !text) return;
-  const clean = text.replace(/[^\p{L}\p{N}\s.,!?'-]/gu, ' ').replace(/\s+/g, ' ').trim();
-  if (!clean) return;
-  const synth = window.speechSynthesis;
-  synth.cancel();
-  const p = PROFILES[who] || PROFILES.narrator, u = new SpeechSynthesisUtterance(clean);
-  const v = pickVoice(p.prefer); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
-  u.pitch = p.pitch; u.rate = p.rate; u.volume = 1;
-  u.onstart = () => duck(true); u.onend = u.onerror = () => duck(false);
-  synth.speak(u);
+// ================= the speech queue: one line at a time, never cut off =================
+// priority 0 = ambient (a tap on a character): dropped if anything is already speaking
+// priority 1 = normal: waits its turn (dropped if it waited more than 4 s, so the voice never lags far behind the picture)
+// priority 2 = story: cuts lower lines and is never cut by them
+// A job is { play(done, started) -> stop(), est (ms safety timeout), priority, minMs }. TTS lines and recorded clips (engine/voice.js) share it.
+const queue = []; let current = null, speechPaused = false;
+export function enqueueSpeech(job) {
+  return new Promise((resolve) => {
+    job.resolve = resolve; job.at = performance.now(); job.priority ??= 1;
+    if (job.priority === 0 && (current || queue.length)) { resolve(false); return; }
+    if (job.priority === 2) {
+      for (let i = queue.length - 1; i >= 0; i--) if (queue[i].priority < 2) queue.splice(i, 1)[0].resolve(false);
+      if (current && current.priority < 2) endJob(current, false, true);
+    }
+    queue.push(job); pump();
+  });
 }
-export function stopSpeech() { if (hasTTS) { window.speechSynthesis.cancel(); duck(false); } }
+function pump() {
+  if (current || speechPaused || !queue.length) return;
+  const job = queue.shift();
+  if (job.priority < 2 && performance.now() - job.at > (job.maxWait ?? 4000)) { job.resolve(false); pump(); return; }
+  current = job; job.t0 = performance.now(); job.ended = false;
+  const token = job.token = {};                      // ignore late callbacks from an attempt that was stopped
+  job.guard = setTimeout(() => { if (job.token === token) endJob(job, true); }, job.est ?? 8000);   // iOS sometimes never reports the end
+  job.stop = job.play(() => { if (job.token === token) endJob(job, true); }, () => { if (job.token === token) duck(true); });
+}
+function endJob(job, ok, now = false) {
+  if (job.ended) { if (now && job.finishTimer) { clearTimeout(job.finishTimer); job.finishTimer = 0; job.finish(); } return; }   // cut short while it was holding for minMs
+  job.ended = true; clearTimeout(job.guard); job.token = null;
+  if (!ok) try { job.stop?.(); } catch { /* already stopped */ }
+  job.finish = () => { job.finishTimer = 0; if (current === job) current = null; job.resolve(ok); if (!current) duck(false); pump(); };
+  const wait = now ? 0 : Math.max(0, (job.minMs || 0) - (performance.now() - job.t0));     // keeps a cutscene's rhythm even when a line is short or silent
+  if (wait) job.finishTimer = setTimeout(job.finish, wait); else job.finish();
+}
+/** the iPad locked: stop the line that is playing and play it again from the start when we come back */
+function pauseSpeech() {
+  speechPaused = true;
+  if (current && !current.ended) { const j = current; j.token = null; clearTimeout(j.guard); try { j.stop?.(); } catch { /* ignore */ } current = null; queue.unshift(j); duck(false); }
+}
+function resumeSpeech() { speechPaused = false; const now = performance.now(); queue.forEach((j) => (j.at = now)); pump(); }
+/** stop everything (scene changes): waiting lines resolve false */
+export function stopSpeech() {
+  queue.splice(0).forEach((j) => j.resolve(false));
+  if (current) endJob(current, false, true);
+  if (hasTTS) window.speechSynthesis.cancel();
+  duck(false);
+}
+export const isSpeaking = () => !!current;
+
+const cleanText = (text) => String(text || '').replace(/[^p{L}p{N}s.,!?'-]/gu, ' ').replace(/s+/g, ' ').trim();
+/** Speak a line as one of the characters and resolve when it has finished. opts: { priority, minMs }. */
+export function sayAsync(text, who = 'narrator', { priority = 1, minMs = 0 } = {}) {
+  const clean = cleanText(text), p = PROFILES[who] || PROFILES.narrator;
+  const silent = !hasTTS || !voicesOn || muted || !clean;
+  return enqueueSpeech({
+    priority, minMs, est: silent ? 0 : 1500 + clean.length * 90 / p.rate,
+    play(done, started) {
+      if (silent) { done(); return null; }
+      const synth = window.speechSynthesis, u = new SpeechSynthesisUtterance(clean);
+      const v = pickVoice(p.prefer); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
+      u.pitch = p.pitch; u.rate = p.rate; u.volume = 1;
+      u.onstart = started; u.onend = done; u.onerror = done;
+      synth.speak(u);
+      return () => synth.cancel();
+    },
+  });
+}
+/** Fire-and-forget version of sayAsync (same queue). */
+export const say = (text, who = 'narrator', opts) => { sayAsync(text, who, opts); };
 export function setVoices(on) { voicesOn = on; try { localStorage.setItem('candyVoices', on ? 'on' : 'off'); } catch { /* ignore */ } if (!on) stopSpeech(); }
 export function voicesEnabled() { return voicesOn; }
 
