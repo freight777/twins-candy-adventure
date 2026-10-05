@@ -343,14 +343,14 @@ export function buildStadium(scene, T = {}) {
   S.litSpots = litSpots; S.mode = 'day';
   /** shadow quality by graphics tier: the day sun, and the night key lights (one on medium, both on high) */
   S.setShadows = (tier) => { sun.castShadow = tier !== 'low'; litSpots.forEach((sp, i) => { if (i < 2) sp.castShadow = tier === 'high' || (tier === 'medium' && i === 0); }); };
-  S.setMode = (mode) => {
+  S.setMode = (mode, hasHdr = T.hdr) => {
     const night = mode === 'night'; S.mode = mode;
-    hemi.color.set(night ? 0x4a5f9a : 0xbcd4ff); hemi.groundColor.set(night ? 0x151a26 : 0x4a5a3a); hemi.intensity = night ? .65 : (T.hdr ? .25 : .7);
+    hemi.color.set(night ? 0x4a5f9a : 0xbcd4ff); hemi.groundColor.set(night ? 0x151a26 : 0x4a5a3a); hemi.intensity = night ? .65 : (hasHdr ? .25 : .7); sun.intensity = hasHdr ? 2.4 : 3.0;
     sun.visible = !night; litSpots.forEach((sp) => (sp.visible = night));
-    skyNight.visible = night; skyline.visible = night; darkGround.visible = night; if (!T.hdr) sky.visible = !night; else sky.visible = false;
+    skyNight.visible = night; skyline.visible = night; darkGround.visible = night; sky.visible = !night && !hasHdr;
     lampM.color.copy(new THREE.Color(0xfff2d0)).multiplyScalar(night ? 5 : 1.6); glows.forEach((g) => (g.material.opacity = night ? .55 : .2));
     ledM.color.setScalar(night ? 2.2 : 1.4); board.material.color.setScalar(night ? 1.5 : 1.1);
-    crowdMat.color.setScalar(night ? .72 : 1); S.clouds.forEach((m) => (m.visible = !night && !T.hdr));
+    crowdMat.color.setScalar(night ? .72 : 1); S.clouds.forEach((m) => (m.visible = !night && !hasHdr));
   };
 
   S.update = (dt, t) => {

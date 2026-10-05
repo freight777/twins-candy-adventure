@@ -82,12 +82,20 @@ const ballPath = (lane, k, type = 'fast') => {
 };
 const flightTime = () => Math.max(1.6, 2.6 - Math.floor(S.hr / 4) * 0.12);
 const camLook = new THREE.Vector3(0, 3.0, -18);
-const env = { day: null, night: null, hdr: null };
+const env = { dayFallback: null, night: null, hdr: null, failed: false, job: null };
+/** the daytime sky photo (Poly Haven "Orlando Stadium" HDRI, CC0) is a 6 MB download, so it is only fetched when someone actually chooses Day */
+function ensureHdr() {
+  if (env.hdr || env.failed) return Promise.resolve(env.hdr);
+  return env.job || (env.job = new HDRLoader().loadAsync(`${import.meta.env.BASE_URL}assets/derby/hdr/orlando_stadium_2k.hdr`).then((h) => { h.mapping = THREE.EquirectangularReflectionMapping; env.hdr = h; return h; }).catch((e) => { console.warn('HDRI failed', e); env.failed = true; return null; }));
+}
 /** day game or night game under the lights */
-function setTime(mode) {
-  const night = mode === 'night'; prefs.time = mode; store.set('derbyTime', mode);
-  stadium.setMode(mode);
-  scene.environment = night ? env.night : env.day; scene.background = night ? null : env.hdr; scene.environmentIntensity = night ? .55 : (env.hdr ? 1 : .35); scene.backgroundIntensity = 1;
+async function setTime(mode) {
+  const night = mode === 'night';
+  if (!night && !env.hdr && !env.failed) { const lb = $('#time'); if (lb) lb.textContent = 'Time: ...'; await ensureHdr(); }
+  prefs.time = mode; store.set('derbyTime', mode);
+  const hdr = night ? null : env.hdr;
+  stadium.setMode(mode, !!env.hdr);
+  scene.environment = night ? env.night : (hdr || env.dayFallback); scene.background = hdr; scene.environmentIntensity = night ? .55 : (hdr ? 1 : .35); scene.backgroundIntensity = 1;
   scene.fog.color.set(night ? 0x0a1022 : 0xc8d8e8); scene.fog.near = night ? 230 : 260; scene.fog.far = night ? 640 : 820;
   renderer.toneMappingExposure = night ? 1.0 : .95; bloom.strength = night ? .4 : .08; bloom.threshold = night ? 1.8 : 1.05;
   grade.uniforms.sat.value = night ? 1.16 : 1.0; grade.uniforms.con.value = night ? 1.12 : 1.08;
@@ -100,13 +108,11 @@ async function boot() {
   const BASE = import.meta.env.BASE_URL, tl = new THREE.TextureLoader();
   const loadT = async (n) => { const g = async (f, srgb) => { const t = await tl.loadAsync(`${BASE}assets/derby/tex/${f}.jpg`); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; }; return { c: await g(n + '_c', true), n: await g(n + '_n'), r: await g(n + '_r') }; };
   const T = { grass: await loadT('grass'), dirt: await loadT('dirt'), conc: await loadT('conc') };
-  let hdr = null; try { hdr = await new HDRLoader().loadAsync(`${BASE}assets/derby/hdr/orlando_stadium_2k.hdr`); hdr.mapping = THREE.EquirectangularReflectionMapping; } catch (e) { console.warn('HDRI failed', e); }
-  T.hdr = !!hdr;
+  T.hdr = true;
   stadium = buildStadium(scene, T); stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1); stadium.setShadows(Q.name);
-  if (hdr) { scene.environment = hdr; scene.background = hdr; scene.environmentIntensity = 1.0; scene.backgroundIntensity = 1.0; stadium.sky.visible = false; stadium.clouds.forEach((c) => (c.visible = false)); }
-  else { scene.environment = skyEnv(renderer, 'park', { top: 0x6fb4ff, mid: 0xfff4e6, bottom: 0xb8e8a8, sun: [25, 40, -20], sunPower: 6 }); scene.environmentIntensity = 0.35; }
+  env.dayFallback = skyEnv(renderer, 'park', { top: 0x6fb4ff, mid: 0xfff4e6, bottom: 0xb8e8a8, sun: [25, 40, -20], sunPower: 6 });
   scene.fog = new THREE.Fog(0xc8d8e8, 260, 820);
-  env.day = scene.environment; env.hdr = hdr; env.night = skyEnv(renderer, 'derbynight', { top: 0x0b1226, mid: 0x22335e, bottom: 0x090d16, sun: [10, 70, -40], sunColor: 0xbcd0ff, sunPower: 1.6 });
+  env.night = skyEnv(renderer, 'derbynight', { top: 0x0b1226, mid: 0x22335e, bottom: 0x090d16, sun: [10, 70, -40], sunColor: 0xbcd0ff, sunPower: 1.6 });
   scene.traverse((o) => { const m = o.material; if (m && m.isShaderMaterial && !m.userData.lin) { m.fragmentShader = linearizeFrag(m.fragmentShader); m.userData.lin = true; m.needsUpdate = true; } });
   const clips = await loadClips(import.meta.env.BASE_URL);              // real motion-capture swing and pitch (CMU Graphics Lab database)
   batter = createBatter(clips, 'JUDGE', '99'); batter.placeAt(0.0, -0.2); HIT_Y = batter.contactY; scene.add(batter.root);
@@ -120,7 +126,7 @@ async function boot() {
   const blobTex = canvasTex(128, 128, (g, w, h) => { const gr = g.createRadialGradient(64, 64, 6, 64, 64, 62); gr.addColorStop(0, 'rgba(0,0,0,.6)'); gr.addColorStop(.5, 'rgba(0,0,0,.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
   const mkBlob = () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, fog: false })); m.renderOrder = 1; scene.add(m); return m; };
   blobB = mkBlob(); blobP = mkBlob();
-  camera.position.set(0, 5.2, 12); camera.lookAt(camLook); setTime(prefs.time);
+  camera.position.set(0, 5.2, 12); camera.lookAt(camLook); scene.environment = env.night; await setTime(prefs.time);
   $('#loading').classList.add('done'); setTimeout(() => $('#loading').remove(), 800);
   S.state = 'title'; taps(false); show('#title'); $('#name').value = prefs.name; $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`; gfxLabel();
 }
