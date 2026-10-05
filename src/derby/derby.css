@@ -24,6 +24,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #14234a; fon
 #cue { position: absolute; top: 24%; left: 50%; transform: translateX(-50%); font-size: clamp(30px, 6.5vw, 70px); font-weight: 700; color: #fff; text-shadow: 0 4px 0 #14234a, 0 0 18px rgba(0,0,0,.4); white-space: nowrap; }
 #cue.side { color: #ffe14d; animation: pulse .8s ease-in-out infinite; } #cue.now { color: #7bff9a; font-size: clamp(44px, 10vw, 110px); animation: pulse .35s ease-in-out infinite; } #cue.wait { color: #ffb0b0; }
 #bigtext { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(44px, 12vw, 140px); font-weight: 700; color: #fff; text-shadow: 0 6px 0 #14234a, 0 0 28px rgba(255,255,255,.7); -webkit-text-stroke: 3px #14234a; paint-order: stroke fill; white-space: nowrap; animation: pop .45s cubic-bezier(.3,1.5,.5,1); }
+#replay { position: absolute; top: max(86px, calc(env(safe-area-inset-top) + 74px)); left: max(14px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 12px; background: rgba(10,16,34,.78); color: #fff; padding: 8px 18px; border-radius: 12px; border-left: 6px solid #e8334a; font-size: clamp(18px, 3vw, 28px); box-shadow: 0 4px 0 rgba(0,0,0,.3); }
+#replay b { color: #ff5c6c; letter-spacing: 2px; } #replay small { font-size: .8em; color: #ffe14d; font-weight: 700; }
 #bigtext small { display: block; font-size: .3em; letter-spacing: 1px; margin-top: .1em; color: #fff; -webkit-text-stroke: 2px #14234a; text-shadow: 0 3px 0 #14234a; }
 #bigtext.good { color: #ffe14d; } #bigtext.bad { color: #ffb0b0; font-size: clamp(34px, 8vw, 90px); }
 

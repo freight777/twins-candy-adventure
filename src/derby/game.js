@@ -10,7 +10,7 @@ import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { Q, loadTier, lowerTier, raiseTier } from '../quality.js';
 import { skyEnv } from '../env.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, glowSprite, canvasTex, RAINBOW } from '../util.js';
-import { unlock, playMusic, stopMusic, say, sfx } from '../audio.js';
+import { unlock, playMusic, stopMusic, say, sfx, crowdBed } from '../audio.js';
 import { buildStadium } from './stadium.js';
 import { createTracer } from './tracer.js';
 import { makeBallMesh } from './props.js';
@@ -19,7 +19,7 @@ import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { createBatter, createPitcher, loadClips } from './players.js';
 
 const $ = (s) => document.querySelector(s);
-let stadium, batter, pitcher, ball, ballShadow, zoneGlow, tracer, hrTracer, blobB, blobP, swingTrail, baseFov = 54;
+let stadium, batter, pitcher, ball, ballShadow, zoneGlow, tracer, hrTracer, blobB, blobP, swingTrail, baseFov = 54, replay = null;
 
 // ---------------------------------------------------------------- renderer (same glossy pipeline as the other 3D games)
 const canvas = $('#c');
@@ -131,7 +131,7 @@ const cue = (txt, cls = '') => { const c = $('#cue'); c.textContent = txt; c.cla
 const setHud = () => { $('#hr').textContent = S.hr; $('#outs').innerHTML = [0, 1, 2].map((i) => `<i class="${i < S.outs ? 'out' : ''}"></i>`).join(''); stadium.setScore(S.hr, S.outs, prefs.name); };
 
 function start() {
-  unlock(); playMusic('park'); show('#title', false); show('#over', false); show('#board', false); show('#hud'); taps(true);
+  unlock(); playMusic('park'); crowdBed(true); show('#title', false); show('#over', false); show('#board', false); show('#hud'); taps(true);
   S.hr = 0; S.outs = 0; S.over = false; S.lastLanes = []; setHud();
   batter.unswing(); loop();
 }
@@ -189,7 +189,7 @@ async function keepFlying() {                      // the pitch sails past the p
 }
 
 async function miss(msg) {
-  S.outs++; setHud(); sfx.strike(); banner(msg + ' OUT!', 'bad', 2); say(msg, 'counter');
+  S.outs++; setHud(); sfx.strike(); sfx.groan(); banner(msg + ' OUT!', 'bad', 2); say(msg, 'counter');
   await sleep(2.1);
 }
 
@@ -206,13 +206,32 @@ async function homeRun(from) {
   }, ease.linear);
   ball.visible = false; hrTracer.clear(); ball.userData.glow.scale.setScalar(1); fx.burst(end, { count: 40, colors: [0xffffff, 0xffe14d, 0xd8c8a0], speed: 5, gravity: -5, life: 1.1, size: 1.2 }); stadium.cheer(7);   // it drops into the seats and the fans go wild
   S.hr++; setHud(); sfx.tada();
-  for (let i = 0; i < 7; i++) { fx.burst(new THREE.Vector3(end.x + rand(-45, 45), rand(35, 70), end.z + rand(-25, 10)), { count: 110, colors: [0xffffff, 0xffe9a8, 0xffc04d, 0xff6a4a, 0x7ab4ff], speed: 17, gravity: -2.6, life: 3, size: 3.2 }); sfx.pop(); await sleep(.28); }
+  (async () => { const dir = new THREE.Vector3(end.x, 0, end.z).normalize(), side = new THREE.Vector3(-dir.z, 0, dir.x); for (let i = 0; i < 7; i++) { fx.burst(end.clone().addScaledVector(dir, rand(55, 85)).addScaledVector(side, rand(-60, 60)).setY(rand(92, 120)), { count: 110, colors: [0xffffff, 0xffe9a8, 0xffc04d, 0xff6a4a, 0x7ab4ff], speed: 17, gravity: -2.6, life: 3, size: 3.2 }); sfx.pop(); await sleep(.28); } })();
+  await playReplay(from, end, ft, mph, peak);
   ball.visible = false; hrTracer.clear(); S.camMode = 'home'; S.state = 'play';
-  await sleep(1.6);
+  await sleep(.9);
+}
+
+/** the same flight again from a seat in the stands behind where it landed (tap to skip) */
+function playReplay(from, end, ft, mph, peak) {
+  return new Promise((res) => {
+    const pos = new THREE.Vector3(end.x > 0 ? -22 : 22, 30, 54);                       // an aerial view from up behind the plate, off to one side, so the whole flight and the crowd show                       // up and back from the seat it lands in (the stands rise away from the field), so the view clears the rows in front
+    replay = { t: 0, dur: 3.0, from: from.clone(), end: end.clone(), pos, peak, res, skip: false, look: from.clone() };
+    S.camMode = 'replay'; taps(false); cue(''); camera.position.copy(pos); camLook.copy(from); camera.lookAt(camLook);
+    ball.visible = true; ball.scale.setScalar(1); ball.userData.glow.scale.setScalar(1.6); hrTracer.clear();
+    $('#replayinfo').textContent = `${ft} ft  \u2022  ${mph} mph`; show('#replay');
+  });
+}
+function updateReplay(dt) {
+  const R = replay; R.t += dt; const k = clamp(R.t / R.dur, 0, 1), e = k;
+  ball.position.set(lerp(R.from.x, R.end.x, e), lerp(R.from.y, R.end.y, e) + 4 * R.peak * e * (1 - e), lerp(R.from.z, R.end.z, e)); ball.rotation.x -= .5; hrTracer.push(ball.position);
+  R.look.lerp(ball.position, 1 - Math.exp(-5 * dt)); camera.position.copy(R.pos); camera.position.y += Math.sin(S.time * .9) * .03; camera.lookAt(R.look);
+  bokeh.uniforms.focus.value = lerp(bokeh.uniforms.focus.value, Math.max(4, camera.position.distanceTo(ball.position)), 1 - Math.exp(-6 * dt));
+  if (k >= 1 || R.skip) { replay = null; ball.userData.glow.scale.setScalar(1); show('#replay', false); camera.position.set(0, 5.2, 12); camLook.set(0, 3, -18); camera.lookAt(camLook); ball.visible = false; hrTracer.clear(); taps(true); R.res(); }
 }
 
 async function gameOver() {
-  S.over = true; S.state = 'over'; stopMusic();
+  S.over = true; S.state = 'over'; stopMusic(); crowdBed(false);
   banner('GAME OVER', 'bad', 0); await sleep(1.8); show('#bigtext', false);
   $('#final').textContent = S.hr; $('#over h2').textContent = S.hr === 0 ? 'Good try!' : S.hr >= 5 ? 'WOW! Superstar!' : 'Great game!';
   $('#name').value = prefs.name; $('#boardmini').innerHTML = boardHTML(); show('#hud', false); taps(false); show('#over');
@@ -225,6 +244,7 @@ function swing(side) {
   if (f.t < f.F - WIN) { cue(prefs.helper ? 'Wait for the glow!' : '', 'wait'); return; }
   f.resolved = true; f.resolve({ type: side === f.lane ? 'hit' : 'wrong' });
 }
+addEventListener('pointerdown', () => { if (replay) replay.skip = true; });
 $('#tapL').addEventListener('pointerdown', (e) => { e.preventDefault(); unlock(); swing(-1); });
 $('#tapR').addEventListener('pointerdown', (e) => { e.preventDefault(); unlock(); swing(1); });
 addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'a') swing(-1); if (e.key === 'ArrowRight' || e.key === 'd') swing(1); });
@@ -258,6 +278,8 @@ function update(dt) {
   grade.uniforms.time.value = t; groundShadow(blobB, batter.rig); groundShadow(blobP, pitcher.rig);
   if (batter.swinging) { const [a, b] = batter.barrel(); swingTrail.update(a, b, dt); } else swingTrail.update(null, null, dt);
   if (S.debugCam) { camera.position.copy(S.debugCam.p); camera.lookAt(S.debugCam.l); ribbons(); return; }
+  if (replay) { updateReplay(dt); ribbons(); return; }
+  bokeh.uniforms.focus.value = lerp(bokeh.uniforms.focus.value, S.camMode === 'ball' ? Math.max(6, camera.position.distanceTo(ball.position)) : 13, 1 - Math.exp(-5 * dt));
   // camera: behind home plate; during a home run it swings to follow the ball
   const home = new THREE.Vector3(Math.sin(t * .2) * .6, 5.2, 12);
   camera.position.lerp(home, 1 - Math.exp(-2 * dt));

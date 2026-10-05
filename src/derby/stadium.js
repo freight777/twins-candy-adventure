@@ -58,6 +58,23 @@ export function buildStadium(scene, T = {}) {
       gl_FragColor = vec4(c, 1.); }`,
   }));
   skyNight.visible = false; scene.add(skyNight); S.skyNight = skyNight;
+  // the city beyond the park at night: a dark skyline with lit windows all the way round (seen when the camera looks back toward home), plus dark ground to fill the horizon
+  const skyline = new THREE.Mesh(new THREE.CylinderGeometry(640, 640, 150, 120, 1, true), new THREE.MeshBasicMaterial({
+    side: THREE.BackSide, fog: false, transparent: true, depthWrite: false,
+    map: canvasTex(4096, 256, (g, w, h) => {
+      g.clearRect(0, 0, w, h);
+      let x = 0; while (x < w) {
+        const bw = 40 + Math.random() * 120, bh = 40 + Math.random() * 170 * (.45 + .55 * Math.random()), by = h - bh, shade = 8 + Math.random() * 10;
+        g.fillStyle = `rgb(${shade},${shade + 3},${shade + 10})`; g.fillRect(x, by, bw, bh);
+        for (let wy = by + 8; wy < h - 6; wy += 11) for (let wx = x + 6; wx < x + bw - 8; wx += 9) if (Math.random() < .34) { g.fillStyle = Math.random() < .8 ? 'rgba(255,214,140,.75)' : 'rgba(190,220,255,.7)'; g.fillRect(wx, wy, 4, 5); }
+        if (Math.random() < .18) { g.fillStyle = '#ff3a3a'; g.fillRect(x + bw / 2, by - 8, 3, 8); }
+        x += bw + Math.random() * 14;
+      }
+      const gr = g.createLinearGradient(0, h - 70, 0, h); gr.addColorStop(0, 'rgba(40,30,28,0)'); gr.addColorStop(1, 'rgba(40,30,28,.5)'); g.fillStyle = gr; g.fillRect(0, h - 70, w, 70);
+    }, [1, 1]),
+  }));
+  skyline.position.y = 62; skyline.visible = false; skyline.renderOrder = -1; scene.add(skyline); S.skyline = skyline;
+  const darkGround = new THREE.Mesh(new THREE.CircleGeometry(900, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x07090d, fog: false })); darkGround.position.y = -.6; scene.add(darkGround); S.darkGround = darkGround;
   const cloudTex = canvasTex(256, 128, (g, w, h) => { for (let i = 0; i < 40; i++) { const x = 40 + Math.random() * 176, y = 40 + Math.random() * 48, r = 20 + Math.random() * 34, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); } });
   S.clouds = [];
   for (let i = 0; i < 14; i++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(rand(160, 300), rand(50, 90)), new THREE.MeshBasicMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: rand(.6, .95) })); m.position.set(rand(-380, 380), rand(110, 220), rand(-420, -150)); m.rotation.x = -.35; scene.add(m); S.clouds.push(m); }
@@ -330,7 +347,7 @@ export function buildStadium(scene, T = {}) {
     const night = mode === 'night'; S.mode = mode;
     hemi.color.set(night ? 0x4a5f9a : 0xbcd4ff); hemi.groundColor.set(night ? 0x151a26 : 0x4a5a3a); hemi.intensity = night ? .65 : (T.hdr ? .25 : .7);
     sun.visible = !night; litSpots.forEach((sp) => (sp.visible = night));
-    skyNight.visible = night; if (!T.hdr) sky.visible = !night; else sky.visible = false;
+    skyNight.visible = night; skyline.visible = night; darkGround.visible = night; if (!T.hdr) sky.visible = !night; else sky.visible = false;
     lampM.color.copy(new THREE.Color(0xfff2d0)).multiplyScalar(night ? 5 : 1.6); glows.forEach((g) => (g.material.opacity = night ? .55 : .2));
     ledM.color.setScalar(night ? 2.2 : 1.4); board.material.color.setScalar(night ? 1.5 : 1.1);
     crowdMat.color.setScalar(night ? .72 : 1); S.clouds.forEach((m) => (m.visible = !night && !T.hdr));

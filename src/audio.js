@@ -133,12 +133,33 @@ export const sfx = {
   womp: () => { tone(300, 0.25, { type: 'sawtooth', slide: 0.5, vol: 0.18 }); tone(220, 0.4, { type: 'sawtooth', slide: 0.5, vol: 0.18, delay: 0.25 }); },
   creak: () => tone(70, 1.6, { type: 'sawtooth', slide: 1.8, vol: 0.12 }),
   crack: () => { noise(.06, { vol: .7, from: 5000, to: 1500, q: .5, type: 'highpass' }); tone(190, .14, { type: 'square', slide: .4, vol: .35 }); tone(900, .08, { type: 'triangle', slide: .5, vol: .2 }); },
-  cheer: () => { noise(2.4, { vol: .4, from: 500, to: 1900, q: .4 }); noise(2.0, { vol: .25, from: 1200, to: 800, q: .3, delay: .3 }); },
+  cheer: () => { noise(3.4, { vol: .42, from: 450, to: 1700, q: .35 }); noise(3.0, { vol: .3, from: 900, to: 1500, q: .3, delay: .25 }); noise(2.6, { vol: .18, from: 2200, to: 2800, q: .5, delay: .5 }); },
+  groan: () => { noise(1.1, { vol: .22, from: 900, to: 280, q: .5 }); noise(.9, { vol: .12, from: 600, to: 220, q: .5, delay: .12 }); },
   charge: () => { [[523.25, 0], [659.25, .14], [783.99, .28], [1046.5, .42], [783.99, .62], [1046.5, .76]].forEach(([f, d]) => tone(f, .22, { type: 'square', vol: .12, delay: d, wet: .2 })); },
   strike: () => { tone(220, .22, { type: 'sawtooth', slide: .6, vol: .2 }); noise(.12, { vol: .3, from: 1500, to: 500 }); },
   swoosh: () => noise(.18, { vol: .3, from: 600, to: 3500, q: .8 }),
   collect: (i = 0) => tone(784 * Math.pow(1.122, i % 6), 0.3, { vol: 0.22, type: 'triangle', wet: .3 }),
 };
+
+/** a steady murmur of a big crowd under the game (pass false to fade it out) */
+let ambience = null;
+export function crowdBed(on) {
+  if (!ctx) return;
+  if (!on) { if (ambience) { const a = ambience; ambience = null; a.g.gain.setTargetAtTime(0, ctx.currentTime, 0.5); setTimeout(() => { try { a.src.stop(); a.lfo.stop(); } catch { /* already stopped */ } }, 2500); } return; }
+  if (ambience) return;
+  const len = Math.floor(ctx.sampleRate * 5), buf = ctx.createBuffer(2, len, ctx.sampleRate), fade = Math.floor(ctx.sampleRate * 0.15);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c); let b0 = 0, b1 = 0, b2 = 0;
+    for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; b0 = 0.99765 * b0 + w * 0.099046; b1 = 0.963 * b1 + w * 0.2965164; b2 = 0.57 * b2 + w * 1.0526913; d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.11 * Math.min(1, i / fade, (len - i) / fade); }
+  }
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 620; bp.Q.value = 0.45;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2000;
+  const g = ctx.createGain(); g.gain.value = 0;
+  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.12; lg.gain.value = 0.02; lfo.connect(lg); lg.connect(g.gain);
+  src.connect(bp); bp.connect(lp); lp.connect(g); g.connect(master);
+  g.gain.setTargetAtTime(0.085, ctx.currentTime, 1.2); src.start(); lfo.start(); ambience = { src, g, lfo };
+}
 
 // ================= music: a tiny band that plays chord progressions with phrases =================
 // chords: root midi note + chord quality; scale: melody notes (midi); drums: 0 none, 1 soft
