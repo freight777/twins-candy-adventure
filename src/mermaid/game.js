@@ -1,4 +1,5 @@
 import './mermaid.css';
+import { loading } from '../engine/loading.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createPipeline } from '../engine/pipeline.js';
@@ -91,9 +92,8 @@ async function boot() {
   S.dirS.copy(pathTan(0)).setY(0).normalize(); camera.position.copy(hero.root.position).addScaledVector(S.dirS, -11.5).addScaledVector(side(S.dirS), 6.5).add(new THREE.Vector3(0, 8.6, 0)); camTarget.copy(hero.root.position);
 
   $('#friends').innerHTML = [...FRIENDS, LUCY].map((f) => `<div class="fr" style="--c:${f.css}" title="${f.name}">${f.emoji}</div>`).join('');
-  $('#loading').classList.add('done');
+  loading.done();
   S.mode = 'title'; ui.show('#title');
-  setTimeout(() => $('#loading').remove(), 800);
 }
 
 function resetFriends() {
@@ -360,4 +360,4 @@ canvas.addEventListener('pointerdown', (e) => {
 gfx.start((dt) => { if (!W) return false; update(dt); });
 $('#play').addEventListener('click', () => { unlock(); playMusic('ocean'); play(); });
 window.mermaidGame = { S, scene, camera, get W() { return W; }, get hero() { return hero; }, get friends() { return friends; }, get lucy() { return lucy; }, tp: (i) => { S.idx = i; placeHero(i / (N - 1)); }, force: (name, double = false) => { S.forceCard = { c: COLORS.find((c) => c.name === name), double }; } };
-boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });
+boot().catch((e) => { console.error(e); loading.fail(); });

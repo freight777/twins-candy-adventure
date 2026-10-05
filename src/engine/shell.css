@@ -1,0 +1,12 @@
+/* Shared page furniture for every game: fonts, the loading screen. Imported by each game's entry script. */
+@import './fonts.css';
+
+/* loading screen: something bouncing to look at within a moment of opening, and a bar that fills as the world loads */
+.loading { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  background: linear-gradient(#9fe0ff, #ffe3f4); color: #fff; font-family: Fredoka, system-ui, sans-serif; transition: opacity .5s; }
+.loading.done { opacity: 0; pointer-events: none; }
+.loading .bouncer { font-size: 96px; line-height: 1; animation: ld-bounce .7s ease-in-out infinite alternate; }
+.loading .l-text { font-size: 26px; font-weight: 700; text-shadow: 0 3px 0 rgba(0, 0, 0, .18); text-align: center; padding: 0 16px; }
+.loading .bar { width: min(60vw, 360px); height: 18px; border-radius: 9px; background: rgba(255, 255, 255, .55); overflow: hidden; box-shadow: inset 0 2px 0 rgba(0, 0, 0, .08); }
+.loading .bar i { display: block; height: 100%; width: 3%; border-radius: 9px; background: #ff5fb3; transition: width .25s; }
+@keyframes ld-bounce { from { transform: translateY(0); } to { transform: translateY(-28px) rotate(8deg); } }

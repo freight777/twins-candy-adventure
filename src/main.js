@@ -1,10 +1,11 @@
 import './style.css';
+import { loading } from './engine/loading.js';
 import * as THREE from 'three';
 import { createPipeline } from './engine/pipeline.js';
 import { Q, auto as autoTier, chooseTier } from './engine/quality.js';
 import { skyEnv } from './env.js';
 import { settings as learnSettings, saveSettings as saveLearn } from './learning.js';
-import { preloadAssets } from './assets.js';
+import { preloadAssets, MODEL_LIST, onProgress } from './assets.js';
 import { Party } from './party.js';
 import { ui } from './ui.js';
 import { unlock, playMusic, stopMusic, sfx, setMuted, isMuted, setMusicLevel, getMusicLevel, stopSpeech, setVoices, voicesEnabled } from './audio.js';
@@ -41,6 +42,7 @@ export const game = {
     game.busy = true;
     ui.fade(flash, async () => {
       try {
+        if (later && name !== 'beach' && name !== 'fall') await Promise.race([later, new Promise((r) => setTimeout(r, 8000))]);   // the rest of the models (normally long since loaded)
         if (game.current) { game.current.exit(); game.current.dispose(); }
         stopSpeech(); ui.hideFinale(); ui.hideBubble(); ui.hideHint(); ui.title(false); ui.eat(false); ui.roll(false); ui.progress(false);
         game.party.resetPose();
@@ -130,15 +132,21 @@ gfx.start((dt) => {
 });
 
 window.game = game; // handy for debugging in the browser console
-if (import.meta.env.PROD && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+// Load only what the beach needs before the title appears; the candy models and the other sky photos follow in the background.
+const BEACH_MODELS = MODEL_LIST.filter((n) => n.startsWith('nature/'));
+let later = null;
 async function boot() {
-  await preloadAssets(renderer);          // models + sky photos; if anything fails the game falls back to shapes built in code
+  onProgress.cb = loading.set;
+  await preloadAssets(renderer, BEACH_MODELS, { hdr: ['beach'] });   // if anything fails the game falls back to shapes built in code
+  onProgress.cb = null;
   game.current = new BeachScene(game);
   game.current.name = 'beach';
   resize();
   game.current.enter();
+  loading.done();
+  later = preloadAssets(renderer, MODEL_LIST.filter((n) => !BEACH_MODELS.includes(n)), { hdr: ['candy', 'castle'] });
 }
-boot();
+boot().catch((e) => { console.error(e); loading.fail(); });
 
 // wire up the Play button (also unlocks audio, which iPads require)
 ui.onPlay(() => { unlock(); game.current.startPlay && game.current.startPlay(); });

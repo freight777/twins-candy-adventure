@@ -1,9 +1,10 @@
 import './uni.css';
+import { loading } from '../engine/loading.js';
 import * as THREE from 'three';
 import { createPipeline } from '../engine/pipeline.js';
 import { Q } from '../engine/quality.js';
 import { skyEnv } from '../env.js';
-import { preloadModels } from '../assets.js';
+import { preloadModels, onProgress } from '../assets.js';
 import { Timers, Fx, ease, lerp, clamp, rand, pick, linearizeFrag, RAINBOW } from '../util.js';
 import { unlock, playMusic, say, sayAsync, sfx, stopSpeech } from '../audio.js';
 import { buildWorld, COLORS, N, FRIEND_TILES, ICE_TILES } from './world.js';
@@ -73,6 +74,7 @@ function placeUni(u) {
 
 // ---------------------------------------------------------------- boot
 async function boot() {
+  onProgress.cb = (p) => loading.set(p * .8);
   await preloadModels(['food/ice-cream-cne', 'food/ice-cream', 'food/sundae', 'food/popsicle', 'food/popsicle-chocolate', 'food/cupcake', 'food/donut-sprinkles', 'food/lollypop', 'food/cake-birthday', 'nature/lily_large']);
   await new Promise((r) => setTimeout(r, 30));
   W = buildWorld(scene);
@@ -98,9 +100,8 @@ async function boot() {
 
   $('#friends').innerHTML = [...FRIENDS, TWIN].map((f, i) => `<button class="fr" data-i="${i}" style="--c:${f.css}" title="${f.name}'s house">${f.emoji}</button>`).join('');
   document.querySelectorAll('.fr').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); unlock(); visit(+b.dataset.i); }));
-  $('#loading').classList.add('done');
+  onProgress.cb = null; loading.done();
   S.mode = 'title'; ui.show('#title');
-  setTimeout(() => $('#loading').remove(), 800);
 }
 
 function resetFriends() {
@@ -425,4 +426,4 @@ gfx.start((dt) => {
 });
 $('#play').addEventListener('click', () => { unlock(); playMusic('forest'); play(); });
 window.uniGame = { S, scene, camera, get friends() { return friends; }, visit, leave, get W() { return W; }, tp: (i) => { S.idx = i; placeUni(i / (N - 1)); }, force: (name, double = false) => { S.forceCard = { c: COLORS.find((c) => c.name === name), double }; } };
-boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });
+boot().catch((e) => { console.error(e); loading.fail(); });

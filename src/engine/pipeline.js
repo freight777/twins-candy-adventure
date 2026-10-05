@@ -63,7 +63,7 @@ export function createPipeline(canvas, {
     /** run the game: fn(dt, rawDt) each frame (dt is capped at 50 ms); return false from fn to skip drawing that frame */
     start(fn) {
       renderer.setAnimationLoop((ts) => {
-        timer.update(ts); const raw = timer.getDelta();
+        timer.update(ts); const raw = Math.max(0, timer.getDelta());   // right after the page becomes visible the frame time can come out negative
         if (fn(Math.min(raw, .05), raw) !== false) api.render(raw);
       });
     },

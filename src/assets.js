@@ -16,19 +16,27 @@ export const MODEL_LIST = [
 ];
 export const HDR_FILES = { beach: 'kloofendal_48d_partly_cloudy_puresky', candy: 'qwantani_noon_puresky', castle: 'belfast_sunset_puresky' };
 
-export async function preloadAssets(renderer) {
+/** onProgress.cb(0..1) is told as each model / sky photo arrives (drives the loading bar) */
+export const onProgress = { cb: null };
+/** Load these models and sky photos (default: everything). Missing files are skipped; the scenes fall back to shapes built in code. */
+export async function preloadAssets(renderer, list = MODEL_LIST, { hdr = Object.keys(HDR_FILES) } = {}) {
   const loader = new GLTFLoader();
-  const jobs = MODEL_LIST.map(async (n) => {
-    try { store[n] = (await loader.loadAsync(`${BASE}assets/models/${n}.glb`)).scene; } catch (e) { console.warn('model failed to load:', n, e); }
+  let done = 0; const total = list.length + hdr.length, tick = () => onProgress.cb?.(++done / total);
+  const jobs = list.map(async (n) => {
+    if (!store[n]) try { store[n] = (await loader.loadAsync(`${BASE}assets/models/${n}.glb`)).scene; } catch (e) { console.warn('model failed to load:', n, e); }
+    tick();
   });
   const pm = new THREE.PMREMGenerator(renderer);
-  const hdrJobs = Object.entries(HDR_FILES).map(async ([key, file]) => {
+  const hdrJobs = hdr.map(async (key) => {
+    const file = HDR_FILES[key];
+    if (hdrEnv[key] || !file) return tick();
     try {
       const tex = await new HDRLoader().loadAsync(`${BASE}assets/hdr/${file}.hdr`);
       tex.mapping = THREE.EquirectangularReflectionMapping;
       hdrEnv[key] = pm.fromEquirectangular(tex).texture;
       tex.dispose();
     } catch (e) { console.warn('sky photo failed to load:', file, e); }
+    tick();
   });
   await Promise.all([...jobs, ...hdrJobs]);
   pm.dispose();
@@ -37,9 +45,10 @@ export async function preloadAssets(renderer) {
 /** Load just these models (e.g. 'food/sundae') into the shared store. */
 export async function preloadModels(names) {
   const loader = new GLTFLoader();
+  let done = 0;
   await Promise.all(names.map(async (n) => {
-    if (store[n]) return;
-    try { store[n] = (await loader.loadAsync(`${BASE}assets/models/${n}.glb`)).scene; } catch (e) { console.warn('model failed to load:', n, e); }
+    if (!store[n]) try { store[n] = (await loader.loadAsync(`${BASE}assets/models/${n}.glb`)).scene; } catch (e) { console.warn('model failed to load:', n, e); }
+    onProgress.cb?.(++done / names.length);
   }));
 }
 

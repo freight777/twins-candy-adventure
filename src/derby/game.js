@@ -1,4 +1,5 @@
 import './derby.css';
+import { loading } from '../engine/loading.js';
 import * as THREE from 'three';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -100,8 +101,8 @@ async function setTime(mode) {
 async function boot() {
   await new Promise((r) => setTimeout(r, 30));
   // photographic lighting (Poly Haven "Orlando Stadium" HDRI, CC0) and photo-scanned surfaces (ambientCG, CC0)
-  const BASE = import.meta.env.BASE_URL, tl = new THREE.TextureLoader();
-  const loadT = async (n) => { const g = async (f, srgb) => { const t = await tl.loadAsync(`${BASE}assets/derby/tex/${f}.jpg`); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; }; return { c: await g(n + '_c', true), n: await g(n + '_n'), r: await g(n + '_r') }; };
+  const BASE = import.meta.env.BASE_URL, tl = new THREE.TextureLoader(), tick = loading.counter(11);
+  const loadT = async (n) => { const g = async (f, srgb) => { const t = await tl.loadAsync(`${BASE}assets/derby/tex/${f}.jpg`); if (srgb) t.colorSpace = THREE.SRGBColorSpace; tick(); return t; }; return { c: await g(n + '_c', true), n: await g(n + '_n'), r: await g(n + '_r') }; };
   const T = { grass: await loadT('grass'), dirt: await loadT('dirt'), conc: await loadT('conc') };
   T.hdr = true;
   stadium = buildStadium(scene, T); stadium.setDensity(Q.name === 'low' ? .45 : Q.name === 'medium' ? .75 : 1); stadium.setShadows(Q.name);
@@ -109,7 +110,7 @@ async function boot() {
   scene.fog = new THREE.Fog(0xc8d8e8, 260, 820);
   env.night = skyEnv(renderer, 'derbynight', { top: 0x0b1226, mid: 0x22335e, bottom: 0x090d16, sun: [10, 70, -40], sunColor: 0xbcd0ff, sunPower: 1.6 });
   scene.traverse((o) => { const m = o.material; if (m && m.isShaderMaterial && !m.userData.lin) { m.fragmentShader = linearizeFrag(m.fragmentShader); m.userData.lin = true; m.needsUpdate = true; } });
-  const clips = await loadClips(import.meta.env.BASE_URL);              // real motion-capture swing and pitch (CMU Graphics Lab database)
+  const clips = await loadClips(import.meta.env.BASE_URL); tick();              // real motion-capture swing and pitch (CMU Graphics Lab database)
   batter = createBatter(clips, 'JUDGE', '99'); batter.placeAt(0.0, -0.2); HIT_Y = batter.contactY; scene.add(batter.root);
   pitcher = createPitcher(clips); pitcher.root.position.set(0, .7, 0); pitcher.root.position.z = -15.0 - pitcher.releaseWorld().z; REL.copy(pitcher.releaseWorld()); scene.add(pitcher.root);
   scene.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.type !== 'PlaneGeometry') { /* shadows only for the players */ } });
@@ -124,7 +125,7 @@ async function boot() {
   camera.position.set(0, 5.2, 12); camera.lookAt(camLook); scene.environment = env.night; await setTime(prefs.time);
   collectDepthSkip();
   try { await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 4000))]); } catch { /* the first frame will compile instead */ }       // build the shaders now, behind the loading screen, so the first frames are smooth
-  $('#loading').classList.add('done'); setTimeout(() => $('#loading').remove(), 800);
+  loading.done();
   S.state = 'title'; taps(false); show('#title'); $('#name').value = prefs.name; $('#helper').textContent = `Helper arrows: ${prefs.helper ? 'ON' : 'OFF'}`; gfxLabel();
 }
 const show = (sel, on = true) => $(sel).classList.toggle('hidden', !on);
@@ -306,4 +307,4 @@ pipe.start((real) => {
   update(real * S.timeScale);
 });
 window.derby = { S, scene, camera, renderer, passes: { gtao, bokeh, bloom, grade }, get stadium() { return stadium; }, get batter() { return batter; }, get pitcher() { return pitcher; }, get ball() { return ball; }, swing, start };
-boot().catch((e) => { console.error(e); $('.l-text').textContent = 'Oops, something went wrong. Please reload!'; });
+boot().catch((e) => { console.error(e); loading.fail(); });

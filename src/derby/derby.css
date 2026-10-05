@@ -4,9 +4,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #14234a; fon
 #ui { position: fixed; inset: 0; pointer-events: none; }
 #ui button, #ui a, #ui input, .tap { pointer-events: auto; cursor: pointer; font-family: inherit; touch-action: manipulation; }
 .hidden { display: none !important; }
-#loading { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: linear-gradient(#14234a, #2a5ab8); color: #fff; transition: opacity .6s; }
-#loading.done { opacity: 0; pointer-events: none; }
-.l-uni { font-size: 90px; animation: bounce .8s ease-in-out infinite; } .l-text { font-size: 26px; font-weight: 700; }
+#loading { background: linear-gradient(#14234a, #2a5ab8); } #loading .bar i { background: #ffd84d; }
 @keyframes bounce { 50% { transform: translateY(-14px); } } @keyframes pulse { 50% { transform: scale(1.08); } } @keyframes pop { from { transform: translate(-50%, -50%) scale(.3); opacity: 0; } }
 
 .tap { position: absolute; top: 18%; bottom: 0; width: 50%; display: flex; align-items: flex-end; padding: 0 5vw 4vh; font-size: clamp(60px, 14vw, 140px); }

@@ -1,2 +1,2 @@
-// The games menu only needs offline support so the home-screen icon works without wifi.
-if (import.meta.env.PROD && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+// The games menu. Offline support (the service worker) is added to every page by vite-plugin-pwa at build time.
+import './engine/fonts.css';

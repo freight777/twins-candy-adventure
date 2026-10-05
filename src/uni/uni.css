@@ -6,10 +6,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #c9a8ff; fon
 .hidden { display: none !important; }
 #fade { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 50; }
 
-#loading { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: linear-gradient(#a8b8ff, #ffd2ea); color: #fff; transition: opacity .6s; }
-#loading.done { opacity: 0; pointer-events: none; }
-.l-uni { font-size: 90px; animation: bounce .8s ease-in-out infinite; }
-.l-text { font-size: 26px; font-weight: 700; text-shadow: 0 3px 0 #b05ad8; }
+#loading { background: linear-gradient(#a8b8ff, #ffd2ea); } #loading .l-text { text-shadow: 0 3px 0 #b05ad8; }
 
 /* title */
 #title { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: max(3vh, env(safe-area-inset-top)) 4vw max(5vh, env(safe-area-inset-bottom)); }
