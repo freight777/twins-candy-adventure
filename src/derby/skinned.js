@@ -106,11 +106,24 @@ export function createSkinnedRig(template, o) {
     if (p.y < beltY + .022) return ['belt', NONE];
     return [p.y > collarY ? 'collar' : 'jersey', p.y > collarY ? NONE : torsoAxis];
   };
-  const shellMat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .85, sheen: .35, sheenRoughness: .6, sheenColor: new THREE.Color(0xffffff), side: THREE.DoubleSide });
+  const ux = Math.abs(bp('DEF-upper_armL').x), fx = Math.abs(bp('DEF-forearmL').x), hx0 = Math.abs(bp('DEF-handL').x), mx = Math.abs(bp('DEF-f_middle01L').x);
+  const sleeveX = ux + .62 * (fx - ux), guardA = ux + .8 * (fx - ux), guardB = fx + .34 * (hx0 - fx), strapX = hx0 + .3 * (mx - hx0);
+  const FAM = { collar: 0, sole: 0, jersey: 0, belt: 0, pants: 0, sock: 0, shoe: 0, sleeve: 1, under: 1, guard: 1, strap: 2, glove: 2 };     // 0 = body (coloured by height), 1 = arm (by distance out along the arm), 2 = hand
+  const SU = {
+    uJersey: { value: PAL.jersey }, uPants: { value: PAL.pants }, uUnder: { value: PAL.under }, uSock: { value: PAL.sock }, uShoe: { value: PAL.shoe }, uSole: { value: PAL.sole }, uBelt: { value: PAL.belt }, uCollar: { value: PAL.collar }, uGuard: { value: PAL.guard }, uGlove: { value: PAL.glove }, uStrap: { value: PAL.strap },
+    uY: { value: new THREE.Vector4(beltY, collarY, hemY, shoeTop) }, uY2: { value: new THREE.Vector4(soleY, sleeveX, strapX, o.elbowGuard ? 1 : 0) }, uG: { value: new THREE.Vector2(guardA, guardB) },
+  };
+  const shellMat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .9, specularIntensity: .4, sheen: .3, sheenRoughness: .6, sheenColor: new THREE.Color(0xffffff), side: THREE.DoubleSide });
   shellMat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 aSt; flat varying vec4 vSt; varying vec3 vRP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvSt = aSt; vRP = position;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n#ifdef USE_SHEEN\nmaterial.sheenColor = clamp(diffuseColor.rgb * .9 + .05, 0., 1.);       // fabric sheen takes the fabric colour (dark cloth stays dark)\n#endif').replace('#include <common>', '#include <common>\nflat varying vec4 vSt; varying vec3 vRP;').replace('#include <color_fragment>', `#include <color_fragment>
-      if (vSt.z > .5) {                                   // pinstripes: evenly spaced lines around a torso / leg / arm axis, anti-aliased
+    Object.assign(sh.uniforms, SU);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 aSt; attribute float aFam; flat varying vec4 vSt; flat varying float vFam; varying vec3 vRP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvSt = aSt; vFam = aFam; vRP = position;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n#ifdef USE_SHEEN\nmaterial.sheenColor = clamp(diffuseColor.rgb * .9 + .05, 0., 1.);       // fabric sheen takes the fabric colour (dark cloth stays dark)\n#endif').replace('#include <common>', '#include <common>\nflat varying vec4 vSt; flat varying float vFam; varying vec3 vRP;\nuniform vec3 uJersey, uPants, uUnder, uSock, uShoe, uSole, uBelt, uCollar, uGuard, uGlove, uStrap; uniform vec4 uY, uY2; uniform vec2 uG;').replace('#include <color_fragment>', `#include <color_fragment>
+      float sOK = 0.; vec3 rc;
+      if (vFam < .5) { float y = vRP.y; if (y > uY.y) rc = uCollar; else if (y > uY.x + .022) { rc = uJersey; sOK = 1.; } else if (y > uY.x - .022) rc = uBelt; else if (y > uY.z) { rc = uPants; sOK = 1.; } else if (y > uY.w) rc = uSock; else if (y > uY2.x) rc = uShoe; else rc = uSole; }
+      else if (vFam < 1.5) { float x = abs(vRP.x); if (x < uY2.y) { rc = uJersey; sOK = 1.; } else rc = (uY2.w > .5 && vRP.x < 0. && x > uG.x && x < uG.y) ? uGuard : uUnder; }
+      else rc = abs(vRP.x) < uY2.z ? uStrap : uGlove;
+      diffuseColor.rgb = rc * vColor.rgb;                    // the vertex colour now only carries the baked occlusion
+      if (vSt.z > .5 && sOK > .5) {                                   // pinstripes: evenly spaced lines around a torso / leg / arm axis, anti-aliased
         vec2 q = vSt.w < .5 ? vRP.xz - vSt.xy : vRP.yz - vSt.xy; float r = max(length(q), 1e-4); vec2 dir = q / r;
         float u = atan(dir.x, dir.y) / 6.2831853 * vSt.z, du = length(fwidth(dir)) * vSt.z / 6.2831853;
         float ln = 1. - smoothstep(.07, .07 + du * 1.3, abs(fract(u) - .5));
@@ -146,18 +159,18 @@ export function createSkinnedRig(template, o) {
     }
     const Ns = new Float32Array(G * 3), a = V(), b = V(), c = V(), e1 = V(), e2 = V();
     for (let t = 0; t < tris.length; t += 3) { const ga = grp[tris[t]], gb2 = grp[tris[t + 1]], gc = grp[tris[t + 2]]; a.fromArray(P, ga * 3); b.fromArray(P, gb2 * 3); c.fromArray(P, gc * 3); e1.subVectors(b, a); e2.subVectors(c, a); e1.cross(e2); [ga, gb2, gc].forEach((gi) => { Ns[gi * 3] += e1.x; Ns[gi * 3 + 1] += e1.y; Ns[gi * 3 + 2] += e1.z; }); }
-    const outP = new Float32Array(pos.array), outN = new Float32Array(nrm.array), colors = new Float32Array(n * 3), st = new Float32Array(n * 4), nv = V(), n0 = V(), q = V(), p0 = V();
+    const outP = new Float32Array(pos.array), outN = new Float32Array(nrm.array), colors = new Float32Array(n * 3), fam = new Float32Array(n), st = new Float32Array(n * 4), nv = V(), n0 = V(), q = V(), p0 = V();
     members.forEach((mem, gi) => {
       const [kind, ax] = info[mem[0]], d = OFF[kind], c0 = PAL[kind];
       n0.set(N0[gi * 3], N0[gi * 3 + 1], N0[gi * 3 + 2]).normalize(); nv.set(Ns[gi * 3], Ns[gi * 3 + 1], Ns[gi * 3 + 2]).normalize().multiplyScalar(.75).addScaledVector(n0, .25).normalize();
       q.set(P[gi * 3], P[gi * 3 + 1], P[gi * 3 + 2]).addScaledVector(nv, d); p0.set(P0[gi * 3], P0[gi * 3 + 1], P0[gi * 3 + 2]);
       const have = q.clone().sub(p0).dot(n0); if (have < d * .6) q.addScaledVector(n0, d * .6 - have);      // never sink into the skin
-      mem.forEach((i) => { outP[i * 3] = q.x; outP[i * 3 + 1] = q.y; outP[i * 3 + 2] = q.z; outN[i * 3] = nv.x; outN[i * 3 + 1] = nv.y; outN[i * 3 + 2] = nv.z; colors[i * 3] = c0.r * ao[gi]; colors[i * 3 + 1] = c0.g * ao[gi]; colors[i * 3 + 2] = c0.b * ao[gi]; st[i * 4] = ax[0]; st[i * 4 + 1] = ax[1]; st[i * 4 + 2] = ax[2]; st[i * 4 + 3] = ax[3]; });
+      mem.forEach((i) => { outP[i * 3] = q.x; outP[i * 3 + 1] = q.y; outP[i * 3 + 2] = q.z; outN[i * 3] = nv.x; outN[i * 3 + 1] = nv.y; outN[i * 3 + 2] = nv.z; colors[i * 3] = colors[i * 3 + 1] = colors[i * 3 + 2] = ao[gi]; fam[i] = FAM[kind]; st[i * 4] = ax[0]; st[i * 4 + 1] = ax[1]; st[i * 4 + 2] = ax[2]; st[i * 4 + 3] = ax[3]; });
     });
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.BufferAttribute(outP, 3)); sg.setAttribute('normal', new THREE.BufferAttribute(outN, 3));
     sg.setAttribute('skinIndex', g.attributes.skinIndex); sg.setAttribute('skinWeight', g.attributes.skinWeight);
-    sg.setAttribute('color', new THREE.BufferAttribute(colors, 3)); sg.setAttribute('aSt', new THREE.BufferAttribute(st, 4));
+    sg.setAttribute('color', new THREE.BufferAttribute(colors, 3)); sg.setAttribute('aSt', new THREE.BufferAttribute(st, 4)); sg.setAttribute('aFam', new THREE.BufferAttribute(fam, 1));
     sg.setIndex(new THREE.BufferAttribute(n > 65535 ? new Uint32Array(tris) : new Uint16Array(tris), 1));
     const shell = new THREE.SkinnedMesh(sg, shellMat); shell.name = "Uniform"; shell.castShadow = true; shell.receiveShadow = true; shell.frustumCulled = false;
     shell.position.copy(m.position); shell.quaternion.copy(m.quaternion); shell.scale.copy(m.scale);

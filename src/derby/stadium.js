@@ -94,6 +94,7 @@ export function buildStadium(scene, T = {}) {
     m.customProgramCacheKey = () => 'mow'; return m;
   };
   const grassMat = T.grass ? mow(pbr(T.grass, 150, 150, { color: 0xe4f2d0 })) : null;
+  S.grassMat = grassMat;
   const grass = new THREE.Mesh(new THREE.CircleGeometry(230, 64).rotateX(-Math.PI / 2), grassMat || mat({ map: grassTex })); grass.position.set(0, -.02, -60); grass.receiveShadow = true; scene.add(grass);
   const dirtTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#b57b4a'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(80,40,10,.18)'; g.lineWidth = 2; for (let y = 0; y < h; y += 9) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + Math.random() * 4); g.stroke(); } noise(g, w, h, 6000, .25); }, [6, 6]);
   const soft = new THREE.Vector2(.75, .75);                       // gentler pebbles: infield clay is fine-grained
@@ -368,7 +369,7 @@ export function buildStadium(scene, T = {}) {
   [
     { p: [-62, 88, 96], t: [0, 0, -8], a: .3, pen: .6, i: 30000, shadow: true },
     { p: [62, 88, 96], t: [0, 0, -8], a: .3, pen: .6, i: 30000, shadow: true },
-    { p: [0, 110, 120], t: [0, 0, -62], a: .8, pen: .8, i: 150000 },
+    { p: [0, 110, 120], t: [0, 0, -62], a: .8, pen: .8, i: 85000 },
     { p: [0, 92, -170], t: [0, 0, -4], a: .22, pen: .7, i: 25000 },
   ].forEach((L) => {
     const sp = new THREE.SpotLight(0xfff1d8, L.i, 0, L.a, L.pen, 2); sp.position.set(...L.p); sp.target.position.set(...L.t); sp.visible = false;
@@ -382,7 +383,8 @@ export function buildStadium(scene, T = {}) {
     const night = mode === 'night'; S.mode = mode;
     hemi.color.set(night ? 0x4a5f9a : 0xbcd4ff); hemi.groundColor.set(night ? 0x151a26 : 0x4a5a3a); hemi.intensity = night ? .65 : (hasHdr ? .25 : .7); sun.intensity = hasHdr ? 2.4 : 3.0;
     sun.visible = !night; litSpots.forEach((sp) => (sp.visible = night));
-    skyNight.visible = night; skyline.visible = night; darkGround.visible = night; sky.visible = !night && !hasHdr;
+    skyNight.visible = night; skyline.visible = night; darkGround.visible = night;
+    if (S.grassMat) { S.grassMat.emissive.set(night ? 0x2a6a2c : 0x000000); S.grassMat.emissiveIntensity = night ? .22 : 0; }       // the turf glows a little under the lights without brightening the players sky.visible = !night && !hasHdr;
     lampM.color.copy(new THREE.Color(0xfff2d0)).multiplyScalar(night ? 5 : 1.6); glows.forEach((g) => (g.material.opacity = night ? .55 : .2));
     ledM.color.setScalar(night ? 2.2 : 1.4); board.material.color.setScalar(night ? 1.5 : 1.1);
     crowdMat.color.setScalar(night ? .72 : 1); S.clouds.forEach((m) => (m.visible = !night && !hasHdr));
