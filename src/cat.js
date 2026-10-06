@@ -11,7 +11,7 @@ const cyl = (rt, rb, h, s = 8) => new THREE.CylinderGeometry(rt, rb, h, s);
 export function makeCat() {
   const g = new THREE.Group(), body = [], glasses = [];
   const gray = 0xaab1bb, stripe = 0x707884, belly = 0xf3f4f7, pink = 0xffa3bb, frame = 0x20c4b4;
-  const reg = (m, list = body) => { m.material.transparent = true; m.material.opacity = 0; list.push(m.material); return m; };
+  const reg = (m, list = body) => { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0; list.push(m.material); return m; };   // private copy: it fades in
 
   // body, belly and stripes
   g.add(reg(mk(sph(1), gray, [0, 0, 0], [1, 1.15, .9])));

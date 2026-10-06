@@ -40,6 +40,7 @@ const FRIENDS = [
   { key: 'rain', name: 'Rain', emoji: '\u{1F4A7}', css: '#7f96f0', voice: 'rain', line: "Hi Uni! I'm Rain. Splish splash!", burst: [0x7fc4ff, 0xbfd0ff, 0xffffff] },
 ];
 const TWIN = { name: 'Uni', emoji: '\u{1F984}', css: '#d8a8ff' };
+const CELEBRATE = RAINBOW.concat([0xffffff]);
 
 const timers = new Timers(), fx = new Fx(scene, 900);
 const sleep = (s) => new Promise((r) => timers.after(s, r));
@@ -63,10 +64,12 @@ const cname = (card, cls = 'cname') => `<div class="${cls}" style="color:${card.
 let W, uni, twin, kingU, queenU, friends = [];
 const S = { mode: 'boot', idx: 0, u: 0, speed: 0, stars: 0, time: 0, followers: [], dirS: new THREE.Vector3(0, 0, -1), card: null, busy: false, hint: 0, waiting: false };
 const camTarget = new THREE.Vector3();
-const pathPos = (u) => { const p = W.curve.getPointAt(clamp(u, 0, 1)); p.y += FEET; return p; };
-const pathTan = (u) => W.curve.getTangentAt(clamp(u, 0, 1));
+// pass a vector to fill (the frame loop reuses scratch vectors instead of allocating)
+const pathPos = (u, out = new THREE.Vector3()) => { W.curve.getPointAt(clamp(u, 0, 1), out); out.y += FEET; return out; };
+const pathTan = (u, out = new THREE.Vector3()) => W.curve.getTangentAt(clamp(u, 0, 1), out);
+const _p = new THREE.Vector3(), _t = new THREE.Vector3(), _q = new THREE.Vector3(), _r = new THREE.Vector3(), _s = new THREE.Vector3(), _d = new THREE.Vector3(), _l = new THREE.Vector3(), _m = new THREE.Vector3();
 const groundY = (x, z) => W.heightAt(x, z);
-const side = (t) => new THREE.Vector3(t.z, 0, -t.x).normalize();
+const side = (t, out = new THREE.Vector3()) => out.set(t.z, 0, -t.x).normalize();
 const sparkleAt = (p, colors, count = 30, speed = 5) => fx.burst(p, { count, colors, speed, gravity: -2, life: 1.3, size: 1 });
 
 function placeUni(u) {
@@ -166,9 +169,9 @@ async function runLeg(i0, i1) {
   S.speed = 1.5;
   await anim(dur, (k) => {
     const u = lerp(u0, u1, k); S.u = u;
-    const p = pathPos(u), t = pathTan(u); uni.root.position.copy(p); uni.lookToward(t.x, t.z, 0.25);
+    const p = pathPos(u, _p), t = pathTan(u, _t); uni.root.position.copy(p); uni.lookToward(t.x, t.z, 0.25);
     collectStars(u);
-    fx.burst(p.clone().add(new THREE.Vector3(-t.x * 1.4, 1.1 + Math.random() * .7, -t.z * 1.4)), { count: 1, colors: RAINBOW, speed: .6, gravity: -.4, life: 1, size: .8 });
+    fx.burst(_q.set(p.x - t.x * 1.4, p.y + 1.1 + Math.random() * .7, p.z - t.z * 1.4), { count: 1, colors: RAINBOW, speed: .6, gravity: -.4, life: 1, size: .8 });
   }, ease.inOut);
   S.speed = 0; S.idx = i1;
   sfx.hop();
@@ -211,10 +214,10 @@ async function ride(sc) {
   S.speed = 1.2; S.riding = true;
   const u0 = sc.from / (N - 1), u1 = sc.to / (N - 1);
   await anim(2.4, (k) => {
-    const p = sc.arc.getPoint(k), t = sc.arc.getTangent(k); p.y += 0.45;
+    const p = sc.arc.getPoint(k, _p), t = sc.arc.getTangent(k, _t); p.y += 0.45;
     uni.root.position.copy(p); uni.lookToward(t.x, t.z, 0.3); uni.root.rotation.x = -Math.asin(clamp(t.y, -.7, .7)) * 0.8;
     S.u = lerp(u0, u1, k);
-    fx.burst(p.clone().add(new THREE.Vector3(0, .6, 0)), { count: 3, colors: RAINBOW, speed: 1.4, gravity: -1.5, life: 1.2, size: 1 });
+    fx.burst(_q.set(p.x, p.y + .6, p.z), { count: 3, colors: RAINBOW, speed: 1.4, gravity: -1.5, life: 1.2, size: 1 });
   }, ease.inOut);
   S.riding = false; S.speed = 0; uni.root.rotation.x = 0; S.idx = sc.to; placeUni(sc.to / (N - 1)); sfx.tada();
   sparkleAt(uni.root.position.clone().add(new THREE.Vector3(0, 2, 0)), RAINBOW, 50, 6);
@@ -357,32 +360,30 @@ $('#leave').addEventListener('click', leave);
 
 // ---------------------------------------------------------------- per-frame
 function updateCamera(dt, t) {
-  const k = 1 - Math.exp(-3 * dt);
-  let desired, look;
-  const tt = pathTan(clamp(S.u + 0.03, 0, 1)); tt.y = 0; tt.normalize();
+  const k = 1 - Math.exp(-3 * dt), desired = _d, look = _l;
+  const tt = pathTan(clamp(S.u + 0.03, 0, 1), _t); tt.y = 0; tt.normalize();
   S.dirS.lerp(tt, 1 - Math.exp(-1.6 * dt)).normalize();
   const up = uni.root.position;
   if (S.mode === 'title') {
     const a = t * 0.2 + 0.4;
-    desired = new THREE.Vector3(up.x + Math.sin(a) * 12, up.y + 4.4, up.z + Math.cos(a) * 12); look = up.clone().add(new THREE.Vector3(0, 2.4, 0));
+    desired.set(up.x + Math.sin(a) * 12, up.y + 4.4, up.z + Math.cos(a) * 12); look.copy(up); look.y += 2.4;
   } else if (S.mode === 'greet' && S.greeting) {
-    const g = S.greeting.u ? S.greeting.u.root.position : twin.root.position, mid = up.clone().lerp(g, .5), sd = side(S.dirS);
-    desired = mid.clone().addScaledVector(S.dirS, -3.5).addScaledVector(sd, (S.greeting.side || 1) * -7).add(new THREE.Vector3(0, 5, 0));
-    look = mid.clone().add(new THREE.Vector3(0, 2.2, 0));
+    const g = S.greeting.u ? S.greeting.u.root.position : twin.root.position, mid = _m.copy(up).lerp(g, .5);
+    desired.copy(mid).addScaledVector(S.dirS, -3.5).addScaledVector(side(S.dirS, _s), (S.greeting.side || 1) * -7); desired.y += 5;
+    look.copy(mid); look.y += 2.2;
   } else if (S.mode === 'finale') {
-    const e = pathTan(1); e.y = 0; e.normalize();
-    const ang = Math.sin(t * .35) * .8, ca = Math.cos(ang), sa = Math.sin(ang), c = up.clone();
-    const back = new THREE.Vector3(-e.x * ca + -e.z * sa * -1, 0, -e.z * ca + -e.x * sa);
-    desired = c.clone().addScaledVector(back, 17).add(new THREE.Vector3(0, 7.5, 0)); look = c.add(new THREE.Vector3(0, 5, 0));
+    const e = pathTan(1, _t); e.y = 0; e.normalize();
+    const ang = Math.sin(t * .35) * .8, ca = Math.cos(ang), sa = Math.sin(ang);
+    desired.copy(up).addScaledVector(_s.set(-e.x * ca + e.z * sa, 0, -e.z * ca - e.x * sa), 17); desired.y += 7.5;
+    look.copy(up); look.y += 5;
   } else {
     const hi = S.riding ? 7 : 0;
-    desired = up.clone().addScaledVector(S.dirS, -13.5 - hi * .6).addScaledVector(side(S.dirS), 1.2).add(new THREE.Vector3(0, 9 + hi, 0));
-    look = up.clone().addScaledVector(S.dirS, 5).add(new THREE.Vector3(0, 2.2, 0));
+    desired.copy(up).addScaledVector(S.dirS, -13.5 - hi * .6).addScaledVector(side(S.dirS, _s), 1.2); desired.y += 9 + hi;
+    look.copy(up).addScaledVector(S.dirS, 5); look.y += 2.2;
   }
   desired.y = Math.max(desired.y, groundY(desired.x, desired.z) + 3);
   camera.position.lerp(desired, k); camTarget.lerp(look, 1 - Math.exp(-4 * dt)); camera.lookAt(camTarget);
 }
-
 function update(dt) {
   S.time += dt; const t = S.time;
   kingU.update(dt, t, 0); queenU.update(dt, t, 0); updateTreats(dt, t);
@@ -392,14 +393,14 @@ function update(dt) {
   twin.update(dt, t, S.twinSpeed || 0);
   // the parade: met friends trot along behind Uni
   S.followers.forEach((f, k) => {
-    const u = Math.max(0, S.u - (k + 1) * 0.034), p = pathPos(u), tn = pathTan(u), pos = f.u.root.position;
-    const target = p.clone().addScaledVector(side(tn), (k % 2 ? 1 : -1) * 1.5);
-    const prev = pos.clone(); pos.lerp(target, 1 - Math.exp(-5 * dt));
+    const u = Math.max(0, S.u - (k + 1) * 0.034), p = pathPos(u, _p), tn = pathTan(u, _t), pos = f.u.root.position;
+    const target = _q.copy(p).addScaledVector(side(tn, _s), (k % 2 ? 1 : -1) * 1.5);
+    const prev = _r.copy(pos); pos.lerp(target, 1 - Math.exp(-5 * dt));
     const v = pos.distanceTo(prev) / Math.max(dt, 1e-3); f.speed = clamp(v / 4.5, 0, 1.5);
     if (v > 0.8) f.u.lookToward(pos.x - prev.x, pos.z - prev.z, 0.2); else f.u.lookToward(tn.x, tn.z, 0.05);
   });
-  if (S.speed > .4) { const p = uni.root.position; fx.burst(p.clone().add(new THREE.Vector3(0, 0.3, 0)), { count: 1, colors: [0xffffff, 0xffe9a0], speed: .4, gravity: -.2, life: .8, size: .6 }); }
-  if (S.celebrate && Math.random() < dt * 5) { const c = uni.root.position; sparkleAt(new THREE.Vector3(c.x + rand(-18, 18), c.y + rand(10, 24), c.z + rand(-18, 18)), RAINBOW.concat([0xffffff]), 50, 7); if (Math.random() < .3) sfx.pop(); }
+  if (S.speed > .4) { const p = uni.root.position; fx.burst(_q.set(p.x, p.y + .3, p.z), { count: 1, colors: [0xffffff, 0xffe9a0], speed: .4, gravity: -.2, life: .8, size: .6 }); }
+  if (S.celebrate && Math.random() < dt * 5) { const c = uni.root.position; sparkleAt(_q.set(c.x + rand(-18, 18), c.y + rand(10, 24), c.z + rand(-18, 18)), CELEBRATE, 50, 7); if (Math.random() < .3) sfx.pop(); }
   // sun & shadows follow Uni
   if (S.sun) { const f = uni.root.position; S.sun.target.position.copy(f); S.sun.position.copy(f).add(S.sunOff); const want = Q.shadow > 0; if (S.sun.castShadow !== want) S.sun.castShadow = want; if (want && S.sun.shadow.mapSize.x !== Q.shadow) { S.sun.shadow.mapSize.set(Q.shadow, Q.shadow); S.sun.shadow.map && S.sun.shadow.map.dispose(); S.sun.shadow.map = null; } }
   // finger hint if nobody taps the deck for a while

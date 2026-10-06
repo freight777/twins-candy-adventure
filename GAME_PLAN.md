@@ -97,5 +97,16 @@ Proposed stack (I write the code, you don't need to learn it):
 - **2026-10-02, Phase 1 done:** title, beach (free roam + surprises), whirlpool, tunnel fall (steer + collect stars), cat room, transformations. Live on GitHub Pages and tested on the iPad.
 - **2026-10-02, Phases 2-3 first pass done:** Wonka-style chocolate meadow (eat button, tap surprises, START pad), Mario-Party-style board (40 squares, punched dice, gumdrop jump, rainbow trail, sugar rush, licorice slide, molasses), castle with King and Queen, warp back up the tunnel, nap/wake-up ending.
 - **Board rule:** the twins race but BOTH finish and BOTH get crowns, so nobody "loses".
-- **Dev shortcuts (keyboard):** 1 beach, 2 tunnel, 3 cat room, 4 chocolate, 5 board, 6 castle, 7 warp home, 8 wake-up.
+- **Dev shortcuts (keyboard, dev server only):** 1 beach, 2 tunnel, 3 cat room, 4 chocolate, 5 board, 6 castle, 7 warp home, 8 wake-up.
 - **Still to do:** art polish on the unicorn and mermaid, real voice-over (v2), sound polish, a real icon for the home screen, offline play (PWA), playtest with the girls.
+- **2026-10-06, 10x plan Phase 0 (foundations), #11 draw calls** (main pass incl. shadow map, measured with `renderer.info.render.calls`):
+
+  | Scene | Before | After | Materials before -> after |
+  |---|---|---|---|
+  | Beach | 602 | 290 | 613 -> ~140 |
+  | Cat room | - | 229 | - |
+  | Chocolate meadow | 1044 | 345 | 728 -> ~125 |
+  | Board | 679 | 159 | 609 -> ~90 |
+  | Castle | 348 | ~250 | 394 -> ~80 |
+
+  How: identical material recipes are shared (util.toon cache), objects that move as one are merged per material (util.bakeStatic, including colour-only differences via vertex colours), the twins went from ~140 meshes each to ~32, tiny details stop casting shadows, and the frame loops stop allocating.

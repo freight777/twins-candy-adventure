@@ -18,7 +18,7 @@ export class Party {
   }
   get leader() { return this.active === 'adalyn' ? this.adalyn : this.esmae; }
   get follower() { return this.active === 'adalyn' ? this.esmae : this.adalyn; }
-  both() { return [this.adalyn, this.esmae]; }
+  both() { return this._both || (this._both = [this.adalyn, this.esmae]); }    // the same array every call (it runs every frame)
 
   /** Stand them back up, normal size, no leftover spin/squash from the previous scene. */
   resetPose() {

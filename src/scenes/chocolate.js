@@ -15,6 +15,7 @@ const FOOD = [['lollypop', '\u{1F36D}', 2.8], ['cupcake', '\u{1F9C1}', 2.2], ['d
   ['sundae', '\u{1F368}', 2.4], ['muffin', '\u{1F9C1}', 2.2], ['ginger-bread', '\u{1F36A}', 2.4], ['cake', '\u{1F370}', 2.2], ['popsicle', '\u{1F367}', 2.8], ['waffle', '\u{1F9C7}', 2],
   ['strawberry', '\u{1F353}', 1.8], ['donut-chocolate', '\u{1F369}', 2], ['cake-birthday', '\u{1F382}', 2.6]];
 const RIVER_Z = -14;
+const _a = new THREE.Vector3(), _b = new THREE.Vector3();
 
 /** Willy-Wonka-style candy meadow: chocolate river and waterfall, candy to eat, tap surprises, and the START pad. */
 export class ChocolateScene extends BaseScene {
@@ -43,6 +44,7 @@ export class ChocolateScene extends BaseScene {
     const sun = new THREE.DirectionalLight(0xfff0d6, 2.0); sun.position.set(16, 28, 18); this.scene.add(sun);
     this.useShadows(sun, 26);
     this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
+    this.bakeMarked();
   }
 
   /** Soft shafts of sunlight and drifting sugar sparkles: the "wow" layer. */
@@ -74,7 +76,7 @@ export class ChocolateScene extends BaseScene {
     for (let i = 0; i < 8; i++) {
       const c = new THREE.Group();
       for (let k = 0; k < 4; k++) c.add(mk(sph(rand(3, 5)), toon(pick([0xffffff, 0xffe3f1, 0xe8f4ff])), [k * 4 - 6, rand(-.5, 1), rand(-1, 1)], [1.3, .8, .9]));
-      c.position.set(rand(-150, 150), rand(30, 55), rand(-220, -90)); c.userData.noShadow = true; this.clouds.push(c); this.scene.add(c); this.addInteractive(c, () => this.tapCloud(c), 11);
+      c.position.set(rand(-150, 150), rand(30, 55), rand(-220, -90)); c.userData.noShadow = true; c.userData.bake = true; this.clouds.push(c); this.scene.add(c); this.addInteractive(c, () => this.tapCloud(c), 11);
     }
   }
 
@@ -109,7 +111,8 @@ export class ChocolateScene extends BaseScene {
           gl_FragColor = vec4(c,1.); }`,
     });
     const r = new THREE.Mesh(new THREE.PlaneGeometry(130, 12).rotateX(-Math.PI / 2), this.riverMat); r.position.set(0, .04, RIVER_Z - 4); this.scene.add(r);
-    for (let i = 0; i < 34; i++) this.scene.add(mk(sph(rand(.4, .8), 10, 8), pick([0xffffff, 0xffe3f1, 0xffd9a8]), [-60 + i * 3.6, .25, RIVER_Z + 2.4 + rand(-.3, .3)], [1, .6, 1]));
+    const pebbles = new THREE.Group(); pebbles.userData.bake = true; this.scene.add(pebbles);
+    for (let i = 0; i < 34; i++) pebbles.add(mk(sph(rand(.4, .8), 10, 8), pick([0xffffff, 0xffe3f1, 0xffd9a8]), [-60 + i * 3.6, .25, RIVER_Z + 2.4 + rand(-.3, .3)], [1, .6, 1]));
 
     // cliff + waterfall
     this.scene.add(mk(sph(18, 20, 12), 0xfff0e0, [0, -4, -34], [1.6, 1, .7]));
@@ -147,6 +150,7 @@ export class ChocolateScene extends BaseScene {
       const g = new THREE.Group(); g.position.set(x, 0, z); this.scene.add(g);
       g.add(mk(cyl(.25, .35, 3, 8), 0xa8683a, [0, 1.5, 0]));
       [[0, 4, 0, 1.8], [-1.1, 3.4, .4, 1.2], [1.1, 3.5, -.3, 1.3]].forEach(([a, b, c, r]) => g.add(mk(sph(r, 14, 10), toon(pick([0xffb3d9, 0xb8e8ff, 0xe3c8ff])), [a, b, c])));
+      g.userData.bake = true;
       this.addInteractive(g, () => this.tapCotton(g), 2.4, [0, 3.6, 0]);
     });
     // gumdrop bushes
@@ -154,6 +158,7 @@ export class ChocolateScene extends BaseScene {
       const g = new THREE.Group(); g.position.set(rand(-30, 30), 0, rand(-11, 15));
       if (Math.hypot(g.position.x - PAD.x, g.position.z - PAD.z) < 5) continue;
       const c = pick(CANDY); for (let k = 0; k < 3; k++) g.add(mk(sph(rand(.5, .8), 12, 8), c, [rand(-.7, .7), .35, rand(-.5, .5)], [1, .8, 1]));
+      g.userData.bake = true;
       this.scene.add(g); this.addInteractive(g, () => this.tapBush(g), 1.5, [0, .6, 0]);
     }
     // giant mushrooms (bouncy!)
@@ -165,10 +170,10 @@ export class ChocolateScene extends BaseScene {
       if (real) { real.rotation.y = rand(0, 6); g.add(real); cap = real; }
       else {
         g.add(outline(mk(cyl(.5, .7, 2.2, 12), 0xfff4e0, [0, 1.1, 0]), 1.05));
-        cap = outline(mk(sph(2, 20, 12), 0xff4d6d, [0, 2.4, 0], [1, .6, 1]), 1.03); g.add(cap);
+        cap = outline(mk(sph(2, 20, 12), 0xff4d6d, [0, 2.4, 0], [1, .6, 1]), 1.03); cap.userData.dynamic = true; g.add(cap);
         for (let k = 0; k < 6; k++) { const a = k * 1.05; g.add(mk(sph(.28, 8, 6), 0xffffff, [Math.cos(a) * 1.2, 3.1 + Math.sin(a * 2) * .1, Math.sin(a) * 1.2], [1, .5, 1])); }
       }
-      g.userData.cap = cap; g.userData.real = !!real; this.mush.push(g);
+      g.userData.cap = cap; g.userData.real = !!real; g.userData.bake = true; this.mush.push(g);
       this.addInteractive(g, () => this.tapMush(g), 2, [0, 2.2, 0]);
     });
     // singing daisies
@@ -180,6 +185,7 @@ export class ChocolateScene extends BaseScene {
       const col = pick([0xff6fb5, 0xffffff, 0xffd84d, 0xb89cf8]);
       for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; f.add(mk(sph(.34, 8, 6), col, [Math.cos(a) * .55, Math.sin(a) * .55, 0], [1.3, .7, .4]).rotateZ(a)); }
       f.add(mk(sph(.28), 0xffc83d, [0, 0, .1]), mk(sph(.04), 0x5b3a24, [-.1, .05, .35]), mk(sph(.04), 0x5b3a24, [.1, .05, .35]));
+      f.userData.bake = true;
       g.userData = { f, note: i, sway: 0 }; this.daisies.push(g);
       this.addInteractive(g, () => this.tapDaisy(g), 1.3, [0, 2, 0]);
     }
@@ -187,7 +193,7 @@ export class ChocolateScene extends BaseScene {
     for (let i = 0; i < 6; i++) {
       const g = new THREE.Group(); g.position.set(-28 + i * 11 + rand(-2, 2), 0, rand(-12, -9));
       const m = toon(0xffffff, { map: candyCaneTex() });
-      g.add(mk(cyl(.3, .3, 4, 10), m, [0, 2, 0]), mk(new THREE.TorusGeometry(.8, .3, 8, 16, Math.PI), m, [.8, 4, 0]));
+      g.add(mk(cyl(.3, .3, 4, 10), m, [0, 2, 0]), mk(new THREE.TorusGeometry(.8, .3, 8, 16, Math.PI), m, [.8, 4, 0])); g.userData.bake = true;
       this.scene.add(g); this.addInteractive(g, () => this.tapCane(g), 1.7, [.4, 2.4, 0]);
     }
   }
@@ -213,7 +219,7 @@ export class ChocolateScene extends BaseScene {
       if (pickIt.startsWith('c:')) { const k = pickIt.slice(2); item = makeCandy(k); ename = k; eemoji = CANDY_KINDS[k].emoji; }
       else { const [mname, memoji, mh] = FOOD.find((f) => f[0] === pickIt.slice(2)) || FOOD[0]; item = model(`food/${mname}`, { size: mh * 0.7 / 1.35 }); ename = mname; eemoji = memoji; }
       if (!item) { item = make(); ename = name; eemoji = emoji; }
-      g.add(item); g.scale.setScalar(1.35);
+      g.add(item); g.scale.setScalar(1.35); item.userData.bake = true;
       g.userData = { name: ename, emoji: eemoji, eaten: false, idx: i, home: new THREE.Vector3(x, 0, z), item };
       this.scene.add(g); this.edibles.push(g);
       this.addInteractive(g, () => this.tapEdible(g), 1.5, [0, 1.1, 0]);
@@ -302,7 +308,9 @@ export class ChocolateScene extends BaseScene {
     this.gummies = [];
     [[-21, -6, 0xff3b5c], [22, -4, 0x4ddc5a], [-6, -8.8, 0xffd32a], [12, -9.2, 0x36a8ff], [-27, 6, 0xb35cff]].forEach(([x, z, c]) => {
       const g = makeCandy('gummyBear'); g.position.set(x, 0, z); g.scale.setScalar(2.6); g.rotation.y = rand(-.6, .6);
-      g.traverse((o) => { if (o.isMesh && o.material && o.material.clearcoat && o.material.emissive) { o.material = o.material.clone(); o.material.color.set(c); o.material.emissive.set(c); } });
+      const recol = new Map();      // one recoloured copy per original material, so the bear still merges into a few meshes
+      g.traverse((o) => { if (o.isMesh && o.material && o.material.clearcoat && o.material.emissive) { if (!recol.has(o.material)) { const m = o.material.clone(); m.color.set(c); m.emissive.set(c); recol.set(o.material, m); } o.material = recol.get(o.material); } });
+      g.userData.bake = true;
       this.scene.add(g); this.gummies.push(g);
       this.addInteractive(g, () => this.tapGummy(g), 1.3, [0, 1.1, 0]);
     });
@@ -387,9 +395,9 @@ export class ChocolateScene extends BaseScene {
     this.rays.position.x = this.camera.position.x * .6;
     if (Math.random() < dt * 22) {          // drifting sugar sparkles
       const c = this.camera.position;
-      this.fx.burst(new THREE.Vector3(c.x + rand(-22, 22), rand(.5, 9), c.z - rand(2, 26)), { count: 1, colors: [0xffffff, 0xffd9ec, 0xfff0a0, 0xd9f0ff], speed: .25, up: .1, gravity: 0, life: 3.2, size: .42 });
+      this.fx.burst(_a.set(c.x + rand(-22, 22), rand(.5, 9), c.z - rand(2, 26)), { count: 1, colors: [0xffffff, 0xffd9ec, 0xfff0a0, 0xd9f0ff], speed: .25, up: .1, gravity: 0, life: 3.2, size: .42 });
     }
-    if (Math.random() < dt * 8) this.fx.burst(new THREE.Vector3(rand(-4, 4), .5, -19.5), { count: 1, colors: [0xffffff, 0xd9a05b], speed: 1, up: 1.5, gravity: -1, life: 1, size: .8 });
+    if (Math.random() < dt * 8) this.fx.burst(_a.set(rand(-4, 4), .5, -19.5), { count: 1, colors: [0xffffff, 0xd9a05b], speed: 1, up: 1.5, gravity: -1, life: 1, size: .8 });
     this.pops.forEach((p, i) => { p.userData.disc.rotation.z += dt * .15 * (i % 2 ? 1 : -1); });
     this.daisies.forEach((d) => { const u = d.userData; u.sway = Math.max(0, u.sway - dt); d.rotation.z = Math.sin(t * 2 + u.note) * .04 + Math.sin(t * 25) * .12 * u.sway; u.f.rotation.z = t * (.3 + u.sway * 6); });
     this.edibles.forEach((e) => { if (!e.userData.eaten) e.userData.item.rotation.y += dt * .6; });
@@ -413,8 +421,8 @@ export class ChocolateScene extends BaseScene {
 
     P.update(dt, t);
     const L = P.leader.root.position, k = 1 - Math.exp(-3 * dt), gx = clamp(L.x, -26, 26);
-    this.camera.position.lerp(new THREE.Vector3(gx, 8.5, L.z + 13), k);
-    this.look.lerp(new THREE.Vector3(gx, 1.2, L.z - 3), k);
+    this.camera.position.lerp(_a.set(gx, 8.5, L.z + 13), k);
+    this.look.lerp(_b.set(gx, 1.2, L.z - 3), k);
     this.camera.lookAt(this.look);
   }
 

@@ -56,9 +56,12 @@ const cname = (card, cls = 'cname') => `<div class="${cls}" style="color:${card.
 let W, hero, lucy, king, queen, friends = [];
 const S = { mode: 'boot', idx: 0, u: 0, speed: 0, hearts: 0, time: 0, followers: [], dirS: new THREE.Vector3(0, 0, -1), card: null, hint: 0, waiting: false, gifts: [], pets: [] };
 const camTarget = new THREE.Vector3();
-const pathPos = (u) => { const p = W.curve.getPointAt(clamp(u, 0, 1)); p.y += HOVER; return p; };
-const pathTan = (u) => W.curve.getTangentAt(clamp(u, 0, 1));
-const side = (t) => new THREE.Vector3(t.z, 0, -t.x).normalize();
+// pass a vector to fill (the frame loop reuses scratch vectors instead of allocating)
+const pathPos = (u, out = new THREE.Vector3()) => { W.curve.getPointAt(clamp(u, 0, 1), out); out.y += HOVER; return out; };
+const pathTan = (u, out = new THREE.Vector3()) => W.curve.getTangentAt(clamp(u, 0, 1), out);
+const _p = new THREE.Vector3(), _t = new THREE.Vector3(), _q = new THREE.Vector3(), _r = new THREE.Vector3(), _s = new THREE.Vector3(), _d = new THREE.Vector3(), _l = new THREE.Vector3(), _m = new THREE.Vector3();
+const CELEBRATE = RAINBOW.concat([0xffffff, 0xff9ed8]);
+const side = (t, out = new THREE.Vector3()) => out.set(t.z, 0, -t.x).normalize();
 const sparkleAt = (p, colors, count = 30, speed = 5) => fx.burst(p, { count, colors, speed, gravity: 1.2, life: 1.4, size: 1 });
 const bubblesAt = (p, count = 6) => fx.burst(p, { count, colors: [0xffffff, 0xcff6ff, 0xa8e8ff], speed: .9, gravity: 2.4, life: 2, size: .9 });
 
@@ -148,9 +151,9 @@ async function runLeg(i0, i1) {
   S.speed = 1.5;
   await anim(dur, (k) => {
     const u = lerp(u0, u1, k); S.u = u;
-    const p = pathPos(u), t = pathTan(u); hero.root.position.copy(p); hero.lookToward(t.x, t.z, 0.25);
+    const p = pathPos(u, _p), t = pathTan(u, _t); hero.root.position.copy(p); hero.lookToward(t.x, t.z, 0.25);
     collectHearts(u);
-    if (Math.random() < .6) bubblesAt(p.clone().add(new THREE.Vector3(-t.x * 1.6, -.4 + Math.random(), -t.z * 1.6)), 1);
+    if (Math.random() < .6) bubblesAt(_q.set(p.x - t.x * 1.6, p.y - .4 + Math.random(), p.z - t.z * 1.6), 1);
   }, ease.inOut);
   S.speed = 0; S.idx = i1; sfx.hop();
 }
@@ -187,11 +190,11 @@ async function ride(sc) {
   const dolphin = createDolphin(1.9); scene.add(dolphin.root);
   const u0 = sc.from / (N - 1), u1 = sc.to / (N - 1);
   await anim(2.6, (k) => {
-    const p = sc.arc.getPoint(k), t = sc.arc.getTangent(k);
-    dolphin.root.position.copy(p).add(new THREE.Vector3(0, -.2, 0)); dolphin.root.rotation.set(-Math.asin(clamp(t.y, -.8, .8)), Math.atan2(t.x, t.z), 0, 'YXZ'); dolphin.update(S.time, 1.8);
-    hero.root.position.copy(p).add(new THREE.Vector3(0, 1.5, 0)); hero.lookToward(t.x, t.z, 0.3); hero.root.rotation.x = -Math.asin(clamp(t.y, -.7, .7)) * 0.7;
+    const p = sc.arc.getPoint(k, _p), t = sc.arc.getTangent(k, _t);
+    dolphin.root.position.copy(p); dolphin.root.position.y -= .2; dolphin.root.rotation.set(-Math.asin(clamp(t.y, -.8, .8)), Math.atan2(t.x, t.z), 0, 'YXZ'); dolphin.update(S.time, 1.8);
+    hero.root.position.copy(p); hero.root.position.y += 1.5; hero.lookToward(t.x, t.z, 0.3); hero.root.rotation.x = -Math.asin(clamp(t.y, -.7, .7)) * 0.7;
     S.u = lerp(u0, u1, k);
-    bubblesAt(p.clone().add(new THREE.Vector3(0, 0, 0)), 3);
+    bubblesAt(p, 3);
     if (Math.random() < .4) sparkleAt(p, [0xffffff, 0xffe0f0, 0xcff6ff], 2, 1.4);
   }, ease.inOut);
   S.riding = false; S.speed = 0; hero.root.rotation.x = 0; S.idx = sc.to; placeHero(sc.to / (N - 1)); sfx.tada();
@@ -291,28 +294,25 @@ function restart() {
 // ---------------------------------------------------------------- per-frame
 function updateCamera(dt, t) {
   if (S.debugCam) { camera.position.copy(S.debugCam.p); camera.lookAt(S.debugCam.l); return; }
-  const k = 1 - Math.exp(-3 * dt);
-  let desired, look;
-  const tt = pathTan(clamp(S.u + 0.03, 0, 1)); tt.y = 0; tt.normalize();
+  const k = 1 - Math.exp(-3 * dt), desired = _d, look = _l;
+  const tt = pathTan(clamp(S.u + 0.03, 0, 1), _t); tt.y = 0; tt.normalize();
   S.dirS.lerp(tt, 1 - Math.exp(-1.6 * dt)).normalize();
   const up = hero.root.position;
-  if (false) {
-  } else if (S.mode === 'greet' && S.greeting) {
-    const g = S.greeting.u ? S.greeting.u.root.position : lucy.root.position, mid = up.clone().lerp(g, .5), sd = side(S.dirS);
-    desired = mid.clone().addScaledVector(S.dirS, -6).addScaledVector(sd, (S.greeting.side || 1) * -10).add(new THREE.Vector3(0, 5.5, 0)); look = mid.clone();
+  if (S.mode === 'greet' && S.greeting) {
+    const g = S.greeting.u ? S.greeting.u.root.position : lucy.root.position, mid = _m.copy(up).lerp(g, .5);
+    desired.copy(mid).addScaledVector(S.dirS, -6).addScaledVector(side(S.dirS, _s), (S.greeting.side || 1) * -10); desired.y += 5.5; look.copy(mid);
   } else if (S.mode === 'finale') {
     const f = W.endT, ang = Math.sin(t * .3) * .7, ca = Math.cos(ang), sa = Math.sin(ang), tc = W.terrace;
-    const back = new THREE.Vector3(-f.x * ca + f.z * sa, 0, -f.z * ca - f.x * sa);
-    desired = tc.clone().addScaledVector(back, 25).add(new THREE.Vector3(0, 10.5, 0)); look = tc.clone().addScaledVector(f, 5).add(new THREE.Vector3(0, 3.5, 0));
+    desired.copy(tc).addScaledVector(_s.set(-f.x * ca + f.z * sa, 0, -f.z * ca - f.x * sa), 25); desired.y += 10.5;
+    look.copy(tc).addScaledVector(f, 5); look.y += 3.5;
   } else {
     const hi = S.riding ? 5 : 0;
-    desired = up.clone().addScaledVector(S.dirS, -9.5 - hi * .6).addScaledVector(side(S.dirS), S.mode === 'title' ? 5 + Math.sin(t * .4) * 2 : 3.6).add(new THREE.Vector3(0, 6.8 + hi + Math.sin(t * .5) * .4, 0));
-    look = up.clone().addScaledVector(S.dirS, 3).add(new THREE.Vector3(0, .2, 0));
+    desired.copy(up).addScaledVector(S.dirS, -9.5 - hi * .6).addScaledVector(side(S.dirS, _s), S.mode === 'title' ? 5 + Math.sin(t * .4) * 2 : 3.6); desired.y += 6.8 + hi + Math.sin(t * .5) * .4;
+    look.copy(up).addScaledVector(S.dirS, 3); look.y += .2;
   }
   desired.y = Math.max(desired.y, W.heightAt(desired.x, desired.z) + 2.5);
   camera.position.lerp(desired, k); camTarget.lerp(look, 1 - Math.exp(-4 * dt)); camera.lookAt(camTarget);
 }
-
 const gdum = new THREE.Object3D();
 function updateGifts(dt, t) {
   if (!S.giftOn || !S.giftKinds.length) return;
@@ -333,14 +333,14 @@ function update(dt) {
   friends.forEach((f) => f.u.update(dt, t, f.speed));
   lucy.update(dt, t, S.lucySpeed || 0); king.update(dt, t, 0); queen.update(dt, t, 0);
   S.followers.forEach((f, k) => {
-    const u = Math.max(0, S.u - (k + 1) * 0.034), p = pathPos(u), tn = pathTan(u), pos = f.u.root.position;
-    const target = p.clone().addScaledVector(side(tn), (k % 2 ? 1 : -1) * 2.0).add(new THREE.Vector3(0, Math.sin(t * 1.4 + k) * .3, 0));
-    const prev = pos.clone(); pos.lerp(target, 1 - Math.exp(-5 * dt));
+    const u = Math.max(0, S.u - (k + 1) * 0.034), p = pathPos(u, _p), tn = pathTan(u, _t), pos = f.u.root.position;
+    const target = _q.copy(p).addScaledVector(side(tn, _s), (k % 2 ? 1 : -1) * 2.0); target.y += Math.sin(t * 1.4 + k) * .3;
+    const prev = _r.copy(pos); pos.lerp(target, 1 - Math.exp(-5 * dt));
     const v = pos.distanceTo(prev) / Math.max(dt, 1e-3); f.speed = clamp(v / 4.5, 0, 1.5);
     if (v > 0.8) f.u.lookToward(pos.x - prev.x, pos.z - prev.z, 0.2); else f.u.lookToward(tn.x, tn.z, 0.05);
   });
-  if (S.speed > .4 && Math.random() < dt * 25) bubblesAt(hero.root.position.clone().add(new THREE.Vector3(rand(-.5, .5), rand(-1.5, .5), rand(-.5, .5))), 1);
-  if (S.celebrate && Math.random() < dt * 5) { const c = W.terrace; sparkleAt(new THREE.Vector3(c.x + rand(-14, 14), c.y + rand(4, 16), c.z + rand(-14, 14)), RAINBOW.concat([0xffffff, 0xff9ed8]), 50, 7); if (Math.random() < .3) sfx.pop(); }
+  if (S.speed > .4 && Math.random() < dt * 25) bubblesAt(_q.copy(hero.root.position).add(_r.set(rand(-.5, .5), rand(-1.5, .5), rand(-.5, .5))), 1);
+  if (S.celebrate && Math.random() < dt * 5) { const c = W.terrace; sparkleAt(_q.set(c.x + rand(-14, 14), c.y + rand(4, 16), c.z + rand(-14, 14)), CELEBRATE, 50, 7); if (Math.random() < .3) sfx.pop(); }
   updateGifts(dt, t);
   if (S.sun) { const f = hero.root.position; S.sun.target.position.copy(f); S.sun.position.copy(f).add(S.sunOff); const want = Q.shadow > 0; if (S.sun.castShadow !== want) S.sun.castShadow = want; if (want && S.sun.shadow.mapSize.x !== Q.shadow) { S.sun.shadow.mapSize.set(Q.shadow, Q.shadow); S.sun.shadow.map && S.sun.shadow.map.dispose(); S.sun.shadow.map = null; } }
   if (S.waiting) { S.hint += dt; if (S.hint > 9) { const h = $('#hint'), d = $('#deck').getBoundingClientRect(); h.classList.remove('hidden'); h.style.left = (d.left + d.width / 2) + 'px'; h.style.top = (d.top - 70) + 'px'; } }

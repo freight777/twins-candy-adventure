@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, mk, outline, glowSprite, setStyle, getStyle, RAINBOW } from './util.js';
+import { toon, mk, outline, glowSprite, setStyle, getStyle, bakeStatic, RAINBOW } from './util.js';
 
 const SKIN = 0xf3c8a2, HAIR = 0x5b3a24, EYE = 0x3a2315;
 const sph = (r, w = 24, h = 18) => new THREE.SphereGeometry(r, w, h);
@@ -26,7 +26,7 @@ function buildTwin(name) {
 
   // ---- dress & torso ----
   const skirtG = new THREE.Group(); body.add(skirtG);
-  const skirt = outline(mk(cyl(.2, .46, .62, 20), accent, [0, .72, 0]), 1.06);
+  const skirt = outline(mk(cyl(.2, .46, .62, 20), accent, [0, .72, 0]), 1.06); skirt.userData.dynamic = true;   // flares out in the tunnel
   const hem = mk(new THREE.TorusGeometry(.45, .04, 8, 24), 0xffffff, [0, .43, 0]); hem.rotation.x = Math.PI / 2;
   skirtG.add(skirt, hem);
   const top = outline(mk(sph(.25), accent, [0, 1.0, 0], [1, 1.1, .85]), 1.08);
@@ -45,13 +45,13 @@ function buildTwin(name) {
   mTorso.add(mk(sph(.13), 0xffa6d5, [-.1, 1.04, .14], [1, .9, .7]), mk(sph(.13), 0xffa6d5, [.1, 1.04, .14], [1, .9, .7]));
 
   // ---- arms ----
-  const arms = [];
+  const arms = [], sleeves = [];
   for (const s of [-1, 1]) {
     const a = new THREE.Group(); a.position.set(s * .27, 1.06, 0);
     const arm = mk(new THREE.CapsuleGeometry(.07, .28, 4, 8), SKIN, [0, -.2, 0]);
     const hand = mk(sph(.085), SKIN, [0, -.42, 0]);
-    const sleeve = mk(sph(.1), accent, [0, 0, 0]);
-    a.add(arm, hand, sleeve); a.userData.side = s; arms.push(a); body.add(a);
+    const sleeve = mk(sph(.1), toon(accent, { unique: true }), [0, 0, 0]);     // recoloured when she transforms
+    a.add(arm, hand, sleeve); a.userData.side = s; arms.push(a); sleeves.push(sleeve); body.add(a);
   }
 
   // ---- legs & shoes ----
@@ -59,7 +59,7 @@ function buildTwin(name) {
   const legs = [], shoes = [];
   for (const s of [-1, 1]) {
     const l = new THREE.Group(); l.position.set(s * .12, .46, 0);
-    const shoe = mk(sph(.11), 0xffffff, [0, -.44, .04], [1, .65, 1.45]);
+    const shoe = mk(sph(.11), toon(0xffffff, { unique: true }), [0, -.44, .04], [1, .65, 1.45]);
     l.add(mk(cyl(.06, .06, .4, 10), SKIN, [0, -.2, 0]), shoe);
     legs.push(l); shoes.push(shoe); legsG.add(l);
   }
@@ -88,17 +88,17 @@ function buildTwin(name) {
     const ear = outline(mk(new THREE.ConeGeometry(.14, .4, 10), 0xfffbe6, [s * .34, 1.86, -.02]), 1.06); ear.rotation.z = -s * .4;
     unicornG.add(ear, mk(sph(.06), 0xff9fcb, [s * .33, 1.84, .05], [1, 1.9, .5]));
     // flowing rainbow ribbons from the sides of the head
-    const rib = new THREE.Group(); rib.position.set(s * .44, 1.5, -.1); unicornG.add(rib); (ribbons = ribbons || []).push(rib);
+    const rib = new THREE.Group(); rib.position.set(s * .44, 1.5, -.1); rib.userData.dynamic = true; unicornG.add(rib); (ribbons = ribbons || []).push(rib);
     RAINBOW.forEach((c, i) => rib.add(mk(sph(.075), c, [s * (i * .04), -.06 - i * .13, -.04 - i * .05])));
   }
   RAINBOW.forEach((c, i) => unicornG.add(mk(sph(.17 - i * .006), c, [0, 1.85 - i * .19, -.36 - Math.sin(i * .5) * .14])));   // rainbow mane
-  const uTail = new THREE.Group(); uTail.position.set(0, .7, -.3); unicornG.add(uTail);
+  const uTail = new THREE.Group(); uTail.position.set(0, .7, -.3); uTail.userData.dynamic = true; unicornG.add(uTail);
   RAINBOW.forEach((c, i) => uTail.add(outline(mk(sph(.15 + i * .02), c, [0, -i * .13 + .15, -.1 - i * .12]), 1.08)));
   unicornG.add(mk(new THREE.TorusGeometry(.43, .035, 6, 24), 0xffc83d, [0, .43, 0]).rotateX(Math.PI / 2));      // golden hem trim
 
   // ---- MERMAID extras ----
   const mermaidG = new THREE.Group(); mermaidG.visible = false; body.add(mermaidG);
-  const tail = new THREE.Group(); tail.position.set(0, .8, 0); mermaidG.add(tail);
+  const tail = new THREE.Group(); tail.position.set(0, .8, 0); tail.userData.dynamic = true; mermaidG.add(tail);
   const tcols = [0x1fd0c0, 0x2fd6c8, 0x3fd8d8, 0x58d8f0, 0x82c4f4, 0xa8a8f8, 0xc88cf8, 0xff8fd0];
   tcols.forEach((c, i) => {
     const r = .27 - i * .028;
@@ -106,11 +106,11 @@ function buildTwin(name) {
     for (let k = 0; k < 3; k++) seg.add(mk(sph(r * .28, 8, 6), 0xffffff, [(k - 1) * r * .55, r * .25, r * .8], [1, .6, .4]));   // shiny scales
     tail.add(seg);
   });
-  const fin = new THREE.Group(); fin.position.set(0, -1.05, -.26); tail.add(fin); finG = fin;
+  const fin = new THREE.Group(); fin.position.set(0, -1.05, -.26); fin.userData.dynamic = true; tail.add(fin); finG = fin;
   for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
     const f = mk(sph(.28 - k * .04, 12, 8), k % 2 ? 0xff8fd0 : 0xc88cf8, [s * (.22 + k * .1), -.06 - k * .1, 0], [1.1, .5, .22]); f.rotation.z = s * (.5 + k * .35); fin.add(f);
   }
-  mHair = new THREE.Group(); mHair.position.set(0, 1.5, -.38); mermaidG.add(mHair);
+  mHair = new THREE.Group(); mHair.position.set(0, 1.5, -.38); mHair.userData.dynamic = true; mermaidG.add(mHair);
   for (let i = 0; i < 4; i++) mHair.add(mk(sph(.36 - i * .03), HAIR, [Math.sin(i * 1.3) * .08, -i * .28, -i * .03], [.95, 1.3, .55]));
   mermaidG.add(mk(sph(.09), 0xff7fb8, [.3, 1.74, .2], [1, .7, .6]), mk(sph(.05), 0xffe14d, [.3, 1.78, .26]));   // starfish clip
   for (let i = 0; i < 5; i++) mermaidG.add(mk(sph(.028), 0xffffff, [-.18 + i * .09, 1.9 - Math.abs(i - 2) * .02, .28]));   // pearl headband
@@ -126,7 +126,7 @@ function buildTwin(name) {
       if (f !== 'girl') T.outfit = 'dress';          // unicorn and mermaid have their own outfits
       const merm = f === 'mermaid';
       mTorso.visible = merm;
-      arms.forEach((a) => (a.children[2].material.color.set(merm ? SKIN : accent)));
+      sleeves.forEach((s) => s.material.color.set(merm ? SKIN : accent));
       unicornG.visible = f === 'unicorn'; mermaidG.visible = merm;
       root.scale.setScalar(f === 'girl' ? 1 : 1.12);
       T.applyOutfit();
@@ -197,7 +197,21 @@ function buildTwin(name) {
   };
   shadow.userData.noShadow = true;
   root.traverse((o) => { if (o.isMesh && !o.userData.noShadow) o.castShadow = true; });
+  // one mesh per material for every part that moves as a whole (head, arms, outfits, tail...): far fewer draw calls.
+  // Run after the film polish (createTwin) so the merged copies keep the skin glow and glossy hair.
+  T.bake = () => { noTinyShadows(root); [head, ...arms, swimG, mTorso, unicornG, uTail, mermaidG, tail, fin, mHair, ...ribbons].forEach((g) => bakeStatic(g)); };
   return T;
+}
+/** eyes, pearls, polka dots and the like are too small to cast a visible shadow, but each one costs a shadow draw */
+function noTinyShadows(root) {
+  const s = new THREE.Vector3();
+  root.updateMatrixWorld(true);
+  root.traverse((o) => {
+    if (!o.isMesh || !o.castShadow) return;
+    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    o.getWorldScale(s);
+    if (o.geometry.boundingSphere.radius * Math.max(s.x, s.y, s.z) < .075) o.castShadow = false;
+  });
 }
 
 /** Grown-ups sitting on towels: mom and dad. */
@@ -211,7 +225,7 @@ function buildAdult(kind) {
   const legs = [];
   for (const s of [-1, 1]) {
     const eye = mk(sph(.04), EYE, [s * .1, 1.42, .27], dad ? [1, 1.3, .5] : [1.5, .85, .5]); if (!dad) eye.rotation.z = -s * .16; g.add(eye);        // mom: softly almond-shaped dark eyes
-    const leg = mk(cyl(.05, .05, .75, 8), skin, [s * .15, .22, .55]).rotateX(Math.PI / 2); g.add(leg); legs.push([leg, s]);
+    const leg = mk(cyl(.05, .05, .75, 8), skin, [s * .15, .22, .55]).rotateX(Math.PI / 2); leg.userData.dynamic = true; g.add(leg); legs.push([leg, s]);
   }
   // sitting on the towel by default; the finale stands them up for the family photo
   g.userData.setStanding = (on) => legs.forEach(([leg, s]) => { leg.rotation.x = on ? 0 : Math.PI / 2; leg.position.set(s * .15, on ? .375 : .22, on ? 0 : .55); });
@@ -219,7 +233,7 @@ function buildAdult(kind) {
   if (!dad) { g.add(mk(sph(.34), hair, [0, 1.1, -.2], [1, 1.5, .6]), mk(sph(.31), hair, [0, 1.59, .1], [1.05, .42, .75]));          // long straight hair + neat bangs
     for (const s of [-1, 1]) g.add(mk(sph(.13), hair, [s * .3, 1.32, .02], [.9, 2.3, .8])); g.add(mk(cyl(.62, .62, .04, 20), 0xfff2c8, [0, 1.62, 0]), mk(cyl(.3, .32, .2, 16), 0xff8fb8, [0, 1.7, 0])); } // sun hat
   // waving arm
-  const arm = new THREE.Group(); arm.position.set(.36, 1.0, 0);
+  const arm = new THREE.Group(); arm.position.set(.36, 1.0, 0); arm.userData.dynamic = true;
   arm.add(mk(new THREE.CapsuleGeometry(.07, .4, 4, 8), skin, [0, .25, 0]), mk(sph(.09), skin, [0, .55, 0]));
   g.add(arm);
   const arm2 = mk(new THREE.CapsuleGeometry(.07, .4, 4, 8), skin, [-.4, .75, .1]); arm2.rotation.z = .4; g.add(arm2);
@@ -241,8 +255,8 @@ function film(fn, arg) {
   const prev = getStyle(); setStyle('film');
   try { const r = fn(arg); polishFilm(r.root || r); return r; } finally { setStyle(prev); }
 }
-export const createTwin = (name) => film(buildTwin, name);
-export const createAdult = (kind) => film(buildAdult, kind);
+export const createTwin = (name) => { const t = film(buildTwin, name); t.bake(); return t; };
+export const createAdult = (kind) => { const g = film(buildAdult, kind); noTinyShadows(g); bakeStatic(g); bakeStatic(g.userData.arm); return g; };
 /** Jackson, the twins' 2-year-old little brother: big head, short brown hair, blue shirt, yellow shorts. Always on the go. */
 function buildToddler() {
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
@@ -252,14 +266,14 @@ function buildToddler() {
   body.add(mk(cyl(.285, .285, .26, 16), 0xffd84d, [0, .5, 0]));                                                          // shorts
   const arms = [], legs = [];
   for (const s of [-1, 1]) {
-    const a = new THREE.Group(); a.position.set(s * .27, 1.0, 0); a.userData.side = s;
+    const a = new THREE.Group(); a.position.set(s * .27, 1.0, 0); a.userData.side = s; a.userData.dynamic = true;
     a.add(mk(new THREE.CapsuleGeometry(.075, .22, 4, 8), SKIN, [0, -.17, 0]), mk(sph(.09), SKIN, [0, -.36, 0]), mk(sph(.1), 0x4db8ff, [0, 0, 0]));
     arms.push(a); body.add(a);
-    const l = new THREE.Group(); l.position.set(s * .13, .4, 0);
+    const l = new THREE.Group(); l.position.set(s * .13, .4, 0); l.userData.dynamic = true;
     l.add(mk(cyl(.075, .07, .3, 10), SKIN, [0, -.15, 0]), mk(sph(.1, 10, 8), SKIN, [0, -.32, .04], [1, .7, 1.3]));
     legs.push(l); body.add(l);
   }
-  const head = new THREE.Group(); head.position.y = 1.32; body.add(head);
+  const head = new THREE.Group(); head.position.y = 1.32; head.userData.dynamic = true; body.add(head);
   head.add(mk(sph(.46, 28, 20), SKIN));
   head.add(mk(sph(.48, 24, 16), HAIR, [0, .1, -.05], [1, .78, 1]), mk(sph(.14), HAIR, [.12, .5, .1], [1, .8, 1]), mk(sph(.12), HAIR, [-.16, .48, .12], [1, .8, 1]));   // short messy hair
   for (const s of [-1, 1]) {
@@ -286,6 +300,7 @@ function buildToddler() {
     },
   };
   root.traverse((o) => { if (o.isMesh && !o.userData.noShadow) o.castShadow = true; });
+  T.bake = () => { noTinyShadows(root); [body, head, ...arms, ...legs].forEach((g) => bakeStatic(g)); };
   return T;
 }
-export const createToddler = () => film(buildToddler);
+export const createToddler = () => { const t = film(buildToddler); t.bake(); return t; };

@@ -16,13 +16,14 @@ export async function loadClips(base = '/') {
   let mannequin = null; try { mannequin = await loadBody(base); } catch (e) { console.warn('human body failed to load, using the simple body', e); }
   return { swing, pitch, mannequin };
 }
-/** joint positions at a (fractional) frame index */
-function frameAt(c, f) {
-  f = clamp(f, 0, c.count - 1); const i = Math.floor(f), j = Math.min(c.count - 1, i + 1), k = f - i, A = c.frames[i], B = c.frames[j], F = {};
-  c.names.forEach((n) => { const o = c.idx[n]; F[n] = V(lerp(A[o], B[o], k), lerp(A[o + 1], B[o + 1], k), lerp(A[o + 2], B[o + 2], k)); });
+/** joint positions at a (fractional) frame index; pass `out` (a frame from makeFrame) to fill it instead of allocating */
+function frameAt(c, f, out = null) {
+  f = clamp(f, 0, c.count - 1); const i = Math.floor(f), j = Math.min(c.count - 1, i + 1), k = f - i, A = c.frames[i], B = c.frames[j], F = out || {};
+  for (const n of c.names) { const o = c.idx[n], v = F[n] || (F[n] = V()); v.set(lerp(A[o], B[o], k), lerp(A[o + 1], B[o + 1], k), lerp(A[o + 2], B[o + 2], k)); }
   return F;
 }
-const copyFrame = (F) => { const o = {}; Object.keys(F).forEach((n) => (o[n] = F[n].clone())); return o; };
+const copyFrame = (F, out = null) => { const o = out || {}; for (const n in F) (o[n] || (o[n] = V())).copy(F[n]); return o; };
+const makeFrame = (F) => copyFrame(F);
 const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 /** batting stance: hands by the rear shoulder, bat upright and tipped a little back over the shoulder, weight slightly on the back foot */
 function batterStance(F0) {
@@ -41,7 +42,7 @@ function pitcherSet(F0) {
   const dy = F.lankle.y - .19; F.lankle.y -= dy; F.ltoe.y = Math.max(.1, F.ltoe.y - dy); F.lknee.y = Math.max(.9, F.lknee.y - dy * .6);
   return F;
 }
-const blend = (A, B, k) => { const F = {}; Object.keys(A).forEach((n) => (F[n] = A[n].clone().lerp(B[n], k))); return F; };
+const blend = (A, B, k, out = null) => { const F = out || {}; for (const n in A) (F[n] || (F[n] = V())).copy(A[n]).lerp(B[n], k); return F; };
 
 // ---------------------------------------------------------------- materials & helpers
 const cloth = (color, o = {}) => new THREE.MeshPhysicalMaterial({ color, roughness: .85, sheen: 1, sheenRoughness: .6, sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), .4), ...o });
@@ -136,12 +137,14 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
   if (!rig.skinned) [0, .35].forEach((x) => { const g = new THREE.Mesh(sph(.12, 14, 10), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .7 })); g.position.x = x; pivot.add(g); });
   const IDLE = 8, START = 10, RATE = 1.5, CONTACT = clip.center, axisQ = new THREE.Quaternion(), tmpQ = new THREE.Quaternion(), SWEET = 2.0;
   let anim = null, hold = null, baseX = 0, off = 0, offT = 0;
+  const X = V(1, 0, 0), axisV = V(), posed = { axis: axisV, hands: { L: null, R: null } };
   const pose = (F) => {
-    const hands = rig.drive(F, 0), gL = hands.gL || hands.L, gR = hands.gR || hands.R, axis = gR.clone().sub(gL); if (axis.lengthSq() < 1e-6) axis.set(1, 0, 0); axis.normalize();
-    axisQ.setFromUnitVectors(V(1, 0, 0), axis); pivot.quaternion.copy(axisQ); pivot.position.copy(gL);
-    return { axis, hands: { L: gL, R: gR } };
+    const hands = rig.drive(F, 0), gL = hands.gL || hands.L, gR = hands.gR || hands.R, axis = axisV.subVectors(gR, gL); if (axis.lengthSq() < 1e-6) axis.set(1, 0, 0); axis.normalize();
+    axisQ.setFromUnitVectors(X, axis); pivot.quaternion.copy(axisQ); pivot.position.copy(gL);
+    posed.hands.L = gL; posed.hands.R = gR; return posed;
   };
   const idleFrame = batterStance(frameAt(clip, IDLE)), contactFrame = frameAt(clip, CONTACT);
+  const fA = makeFrame(idleFrame), fB = makeFrame(idleFrame), wg = V(), WAGGLE = ['lwr', 'rwr', 'lfin', 'rfin'];     // reused every frame
   let cp = pose(contactFrame); axisQ.copy(pivot.quaternion); cp = pose(contactFrame);
   const contactLocal = cp.hands.L.clone().addScaledVector(cp.axis, SWEET);       // sweet spot of the bat at contact (in rig space)
   pose(idleFrame); axisQ.copy(pivot.quaternion); pose(idleFrame);
@@ -157,16 +160,16 @@ export function createBatter(clips, name = 'JUDGE', number = '99') {
       anim = (dt) => {
         f += dt * 60 * RATE; if (!hit && f >= CONTACT) { hit = true; cb && cb(); }
         if (f >= clip.count - 1) { hold = frameAt(clip, clip.count - 1); anim = null; api._back = 0; api.swinging = false; return; }
-        pose(blend(idleFrame, frameAt(clip, f), smooth((f - START) / (CONTACT - 14 - START))));   // bat starts upright, then follows the real swing path
+        pose(blend(idleFrame, frameAt(clip, f, fA), smooth((f - START) / (CONTACT - 14 - START)), fB));   // bat starts upright, then follows the real swing path
       };
     },
     update(dt, t) {
       off += (offT - off) * (1 - Math.exp(-16 * dt)); root.position.x = baseX + off;
       if (anim) { anim(dt); return; }
-      if (api._back != null && api._back < 1) { api._back = Math.min(1, api._back + dt * 2.2); pose(blend(hold, idleFrame, api._back * api._back * (3 - 2 * api._back))); return; }
-      const F = copyFrame(idleFrame), w = t * 2.7, wg = V(Math.sin(w * .5) * .035, Math.sin(w) * .075, Math.cos(w) * .055);        // breathing, a little weight shift, and the bat waggle batters do while they wait
+      if (api._back != null && api._back < 1) { api._back = Math.min(1, api._back + dt * 2.2); pose(blend(hold, idleFrame, api._back * api._back * (3 - 2 * api._back), fB)); return; }
+      const F = copyFrame(idleFrame, fB), w = t * 2.7; wg.set(Math.sin(w * .5) * .035, Math.sin(w) * .075, Math.cos(w) * .055);        // breathing, a little weight shift, and the bat waggle batters do while they wait
       F.hips.y += Math.sin(t * 1.8) * .015; F.hips.x += Math.sin(t * 1.1) * .02; F.chest.x += Math.sin(t * 1.1 + .4) * .02;
-      ['lwr', 'rwr', 'lfin', 'rfin'].forEach((k) => F[k].add(wg)); pose(F);
+      for (const k of WAGGLE) F[k].add(wg); pose(F);
     },
     unswing() { anim = null; api._back = 1; offT = 0; api.swinging = false; },
     /** two points along the barrel in world space (for the swing trail) */
@@ -185,10 +188,10 @@ export function createPitcher(clips) {
   const { root } = rig, REL_IDX = clip.center;
   const mitt = makeGlove(); root.add(mitt);
   const ballM = makeBallMesh(.115); ballM.castShadow = true; root.add(ballM);
-  let hands = null, holding = true;
-  const setF = pitcherSet(frameAt(clip, 0));
-  const drivePose = (F) => { hands = rig.drive(F, Math.PI); mitt.position.copy(hands.L); if (rig.handQ) mitt.quaternion.copy(rig.handQ('L')); ballM.visible = holding; ballM.position.copy(hands.gR || hands.R); };
-  const at = (idx) => { const k = smooth(idx / 24), F = blend(setF, frameAt(clip, idx), k); drivePose(F); };
+  let hands = null, holding = true, atSet = false;
+  const setF = pitcherSet(frameAt(clip, 0)), fA = makeFrame(setF), fB = makeFrame(setF);
+  const drivePose = (F) => { atSet = F === setF; hands = rig.drive(F, Math.PI); mitt.position.copy(hands.L); if (rig.handQ) rig.handQ('L', mitt.quaternion); ballM.visible = holding; ballM.position.copy(hands.gR || hands.R); };
+  const at = (idx) => { const k = smooth(idx / 24); drivePose(blend(setF, frameAt(clip, idx, fA), k, fB)); };
   holding = false; drivePose(frameAt(clip, REL_IDX)); const relLocal = (hands.gR || hands.R).clone(); holding = true; drivePose(setF);
   return {
     root, relLocal,
@@ -196,7 +199,7 @@ export function createPitcher(clips) {
     releaseWorld() { root.updateMatrixWorld(true); return root.localToWorld(relLocal.clone()); },
     /** k 0..1 = the windup up to the release; k > 1 = the follow-through */
     pose(k) { at(k * REL_IDX); },
-    idle() { holding = true; drivePose(setF); },
+    idle() { if (atSet && holding) return; holding = true; drivePose(setF); },          // already standing in the set position: nothing to redo
     holdBall(on) { holding = on; ballM.visible = on; },
     handWorld() { return root.localToWorld((hands.gR || hands.R).clone()); },
   };

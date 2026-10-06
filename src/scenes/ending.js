@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { FallScene } from './fall.js';
 import { BeachScene } from './beach.js';
-import { mk, ease, rand, pick, lerp, toon, setStyle, shade, RAINBOW, CANDY } from '../util.js';
+import { mk, ease, rand, pick, lerp, toon, setStyle, shade, bakeStatic, RAINBOW, CANDY } from '../util.js';
 import { model } from '../assets.js';
 import { makeCandy, makeGift, makeTeddy, makeBalloon } from '../candies.js';
 import { sfx, playMusic } from '../audio.js';
@@ -15,7 +15,7 @@ function goodie(size) {
   else if (r < .8) m = makeTeddy(pick([0xc98a4b, 0xf4b6d0, 0x9ad0ff]));
   else m = model(`food/${pick(['cake', 'donut-sprinkles', 'ice-cream-cne', 'cupcake', 'lollypop', 'popsicle', 'sundae'])}`, { size: 1.8 }) || makeGift();
   m.scale.multiplyScalar(size / 2);
-  return m;
+  shade(m); return bakeStatic(m);             // one mesh per material: a box of Nerds is a few draw calls, not 25
 }
 
 /** Whoosh! Back up the tunnel to the beach. Same tunnel as the fall, flowing the other way. */
@@ -43,7 +43,7 @@ export class WakeScene extends BeachScene {
     super(game);
     this.phase = 'wake';
     this.woke = false;
-    (this.dunes || []).forEach((d) => (d.visible = false));        // no sand hills in front of the sleeping girls
+    if (this.duneG) this.duneG.visible = false;                       // no sand hills in front of the sleeping girls
     this.camera.position.set(-9, 4.2, 15.5);
     this.jackRegion = 'wake';                                         // Jackson runs back and forth in front of the towels
     if (this.jack) this.jack.tw.root.position.set(-4, 0, 13.4);
@@ -98,16 +98,16 @@ export class WakeScene extends BeachScene {
     box(.1, .9, 1.9, 0xbfeaff, -3.02, 1.7, 0);                      // windscreen
     box(2.4, .25, 2.5, 0xffffff, -1.9, .35, 0);                     // bumper
     box(4.2, .3, 2.5, 0xfff4e0, 1.6, .55, 0);                       // cargo floor
-    const bed = new THREE.Group(); bed.position.set(3.7, .7, 0); T.add(bed);                  // tipping bed (pivot at the back)
+    const bed = new THREE.Group(); bed.position.set(3.7, .7, 0); bed.userData.dynamic = true; T.add(bed);                  // tipping bed (pivot at the back)
     const bm = (w, h, d, col, x, y, z) => { const m = mk(new THREE.BoxGeometry(w, h, d), col, [x, y, z]); bed.add(m); return m; };
     bm(4.2, .2, 2.5, 0xfff4e0, -2.1, 0, 0); bm(.2, 1.4, 2.5, 0x8a4b2a, -4.1, .8, 0); bm(4.2, 1.4, .2, 0x8a4b2a, -2.1, .8, 1.2); bm(4.2, 1.4, .2, 0x8a4b2a, -2.1, .8, -1.2);
     for (let i = 0; i < 9; i++) { const p = goodie(1.3); p.position.set(-.6 - (i % 3) * 1.2, .55 + Math.floor(i / 3) * .2, (Math.floor(i / 3) - 1) * .7); p.rotation.y = rand(0, 6); bed.add(p); }
     for (let i = 0; i < 6; i++) { const b = makeBalloon(); b.position.set(-.4 - (i % 3) * 1.3, .8, i < 3 ? -.9 : .9); bed.add(b); }       // balloons tied to the load
     const wheels = [];
-    for (const [x, z] of [[-2.2, 1.25], [-2.2, -1.25], [2.4, 1.25], [2.4, -1.25]]) { const w = mk(new THREE.CylinderGeometry(.55, .55, .4, 16), 0x2b2b3a, [x, .55, z]); w.rotation.x = Math.PI / 2; w.add(mk(new THREE.CylinderGeometry(.25, .25, .42, 12), 0xffd84d)); T.add(w); wheels.push(w); }
+    for (const [x, z] of [[-2.2, 1.25], [-2.2, -1.25], [2.4, 1.25], [2.4, -1.25]]) { const w = mk(new THREE.CylinderGeometry(.55, .55, .4, 16), 0x2b2b3a, [x, .55, z]); w.rotation.x = Math.PI / 2; w.userData.dynamic = true; w.add(mk(new THREE.CylinderGeometry(.25, .25, .42, 12), 0xffd84d)); T.add(w); wheels.push(w); }
     const sign = mk(new THREE.BoxGeometry(2.6, .8, .12), 0xffffff, [1.6, 2.6, 1.28]); T.add(sign, mk(new THREE.SphereGeometry(.22, 10, 8), 0xff3b5c, [1.2, 2.6, 1.36]), mk(new THREE.SphereGeometry(.22, 10, 8), 0xffd32a, [1.6, 2.6, 1.36]), mk(new THREE.SphereGeometry(.22, 10, 8), 0x4ddc5a, [2.0, 2.6, 1.36]));
     setStyle('toon');
-    shade(T); this.scene.add(T); this.truckG = T;
+    shade(T); bakeStatic(T); bakeStatic(bed); this.scene.add(T); this.truckG = T;
     this.pieces = [];
 
     ui.bubble('\u{1F69A} \u{1F36C}\u{1F381}\u{1F9F8}', 'Look! Candy, presents and toys are here!', 'queen');
@@ -124,7 +124,7 @@ export class WakeScene extends BeachScene {
       for (let i = 0; i < 26; i++) this.tm.after(.5 + i * .09, () => {
         const m = goodie(rand(1.3, 2.0));
         m.position.set(T.position.x - 4.3 + rand(-.3, .3), 2.2, T.position.z + rand(-1, 1)); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6));
-        shade(m); this.scene.add(m);
+        this.scene.add(m);
         this.pieces.push({ m, vy: rand(0, 2), vx: -rand(.6, 2.2), vz: rand(-1.2, 1.2), spin: rand(-4, 4), rest: false });
       });
       this.tm.after(1.2, () => { sfx.tada(); this.fx.burst(new THREE.Vector3(T.position.x - 6, 3, T.position.z), { count: 100, colors: RAINBOW.concat(CANDY), speed: 8, gravity: -3, life: 2.2, size: 1.2 }); sfx.giggle(); });
@@ -163,7 +163,7 @@ export class WakeScene extends BeachScene {
       // a shower of candy, presents and teddy bears lands in a big pile right next to the family
       for (let i = 0; i < 34; i++) this.tm.after(i * .06, () => {
         const m = goodie(rand(1.5, 2.3));
-        m.position.set(rand(-5.2, -2.4), rand(9, 14), rand(7.2, 10.6)); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6)); shade(m); this.scene.add(m);
+        m.position.set(rand(-5.2, -2.4), rand(9, 14), rand(7.2, 10.6)); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6)); this.scene.add(m);
         this.pieces.push({ m, vy: 0, vx: rand(-.4, .4), vz: rand(-.4, .4), spin: rand(-3, 3), rest: false });
       });
     });

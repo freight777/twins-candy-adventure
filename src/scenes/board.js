@@ -12,6 +12,7 @@ const N = 40;                                      // squares on the board (0 = 
 const TILE_COLS = [0xff4d6d, 0xb07cff, 0xffd84d, 0x4db8ff, 0xff9f2e, 0x5be37d];   // candyland colours
 const WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
 const KEYCAP = (n) => `${n}️⃣`;
+const _a = new THREE.Vector3(), _b = new THREE.Vector3();
 
 // ---- what each square does ----
 const TYPES = Array(N).fill('normal');
@@ -58,6 +59,7 @@ export class BoardScene extends BaseScene {
     this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
     this.tileMeshes.forEach((g) => { g.userData.noShadow = false; });
     shade(this.dice);
+    shade(this.tilesG); this.bakeMarked();
   }
 
   // ===================================================================== build
@@ -69,9 +71,10 @@ export class BoardScene extends BaseScene {
     const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 260, .7, 8), toon(0xfff1d6));
     tube.position.y = -.1; this.scene.add(tube);
     this.tileMeshes = [];
+    this.tilesG = new THREE.Group(); this.tilesG.userData.bake = true; this.tilesG.userData.noShadow = true; this.scene.add(this.tilesG);   // all 40 squares merge into a few meshes
     this.tiles.forEach((p, i) => {
       const type = TYPES[i], col = type === 'normal' ? TILE_COLS[i % TILE_COLS.length] : SPECIAL_COL[type];
-      const g = new THREE.Group(); g.position.copy(p); this.scene.add(g);
+      const g = new THREE.Group(); g.position.copy(p); this.tilesG.add(g);
       g.add(outline(mk(cyl(2.1, 2.2, .6, 28), 0xffffff, [0, 0, 0]), 1.03));
       g.add(mk(cyl(1.75, 1.75, .62, 28), col, [0, .02, 0]));
       if (type === 'rainbow') RAINBOW.forEach((c, k) => { const r = mk(new THREE.TorusGeometry(1.5 - k * .22, .12, 6, 24), c, [0, .34, 0]); r.rotation.x = Math.PI / 2; g.add(r); });
@@ -98,7 +101,7 @@ export class BoardScene extends BaseScene {
     this.clouds = [];
     for (let i = 0; i < 10; i++) {
       const c = new THREE.Group(); for (let k = 0; k < 4; k++) c.add(mk(sph(rand(4, 6)), toon(pick([0xffffff, 0xffe3f1, 0xe8f4ff])), [k * 5 - 8, rand(-.5, 1), rand(-1, 1)], [1.3, .8, .9]));
-      c.position.set(rand(-180, 180), rand(40, 70), rand(-200, 0)); c.userData.noShadow = true; this.clouds.push(c); this.scene.add(c);
+      c.position.set(rand(-180, 180), rand(40, 70), rand(-200, 0)); c.userData.noShadow = true; c.userData.bake = true; this.clouds.push(c); this.scene.add(c);
     }
     const near = (x, z, r) => this.tiles.some((p) => Math.hypot(p.x - x, p.z - z) < r);
     const place = (n, r, fn) => { let k = 0, tries = 0; while (k < n && tries++ < 400) { const x = rand(-70, 70), z = rand(-60, 50); if (near(x, z, r)) continue; fn(x, z); k++; } };
@@ -109,11 +112,12 @@ export class BoardScene extends BaseScene {
     place(14, 7, (x, z) => { const g = new THREE.Group(); g.position.set(x, -.6, z); const h = rand(5, 8);
       g.add(mk(cyl(.22, .28, h, 8), toon(0xffffff, { map: candyCaneTex() }), [0, h / 2, 0]), mk(sph(1.9, 18, 12), toon(0xffffff, { map: swirlTex(pick(['#ff6fb5', '#ffd84d', '#62e0d0', '#b07cff']), '#fff') }), [0, h + 1.2, 0], [1, 1, .35]));
       g.rotation.y = rand(0, 6); this.scene.add(g); });
-    place(14, 6, (x, z) => { const g = new THREE.Group(); g.position.set(x, -.6, z); const c = pick(CANDY); for (let k = 0; k < 3; k++) g.add(mk(sph(rand(.8, 1.4), 12, 8), c, [rand(-1, 1), .6, rand(-.8, .8)], [1, .8, 1])); this.scene.add(g); });
+    const decor = new THREE.Group(); decor.userData.bake = true; this.scene.add(decor);     // still scenery: gumdrops and gingerbread houses merge into a few meshes
+    place(14, 6, (x, z) => { const g = new THREE.Group(); g.position.set(x, -.6, z); const c = pick(CANDY); for (let k = 0; k < 3; k++) g.add(mk(sph(rand(.8, 1.4), 12, 8), c, [rand(-1, 1), .6, rand(-.8, .8)], [1, .8, 1])); decor.add(g); });
     place(5, 9, (x, z) => { const g = new THREE.Group(); g.position.set(x, -.6, z); g.rotation.y = rand(0, 6);   // gingerbread houses
       g.add(outline(mk(new THREE.BoxGeometry(5, 3.4, 4.4), 0xc98a4b, [0, 1.7, 0]), 1.02), mk(new THREE.ConeGeometry(3.9, 2.2, 4), 0xff6f91, [0, 4.5, 0]).rotateY(Math.PI / 4), mk(new THREE.BoxGeometry(1.1, 2, .2), 0x6b3a1f, [0, 1, 2.25]));
       for (const s of [-1, 1]) g.add(mk(sph(.25), pick(CANDY), [s * 1.6, 2.2, 2.25]));
-      g.add(mk(new THREE.BoxGeometry(5.2, .25, 4.6), 0xffffff, [0, 3.4, 0])); this.scene.add(g); });
+      g.add(mk(new THREE.BoxGeometry(5.2, .25, 4.6), 0xffffff, [0, 3.4, 0])); decor.add(g); });
     const GIANTS = [['cake-birthday', 8], ['ice-cream-cne', 11], ['donut-sprinkles', 6], ['sundae', 9], ['cupcake', 8], ['lollypop', 11]]; let gi = 0;
     place(6, 9, (x, z) => {
       const [gn, gh] = GIANTS[gi++ % GIANTS.length];
@@ -125,7 +129,7 @@ export class BoardScene extends BaseScene {
     this.scene.add(mk(new THREE.CircleGeometry(7, 32).rotateX(-Math.PI / 2), 0x5a2d17, [-44, -.5, -26]));
 
     // the castle at the finish
-    const e = this.tiles[N - 1]; const C = this.castle = new THREE.Group(); C.position.set(e.x + 7, -.6, e.z - 5); C.rotation.y = -.6; this.scene.add(C);
+    const e = this.tiles[N - 1]; const C = this.castle = new THREE.Group(); C.position.set(e.x + 7, -.6, e.z - 5); C.rotation.y = -.6; C.userData.bake = true; this.scene.add(C);
     C.add(outline(mk(new THREE.BoxGeometry(12, 10, 8), 0xffe3f1, [0, 5, 0]), 1.02));
     for (let i = 0; i < 7; i++) C.add(mk(new THREE.BoxGeometry(1.2, 1.2, 1.2), 0xffe3f1, [-5.4 + i * 1.8, 10.6, 3.6]));
     [[-6.5, -3.5, 0x4db8ff], [6.5, -3.5, 0xb07cff], [-6.5, 3.5, 0xff6f91], [6.5, 3.5, 0xffd84d]].forEach(([x, z, c]) => {
@@ -410,17 +414,17 @@ export class BoardScene extends BaseScene {
       } else if (this.spinning) { this.dice.rotation.x += dt * 14; this.dice.rotation.y += dt * 11; this.dice.rotation.z += dt * 7; }
       const sp = !!(this.cur && this.cur.sparkle);                      // sparkle dice: bigger golden glow and a stream of stars
       this.diceGlow.material.opacity = (sp ? .8 : .4) + Math.sin(t * 5) * .15; this.diceGlow.scale.setScalar(sp ? 10 : 6);
-      if (sp && Math.random() < dt * 40) this.fx.burst(this.dice.position.clone().add(new THREE.Vector3(rand(-1.4, 1.4), rand(-1.4, 1.4), rand(-1.4, 1.4))), { count: 2, colors: [0xffe14d, 0xffffff, 0xffb347], speed: 1.2, gravity: -1, life: 1.1, size: .8 });
+      if (sp && Math.random() < dt * 40) this.fx.burst(_a.copy(this.dice.position).add(_b.set(rand(-1.4, 1.4), rand(-1.4, 1.4), rand(-1.4, 1.4))), { count: 2, colors: [0xffe14d, 0xffffff, 0xffb347], speed: 1.2, gravity: -1, life: 1.1, size: .8 });
     }
     // keep the dice on screen (and below the speech bubble) no matter the screen shape: nudge it down if it climbs too high
     if (this.dice.visible) {
       const limit = innerHeight * 0.27;
-      for (let i = 0; i < 24; i++) { if (this.toScreen(this.dice.position).y >= limit) break; this.dice.position.y -= 0.4; }
+      for (let i = 0; i < 24 && this.toScreen(this.dice.position).y < limit; i++) this.dice.position.y -= 0.4;
     }
     if (this.rollResolve) {
       this.rollIdle = (this.rollIdle || 0) + dt;
       if (this.rollIdle > 9 && !this.hintShown) { this.hintShown = true; G.ui.hint('\u{1F446}'); }
-      if (this.hintShown) { const s = this.toScreen(this.dice.position.clone().add(new THREE.Vector3(0, -2.2, 0))); G.ui.hintAt(s.x, s.y); }
+      if (this.hintShown) { const s = this.toScreen(_a.copy(this.dice.position).setY(this.dice.position.y - 2.2)); G.ui.hintAt(s.x, s.y); }
     }
 
     // camera
@@ -433,9 +437,8 @@ export class BoardScene extends BaseScene {
       this.camera.lookAt(this.camTarget);
     } else if (this.cur) {
       const p = this.cur.tw.root.position, k = 1 - Math.exp(-2.6 * dt);
-      this.camTarget.lerp(new THREE.Vector3(p.x, p.y + 1, p.z), k);
-      const want = new THREE.Vector3(this.camTarget.x + 3, this.camTarget.y + 13, this.camTarget.z + 17);
-      this.camera.position.lerp(want, k);
+      this.camTarget.lerp(_a.set(p.x, p.y + 1, p.z), k);
+      this.camera.position.lerp(_b.set(this.camTarget.x + 3, this.camTarget.y + 13, this.camTarget.z + 17), k);
       this.camera.lookAt(this.camTarget);
     }
   }

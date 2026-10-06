@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { Timers, Fx, clamp, linearizeFrag } from './util.js';
+import { Timers, Fx, clamp, linearizeFrag, disposeObject, keep, bakeStatic } from './util.js';
 import { Q } from './engine/quality.js';
 import { sayAsync } from './audio.js';
 
-const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+const hitMat = new THREE.MeshBasicMaterial({ visible: false }); keep.add(hitMat);
+const _v = new THREE.Vector3(), _w = new THREE.Vector3();
 const visibleChain = (o) => { while (o) { if (!o.visible) return false; o = o.parent; } return true; };
 
 /** Shared plumbing for every scene: camera, timers, sparkles, tap picking. */
@@ -33,7 +34,7 @@ export class BaseScene {
   addInteractive(obj, onTap, radius = 1, offset = [0, 0, 0]) {
     const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 8, 6), hitMat);
     m.position.set(...offset);
-    m.userData.onTap = onTap; m.userData.noShadow = true;
+    m.userData.onTap = onTap; m.userData.noShadow = true; m.userData.keep = true;
     obj.add(m);
     this.hits.push(m);
     return m;
@@ -52,7 +53,7 @@ export class BaseScene {
 
   /** project a world point to screen pixels */
   toScreen(v) {
-    const p = v.clone().project(this.camera);
+    const p = _v.copy(v).project(this.camera);
     return { x: (p.x * 0.5 + 0.5) * innerWidth, y: (-p.y * 0.5 + 0.5) * innerHeight, behind: p.z > 1 };
   }
 
@@ -62,6 +63,11 @@ export class BaseScene {
   wait(sec) { return new Promise((r) => this.tm.after(sec, r)); }
   /** speak a line and wait until it has been said; if the scene has ended meanwhile the chain just stops */
   line(text, who = 'narrator', opts = {}) { return sayAsync(text, who, opts).then((v) => (this.disposed ? new Promise(() => {}) : v)); }
+  /** merge the meshes inside every object marked userData.bake (after shadows are set up): far fewer draw calls */
+  bakeMarked() {
+    const list = []; this.scene.traverse((o) => { if (o.userData.bake) list.push(o); });
+    list.forEach((o) => bakeStatic(o));
+  }
   /** Sun-style light that casts soft shadows around whoever the camera is following. */
   useShadows(light, extent = 24) {
     this.shadowSun = light; this.shadowOffset = light.position.clone();
@@ -95,7 +101,7 @@ export class BaseScene {
       for (const tw of P.both()) {
         if (tw.form === 'girl' || Math.random() > dt * 14) continue;
         const p = tw.root.position;
-        this.fx.burst(new THREE.Vector3(p.x + (Math.random() - .5) * 1.2, p.y + 0.5 + Math.random() * 1.8, p.z + (Math.random() - .5) * 1.2),
+        this.fx.burst(_w.set(p.x + (Math.random() - .5) * 1.2, p.y + 0.5 + Math.random() * 1.8, p.z + (Math.random() - .5) * 1.2),
           { count: 1, colors: tw.form === 'unicorn' ? [0xff4d4d, 0xffe14d, 0x5be37d, 0x4db8ff, 0xb07cff, 0xffffff] : [0x9be7ff, 0xffffff, 0xff9fd0, 0x2fd6c8], speed: .5, gravity: tw.form === 'unicorn' ? -.6 : .8, life: 1.3, size: .5 });
       }
     }
@@ -104,9 +110,6 @@ export class BaseScene {
   dispose() {
     this.disposed = true;
     this.game.party.group.removeFromParent();
-    this.scene.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.map && m.map.dispose(); m.dispose(); });
-    });
+    disposeObject(this.scene);           // shared materials/textures (util.toon cache, glow/star sprites) stay alive for the next scene
   }
 }

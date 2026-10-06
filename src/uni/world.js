@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, canvasTex, glowSprite, candyCaneTex as caneBase, setStyle, RAINBOW } from '../util.js';
-const candyCaneTex = (ry = 4) => { const t = caneBase(); t.repeat.set(2, ry); return t; };
+const candyCaneTex = (ry = 4) => { const t = caneBase().clone(); t.repeat.set(2, ry); return t; };
 import { model } from '../assets.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);

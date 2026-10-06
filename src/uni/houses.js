@@ -106,7 +106,7 @@ export function createHouse(key, api) {
     RAINBOW.forEach((c, k) => {
       const h = 3.4 - k * .35, bar = new THREE.Group(); bar.position.set((k - 2.5) * 1.75, 0, 1.2 - Math.abs(k - 2.5) * .15); bar.scale.setScalar(.8); scene.add(bar);
       host.root.position.set(7, 0, 3.4); uni.root.position.set(-7, 0, 3.4);
-      bar.add(mk(new THREE.BoxGeometry(1.8, .5, 3.6 + (5 - k) * .35), toon(c, { emissive: c, emissiveIntensity: .15, clearcoat: 1 }), [0, h * .3 + .6, 0]), mk(cyl(.2, .2, h * .3 + .4, 10), 0xffffff, [-.6, (h * .3 + .4) / 2, 1.2]), mk(cyl(.2, .2, h * .3 + .4, 10), 0xffffff, [.6, (h * .3 + .4) / 2, -1.2]));
+      bar.add(mk(new THREE.BoxGeometry(1.8, .5, 3.6 + (5 - k) * .35), toon(c, { emissive: c, emissiveIntensity: .15, clearcoat: 1, unique: true }), [0, h * .3 + .6, 0]), mk(cyl(.2, .2, h * .3 + .4, 10), 0xffffff, [-.6, (h * .3 + .4) / 2, 1.2]), mk(cyl(.2, .2, h * .3 + .4, 10), 0xffffff, [.6, (h * .3 + .4) / 2, -1.2]));
       bar.userData.y0 = 0; bx.push(bar);
       tapOn(bar, () => {
         api.sfx.note(k); bar.position.y = .5; timers.tween(.4, (e) => { bar.position.y = .5 * (1 - e); }, { ease: ease.out });

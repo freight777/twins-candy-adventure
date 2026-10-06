@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---------- toon material (soft cartoon shading shared by everything) ----------
 const gradientMap = new THREE.DataTexture(new Uint8Array([90, 160, 220, 255]), 4, 1, THREE.RedFormat);
@@ -10,11 +11,121 @@ gradientMap.needsUpdate = true;
 let STYLE = 'toon';
 export const setStyle = (s) => { STYLE = s; };
 export const getStyle = () => STYLE;
-export const toon = (color, opts = {}) => STYLE === 'film'
-  ? new THREE.MeshPhysicalMaterial({ color, roughness: 0.6, clearcoat: 0.1, clearcoatRoughness: 0.4, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.5), ...opts })
-  : STYLE === 'candy'
-  ? new THREE.MeshPhysicalMaterial({ color, roughness: opts.map ? 0.78 : 0.34, clearcoat: opts.map ? 0 : 0.75, clearcoatRoughness: 0.16, ...opts })
-  : new THREE.MeshToonMaterial({ color, gradientMap, ...opts });
+/** a new material in the current style. opts.cheap = plain MeshStandardMaterial (no clearcoat/sheen) for big scenery surfaces */
+export function makeToon(color, { cheap, unique, ...opts } = {}) {
+  if (cheap && STYLE !== 'toon') return new THREE.MeshStandardMaterial({ color, roughness: opts.map ? 0.8 : 0.5, ...opts });
+  return STYLE === 'film'
+    ? new THREE.MeshPhysicalMaterial({ color, roughness: 0.6, clearcoat: 0.1, clearcoatRoughness: 0.4, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.5), ...opts })
+    : STYLE === 'candy'
+    ? new THREE.MeshPhysicalMaterial({ color, roughness: opts.map ? 0.78 : 0.34, clearcoat: opts.map ? 0 : 0.75, clearcoatRoughness: 0.16, ...opts })
+    : new THREE.MeshToonMaterial({ color, gradientMap, ...opts });
+}
+/** key for a material recipe, or null when it can't be shared (textures, functions) */
+export function recipeKey(...parts) {
+  const out = [];
+  const add = (v) => {
+    if (v == null || typeof v !== 'object') { out.push(String(v)); return true; }
+    if (v.isColor) { out.push('#' + v.getHexString()); return true; }
+    if (v.isTexture && keep.has(v)) { out.push('tex:' + v.uuid); return true; }      // a shared texture can be part of a shared recipe
+    if (v.isTexture || v.isMaterial || typeof v === 'function') return false;
+    for (const k of Object.keys(v).sort()) { out.push(k + '='); if (!add(v[k])) return false; }
+    return true;
+  };
+  for (const p of parts) if (!add(p)) return null;
+  return out.join('|');
+}
+/** materials/textures shared between objects and scenes: never disposed (a WeakSet, because .clone() copies userData) */
+export const keep = new WeakSet([gradientMap]);
+const matCache = new Map();
+/**
+ * The standard cartoon/candy material. Identical recipes share ONE material (hundreds of meshes, a handful of shaders and
+ * uniform uploads). Pass { unique: true } for a material you will change later (fade, recolour); textured ones are always unique.
+ */
+export function toon(color, opts = {}) {
+  if (opts.unique || (opts.map && !keep.has(opts.map))) return makeToon(color, opts);
+  const k = recipeKey(STYLE, typeof color === 'number' ? color : new THREE.Color(color).getHex(), opts);
+  if (k === null) return makeToon(color, opts);
+  let m = matCache.get(k);
+  if (!m) { m = makeToon(color, opts); keep.add(m); matCache.set(k, m); }
+  return m;
+}
+/** a shared material made by any factory, cached by its recipe (used for the candy materials) */
+export function shared(make, ...recipe) {
+  const k = recipeKey('shared', make.name, ...recipe);
+  let m = k !== null && matCache.get(k);
+  if (!m) { m = make(...recipe); keep.add(m); if (k !== null) matCache.set(k, m); }
+  return m;
+}
+/** free an object's GPU memory, but never the shared materials/textures other scenes still use */
+export function disposeObject(root) {
+  root.traverse((o) => {
+    if (o.geometry && !keep.has(o.geometry)) o.geometry.dispose();
+    if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => {
+      if (keep.has(m)) return;
+      for (const v of Object.values(m)) if (v && v.isTexture && !keep.has(v)) v.dispose();
+      m.dispose();
+    });
+  });
+}
+/**
+ * Merge the meshes under `root` that share a material into one mesh each (one draw call instead of dozens), in root's own
+ * space so the object can still move, wobble and be tapped. Left alone: anything under a node with userData.dynamic,
+ * invisible hit spheres, hidden or multi-material meshes, skinned/instanced meshes and compressed (non-float) geometry.
+ */
+const SIG_PROPS = ['type', 'roughness', 'metalness', 'clearcoat', 'clearcoatRoughness', 'sheen', 'sheenRoughness', 'emissiveIntensity', 'side', 'flatShading', 'opacity', 'transparent', 'depthWrite', 'envMapIntensity', 'toneMapped', 'fog', 'ior', 'specularIntensity', 'iridescence', 'transmission', 'alphaTest'];
+const sigCache = new WeakMap(), colourMats = new Map();
+/** the recipe of a shared, untextured material WITHOUT its colour (null if it can't be merged by colour) */
+function colourFree(m) {
+  if (sigCache.has(m)) return sigCache.get(m);
+  let s = null;
+  if (keep.has(m) && !m.vertexColors && m.color && !Object.entries(m).some(([k, v]) => v && v.isTexture && k !== 'gradientMap')) {
+    s = SIG_PROPS.map((p) => String(m[p])).join(',') + '|' + (m.emissive ? m.emissive.getHex() : '') + '|' + (m.gradientMap ? m.gradientMap.uuid : '');
+  }
+  sigCache.set(m, s); return s;
+}
+/** one vertex-coloured copy of a recipe (white base colour, the per-vertex colours carry the look) */
+function colourMat(sig, like, sheen) {
+  let m = colourMats.get(sig);
+  if (!m) { m = like.clone(); m.color.set(0xffffff); m.vertexColors = true; if (m.sheenColor) m.sheenColor.copy(sheen); keep.add(m); colourMats.set(sig, m); }
+  return m;
+}
+export function bakeStatic(root) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), m4 = new THREE.Matrix4();
+  const groups = new Map(), take = [];
+  const visit = (o, blocked) => {
+    if (o !== root && o.userData.dynamic) blocked = true;
+    if (o.isMesh && !blocked && o.matrixWorld.determinant() > 0 && !o.isSkinnedMesh && !o.isInstancedMesh && o.visible && !Array.isArray(o.material) && o.material.visible !== false && !o.userData.onTap && !o.userData.keep) {
+      const g = o.geometry, attrs = Object.keys(g.attributes).sort();
+      if (attrs.every((a) => g.attributes[a].array instanceof Float32Array && !g.attributes[a].normalized && !g.attributes[a].isInterleavedBufferAttribute) && !Object.keys(g.morphAttributes).length) {
+        const sig = colourFree(o.material);
+        const key = [sig ? 'c:' + sig : o.material.uuid, attrs.join(','), !!g.index, o.castShadow, o.receiveShadow, o.renderOrder].join('|');
+        (groups.get(key) || groups.set(key, { mat: o.material, sig, list: [], cast: o.castShadow, receive: o.receiveShadow, order: o.renderOrder }).get(key)).list.push(o);
+      }
+    }
+    for (const c of o.children) visit(c, blocked);
+  };
+  visit(root, false);
+  for (const grp of groups.values()) {
+    if (grp.list.length < 2) continue;
+    const mats = new Set(grp.list.map((o) => o.material)), byColour = mats.size > 1;   // several colours of one recipe -> vertex colours
+    const geos = grp.list.map((o) => {
+      const g = o.geometry.clone().applyMatrix4(m4.multiplyMatrices(inv, o.matrixWorld));
+      if (byColour) { const c = o.material.color, n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); }
+      return g;
+    });
+    const merged = mergeGeometries(geos, false); geos.forEach((g) => g.dispose());
+    if (!merged) continue;
+    let mat = grp.mat;
+    if (byColour) { const sheen = new THREE.Color(0, 0, 0); mats.forEach((m) => m.sheenColor && sheen.add(m.sheenColor)); sheen.multiplyScalar(1 / mats.size); mat = colourMat(grp.sig + '|' + sheen.getHex(), grp.mat, sheen); }
+    const mesh = new THREE.Mesh(merged, mat); mesh.castShadow = grp.cast; mesh.receiveShadow = grp.receive; mesh.renderOrder = grp.order;
+    mesh.userData.noShadow = !grp.cast; mesh.userData.baked = true;
+    root.add(mesh); take.push(...grp.list);
+  }
+  const gone = new Set(take);
+  for (const o of take) { for (const c of [...o.children]) if (!gone.has(c)) root.attach(c); o.removeFromParent(); o.geometry.dispose(); }   // keep anything that rode on a merged mesh (glows, sprites)
+  return root;
+}
 
 // Make raw shader colours (which we wrote in screen colour space) come out right when rendering through the post-processing chain.
 export const linearizeFrag = (src) => src.replace('void main()', 'void origMain()')
@@ -32,7 +143,7 @@ export function mk(geo, color, pos = [0, 0, 0], scale = [1, 1, 1]) {
   return m;
 }
 
-const outlineMat = new THREE.MeshBasicMaterial({ color: 0x4a2c3a, side: THREE.BackSide });
+const outlineMat = new THREE.MeshBasicMaterial({ color: 0x4a2c3a, side: THREE.BackSide }); keep.add(outlineMat);
 export function outline(m, s = 1.07) {
   if (STYLE !== 'toon') return m;
   const o = new THREE.Mesh(m.geometry, outlineMat);
@@ -92,20 +203,24 @@ export function canvasTex(w, h, draw, repeat) {
 
 let _glow, _star;
 export function glowTex() {
-  return _glow || (_glow = canvasTex(128, 128, (g, w, h) => {
+  if (_glow) return _glow;
+  _glow = canvasTex(128, 128, (g, w, h) => {
     const r = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
     r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.25, 'rgba(255,255,255,.55)'); r.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = r; g.fillRect(0, 0, w, h);
-  }));
+  });
+  keep.add(_glow); return _glow;
 }
 export function starTex() {
-  return _star || (_star = canvasTex(64, 64, (g, w, h) => {
+  if (_star) return _star;
+  _star = canvasTex(64, 64, (g, w, h) => {
     const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
     r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.3, 'rgba(255,255,255,.5)'); r.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = r; g.fillRect(0, 0, w, h);
     g.fillStyle = '#fff';
     g.beginPath(); g.moveTo(32, 2); g.quadraticCurveTo(34, 30, 62, 32); g.quadraticCurveTo(34, 34, 32, 62); g.quadraticCurveTo(30, 34, 2, 32); g.quadraticCurveTo(30, 30, 32, 2); g.fill();
-  }));
+  });
+  keep.add(_star); return _star;
 }
 
 export function glowSprite(color = 0xffffff, size = 3, opacity = 1) {
@@ -178,14 +293,18 @@ export class Fx {
   }
 }
 
-export const candyCaneTex = () => canvasTex(64, 128, (g, w, h) => {
+/** red-and-white stripes (one shared texture; clone it if you need a different repeat) */
+let _cane;
+export const candyCaneTex = () => _cane || (keep.add(_cane = canvasTex(64, 128, (g, w, h) => {
   g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.fillStyle = '#ff4d6d';
   for (let i = -2; i < 4; i++) { g.beginPath(); g.moveTo(0, i * 32); g.lineTo(w, i * 32 - 16); g.lineTo(w, i * 32 + 16); g.lineTo(0, i * 32 + 32); g.fill(); }
-});
-export const swirlTex = (a, b) => canvasTex(256, 256, (g, w, h) => {
+})), _cane);
+const _swirl = new Map();
+/** a lollipop swirl in two colours (shared per colour pair) */
+export const swirlTex = (a, b) => _swirl.get(a + b) || (_swirl.set(a + b, canvasTex(256, 256, (g, w, h) => {
   g.fillStyle = a; g.fillRect(0, 0, w, h); g.strokeStyle = b; g.lineWidth = 26; g.lineCap = 'round'; g.beginPath();
   for (let t = 0; t < 14; t += .05) { const r = t * 8; g.lineTo(w / 2 + Math.cos(t) * r, h / 2 + Math.sin(t) * r); } g.stroke();
-});
+})), keep.add(_swirl.get(a + b)), _swirl.get(a + b));
 
 export const RAINBOW =[0xff4d4d, 0xff9f2e, 0xffe14d, 0x5be37d, 0x4db8ff, 0xb07cff];
 export const CANDY = [0xff6fb5, 0xffd84d, 0x62e0d0, 0xb07cff, 0xff9f4d, 0xffffff];

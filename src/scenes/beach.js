@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, smooth, ease, glowSprite, stripedGeo, vertexToon, canvasTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, smooth, ease, glowSprite, stripedGeo, vertexToon, canvasTex, setStyle, shade, bakeStatic, RAINBOW, CANDY } from '../util.js';
 import { createAdult, createToddler } from '../characters.js';
 import { sfx, playMusic } from '../audio.js';
 import { model } from '../assets.js';
@@ -9,6 +9,7 @@ const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
 const SHORE = -2;
 const ORB = new THREE.Vector3(5, 0.9, -24);
+const _a = new THREE.Vector3(), _b = new THREE.Vector3();
 
 export class BeachScene extends BaseScene {
   constructor(game) {
@@ -35,6 +36,7 @@ export class BeachScene extends BaseScene {
     this.scene.children.forEach((c) => { if (c.isGroup && !c.userData.noShadow) shade(c); });
     shade(this.ball); this.stars.forEach((s) => shade(s));
     this.orb.userData.noShadow = true;
+    this.bakeMarked();
     this.addJackson();
   }
 
@@ -67,7 +69,7 @@ export class BeachScene extends BaseScene {
       const c = new THREE.Group();
       const n = 3 + Math.floor(Math.random() * 3);
       for (let k = 0; k < n; k++) c.add(mk(sph(rand(3, 5)), toon(0xffffff), [k * 4 - n * 2, rand(-.5, 1.2), rand(-1, 1)], [1.3, .8, .9]));
-      c.userData.noShadow = true;
+      c.userData.noShadow = true; c.userData.bake = true;
       c.position.set(rand(-160, 160), rand(24, 50), rand(-230, -110));
       this.clouds.push(c); this.scene.add(c);
     }
@@ -89,12 +91,12 @@ export class BeachScene extends BaseScene {
     this.scene.add(sand, wet, slope, floor);
 
     // dunes, shells and bumps for visual interest
-    for (let i = 0; i < 9; i++) {
-      const d = mk(sph(1), 0xffd68a, [rand(-40, 40), -.3, rand(14, 45)], [rand(4, 9), rand(.8, 1.6), rand(3, 6)]); this.scene.add(d); (this.dunes = this.dunes || []).push(d);
-    }
+    this.duneG = new THREE.Group(); this.duneG.userData.bake = true; this.scene.add(this.duneG);
+    for (let i = 0; i < 9; i++) this.duneG.add(mk(sph(1), 0xffd68a, [rand(-40, 40), -.3, rand(14, 45)], [rand(4, 9), rand(.8, 1.6), rand(3, 6)]));
+    const shells = new THREE.Group(); shells.userData.bake = true; this.scene.add(shells);
     for (let i = 0; i < 30; i++) {
       const s = mk(new THREE.ConeGeometry(.16, .22, 7), pick([0xff9fcb, 0xffffff, 0xffb86b, 0xc79bff]), [rand(-25, 25), .12, rand(0, 20)]);
-      s.rotation.set(rand(-.5, .5), rand(0, 6), rand(1, 2)); this.scene.add(s);
+      s.rotation.set(rand(-.5, .5), rand(0, 6), rand(1, 2)); shells.add(s);
     }
   }
 
@@ -176,11 +178,11 @@ export class BeachScene extends BaseScene {
     canopy.position.y = 3.5; u.add(canopy);
     u.add(mk(sph(.12), 0xffd84d, [0, 4.05, 0]));
     u.add(mk(new THREE.BoxGeometry(3.4, .06, 2.2), 0x5ec6ff, [0, .03, 0]), mk(new THREE.BoxGeometry(3.4, .065, .5), 0xffffff, [0, .031, 0]));
-    this.mom = createAdult('mom'); this.dad = createAdult('dad');
+    this.mom = createAdult('mom'); this.dad = createAdult('dad'); this.mom.userData.dynamic = this.dad.userData.dynamic = true;
     this.mom.position.set(-.9, .06, .1); this.dad.position.set(.9, .06, .1);
     this.mom.rotation.y = .3; this.dad.rotation.y = -.3; this.mom.scale.setScalar(1); this.dad.scale.setScalar(1.08);
     u.add(this.mom, this.dad);
-    this.parents = u;
+    this.parents = u; u.userData.bake = true;
     this.addInteractive(u, () => this.tapParents(), 2.6, [0, 1.4, 0]);
 
     // beach ball
@@ -197,8 +199,8 @@ export class BeachScene extends BaseScene {
       c.add(mk(cyl(.4, .45, 1.3, 10), sc, [x * .75, .65, z * .75]), mk(new THREE.ConeGeometry(.45, .6, 10), 0x62d0e0, [x * .75, 1.6, z * .75]));
     }
     c.add(mk(cyl(.03, .03, 1.1, 6), 0xffffff, [0, 3.4, 0]));
-    this.flag = mk(new THREE.PlaneGeometry(.8, .5), toon(0xffd84d, { side: THREE.DoubleSide }), [.4, 3.7, 0]);
-    c.add(this.flag); this.castle = c;
+    this.flag = mk(new THREE.PlaneGeometry(.8, .5), toon(0xffd84d, { side: THREE.DoubleSide }), [.4, 3.7, 0]); this.flag.userData.dynamic = true;
+    c.add(this.flag); this.castle = c; c.userData.bake = true;
     this.addInteractive(c, () => this.tapCastle(), 2.4, [0, 1.5, 0]);
 
     // starfish
@@ -274,6 +276,7 @@ export class BeachScene extends BaseScene {
     const isle = new THREE.Group(); isle.position.set(-62, -.2, -110); isle.userData.noShadow = true; this.scene.add(isle);
     isle.add(mk(sph(16, 24, 12), 0xffe2a6, [0, -4, 0], [1.6, .55, 1.1]), mk(sph(11, 20, 10), 0x5fd47a, [-2, -1, 0], [1.5, .6, 1]));
     for (let i = 0; i < 6; i++) { const p = model(`nature/${pick(['tree_palmTall', 'tree_palmBend', 'tree_palmDetailedTall'])}`, { height: rand(11, 16), glossy: false }); if (p) { p.position.set(rand(-14, 12), 2.2, rand(-5, 5)); p.rotation.y = rand(0, 6); isle.add(p); } }
+    bakeStatic(isle);
     const isle2 = isle.clone(); isle2.scale.setScalar(.55); isle2.position.set(70, -.2, -135); this.scene.add(isle2);
 
     const boat = this.boat = new THREE.Group(); boat.position.set(-30, 0, -62); boat.userData.noShadow = true; this.scene.add(boat);
@@ -281,7 +284,7 @@ export class BeachScene extends BaseScene {
     const sail = (pts, col) => { const s = new THREE.Shape(); s.moveTo(...pts[0]); pts.slice(1).forEach((p) => s.lineTo(...p)); return mk(new THREE.ShapeGeometry(s), toon(col, { side: THREE.DoubleSide })); };
     const sailA = sail([[0, 1], [0, 6.5], [2.8, 1]], 0xffffff); sailA.position.x = .2;
     const sailB = sail([[0, 1], [0, 5], [-2, 1]], 0xff9fcb); sailB.position.x = -.2;
-    boat.add(sailA, sailB);
+    boat.add(sailA, sailB); boat.userData.bake = true;
     this.addInteractive(boat, () => this.tapBoat(), 7, [0, 3, 0]);
 
     this.birds = [];
@@ -307,9 +310,10 @@ export class BeachScene extends BaseScene {
 
   /** Real rocks, bushes, flowers and a canoe from the free Kenney Nature Kit (skipped quietly if they didn't load). */
   addNatureProps() {
+    const props = new THREE.Group(); props.userData.bake = true; this.scene.add(props);     // rocks, bushes and flowers merge into a few meshes
     const put = (name, x, z, h, ry = rand(0, 6), glossy = false) => {
       const m = model(`nature/${name}`, { size: h, glossy }); if (!m) return null;
-      m.position.set(x, 0, z); m.rotation.y = ry; this.scene.add(m); return m;
+      m.position.set(x, 0, z); m.rotation.y = ry; props.add(m); return m;
     };
     [[-34, -1], [32, -1.5], [-27, 0.5], [27, 1]].forEach(([x, z], i) => put(i % 2 ? 'stone_largeB' : 'rock_largeA', x, z, rand(2.2, 3.4)));
     for (let i = 0; i < 10; i++) put(pick(['rock_smallA', 'rock_smallB', 'stone_smallA']), rand(-36, 36), rand(-1.4, 1.2), rand(.5, 1));
@@ -381,7 +385,7 @@ export class BeachScene extends BaseScene {
       const body = mk(new THREE.ConeGeometry(.55, 1.2, 12), col, [0, .55, 0]); body.rotation.x = -.5; g.add(body);
       for (let k = 0; k < 4; k++) { const r = mk(new THREE.TorusGeometry(.5 - k * .1, .05, 6, 14), 0xffffff, [0, .3 + k * .22, -.1 - k * .08]); r.rotation.x = Math.PI / 2 - .5; g.add(r); }
       g.add(mk(sph(.22, 10, 8), 0xffffff, [0, .15, .45]));
-      g.userData.note = i; this.shells.push(g);
+      g.userData.note = i; g.userData.bake = true; this.shells.push(g);
       this.addInteractive(g, () => this.tapShell(g), 1.5, [0, .6, 0]);
     });
     this.fishes = [0, 1, 2].map((i) => {
@@ -389,7 +393,7 @@ export class BeachScene extends BaseScene {
       const c = [0xff6fb5, 0xffd84d, 0x62e0d0][i];
       f.add(mk(sph(.5, 12, 8), c, [0, 0, 0], [1.6, .8, .5]), mk(new THREE.ConeGeometry(.4, .7, 4), c, [-1, 0, 0]).rotateZ(Math.PI / 2), mk(sph(.07), 0x222222, [.55, .12, .22]), mk(sph(.07), 0x222222, [.55, .12, -.22]));
       f.add(mk(new THREE.ConeGeometry(.25, .5, 4), 0xffffff, [0, .55, 0]));
-      this.scene.add(f);
+      f.userData.bake = true; this.scene.add(f);
       const o = { m: f, wait: 3 + i * 3, jumping: false, t: 0, x0: 0, z0: 0 };
       this.addInteractive(f, () => this.tapFish(o), 1.8);
       return o;
@@ -600,13 +604,11 @@ export class BeachScene extends BaseScene {
   tapPalm(p) {
     this.touch(); sfx.bonk();
     this.tm.tween(.8, (k) => { p.userData.top.rotation.z = Math.sin(k * 30) * .08 * (1 - k); p.userData.trunk.rotation.z = Math.sin(k * 30) * .02 * (1 - k); });
-    const nut = mk(sph(.3), 0x6b4423);
-    const tp = new THREE.Vector3(); p.userData.top.getWorldPosition(tp);
-    nut.position.copy(tp).add(new THREE.Vector3(.5, -.3, 1)); this.scene.add(nut);
-    let vy = 0, vx = rand(.5, 1.5), vz = 2, bounces = 0;
-    const id = setInterval(() => {}, 1e9); clearInterval(id);
     this.coconuts = this.coconuts || [];
-    this.coconuts.push({ m: nut, vy, vx, vz, bounces });
+    // at most 6 coconuts on the sand: the oldest one is picked up and dropped again
+    const old = this.coconuts.length >= 6 ? this.coconuts.shift() : null, nut = old ? old.m : mk(sph(.3), 0x6b4423);
+    p.userData.top.getWorldPosition(nut.position); nut.position.add(_a.set(.5, -.3, 1)); if (!old) this.scene.add(nut);
+    this.coconuts.push({ m: nut, vy: 0, vx: rand(.5, 1.5), vz: 2, bounces: 0 });
   }
   tapOrb() {
     if (this.phase !== 'play' || this.autopilot) return;
@@ -634,7 +636,7 @@ export class BeachScene extends BaseScene {
     this.orb.position.y = ORB.y + Math.sin(t * 1.6) * .35;
     this.orbCore.rotation.y = t * 1.5; this.orbCore.rotation.x = t * .8;
     const pulse = 1.5 + Math.sin(t * 5) * .18; this.orb.scale.setScalar(pulse);
-    if (Math.random() < dt * 3) this.fx.burst(this.orb.position.clone().add(new THREE.Vector3(rand(-1.5, 1.5), rand(-1, 2), rand(-1, 1))), { count: 2, colors: [0xffffff, 0xffe14d], speed: .6, gravity: 0, life: 1.1, size: .6 });
+    if (Math.random() < dt * 3) this.fx.burst(_a.copy(this.orb.position).add(_b.set(rand(-1.5, 1.5), rand(-1, 2), rand(-1, 1))), { count: 2, colors: [0xffffff, 0xffe14d], speed: .6, gravity: 0, life: 1.1, size: .6 });
 
     // critters
     this.crabs.forEach((c) => {
@@ -685,8 +687,8 @@ export class BeachScene extends BaseScene {
       const L = P.leader.root.position;
       const k = 1 - Math.exp(-3 * dt);
       const gx = clamp(L.x, -26, 26);
-      this.camera.position.lerp(new THREE.Vector3(gx, 5.2 + Math.max(0, -L.z - 6) * .1, L.z + 11.5), k);
-      this.look.lerp(new THREE.Vector3(gx, 1.6, L.z - 4), k);
+      this.camera.position.lerp(_a.set(gx, 5.2 + Math.max(0, -L.z - 6) * .1, L.z + 11.5), k);
+      this.look.lerp(_b.set(gx, 1.6, L.z - 4), k);
       this.camera.lookAt(this.look);
       if (this.autopilot && !this.diving && Math.hypot(L.x - ORB.x, L.z - ORB.z) < 2.8) this.dive();
     }

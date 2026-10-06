@@ -45,8 +45,8 @@ export function createSkinnedRig(template, o) {
   const bp = (c) => R[ubc ? UBC[clean(c)] : clean(c)] || V();
   const s = 2.75 / bp('DEF-hips').y; holder.scale.setScalar(s); root.updateMatrixWorld(true);
   const rest = {}; Object.values(B).forEach((b) => (rest[b.name] = { q: b.quaternion.clone(), p: b.position.clone() }));
-  const wp = (b) => b.getWorldPosition(V()), wq = (b) => b.getWorldQuaternion(new THREE.Quaternion());
-  const restWQ = {}; Object.values(B).forEach((b) => (restWQ[b.name] = wq(b)));
+  const wp = (b, out = V()) => b.getWorldPosition(out), wq = (b, out = new THREE.Quaternion()) => b.getWorldQuaternion(out);
+  const restWQ = {}, restWQinv = {}; Object.values(B).forEach((b) => { restWQ[b.name] = wq(b); restWQinv[b.name] = restWQ[b.name].clone().invert(); });
 
   // ---- skin: the body's texture, re-tinted to any skin tone ----
   const skinTarget = new THREE.Color(o.skin), tint = new THREE.Color(skinTarget.r / SKIN_AVG.r, skinTarget.g / SKIN_AVG.g, skinTarget.b / SKIN_AVG.b);
@@ -258,17 +258,28 @@ export function createSkinnedRig(template, o) {
   }
 
   // ---- posing: copy the captured limb directions and body orientation, so differences in body proportions do not matter ----
-  const tw = (p) => root.localToWorld(p.clone());
-  function setWorldQ(bone, q) { bone.updateWorldMatrix(true, false); const pq = bone.parent.getWorldQuaternion(new THREE.Quaternion()); bone.quaternion.copy(pq.invert().multiply(q)); bone.updateMatrixWorld(true); }
-  const applyWorld = (bone, q) => setWorldQ(bone, q.clone().multiply(wq(bone)));
+  // (this runs every frame for both players, so it reuses scratch objects instead of allocating ~200 per pose)
+  const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion(), _qd = new THREE.Quaternion(), _qe = new THREE.Quaternion(), _qf = new THREE.Quaternion();
+  const _va = V(), _vb = V(), _vc = V(), _vd = V(), _ve = V(), _vf = V(), _vg = V(), _vt = V(), _dir = V(), _up = V(), _lf = V(), _m4 = new THREE.Matrix4(), Y = V(0, 1, 0);
+  const tw = (p) => root.localToWorld(_vt.copy(p));
+  function setWorldQ(bone, q) { bone.parent.getWorldQuaternion(_qa); bone.quaternion.copy(_qa.invert().multiply(q)); bone.updateMatrixWorld(true); }
+  const applyWorld = (bone, q) => setWorldQ(bone, _qb.copy(q).multiply(wq(bone, _qc)));
   function aimDir(bone, child, dir) {
-    bone.updateWorldMatrix(true, true); const cur = wp(child).sub(wp(bone)); if (cur.lengthSq() < 1e-8 || dir.lengthSq() < 1e-8) return;
-    applyWorld(bone, new THREE.Quaternion().setFromUnitVectors(cur.normalize(), dir.clone().normalize()));
+    const cur = wp(child, _va).sub(wp(bone, _vb)); if (cur.lengthSq() < 1e-8 || dir.lengthSq() < 1e-8) return;     // (getWorldPosition refreshes the parent chain itself)
+    applyWorld(bone, _qd.setFromUnitVectors(cur.normalize(), _vc.copy(dir).normalize()));
   }
   // an orientation from a "left" direction and an "up" direction (forward = left x up, matching a body that faces +Z at rest)
-  const basisQ = (left, up) => { const u = up.clone().normalize(), l = left.clone().sub(u.clone().multiplyScalar(left.dot(u))).normalize(), f = l.clone().cross(u); return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(l, u, f)); };
+  const basisQ = (left, up, out = new THREE.Quaternion()) => { const u = _vd.copy(up).normalize(), l = _ve.copy(left).addScaledVector(u, -left.dot(u)).normalize(), f = _vg.copy(l).cross(u); return out.setFromRotationMatrix(_m4.makeBasis(l, u, f)); };
   const restUp = wp(gb('DEF-neck')).sub(wp(gb('DEF-hips'))), restChestUp = wp(gb('DEF-spine.003')).sub(wp(gb('DEF-hips')));
   const restH = basisQ(wp(gb('DEF-thigh.L')).sub(wp(gb('DEF-thigh.R'))), restChestUp), restS = basisQ(wp(gb('DEF-upper_arm.L')).sub(wp(gb('DEF-upper_arm.R'))), restUp);
+  const restHinv = restH.clone().invert(), restSinv = restS.clone().invert(), boneList = Object.values(B);
+  const limbs = ['L', 'R'].map((k) => {
+    const l = k.toLowerCase(), b = (n) => gb(`DEF-${n}.${k}`);
+    return { shoulder: b('shoulder'), upper: b('upper_arm'), fore: b('forearm'), hand: b('hand'), mid: b('f_middle.01'), thigh: b('thigh'), shin: b('shin'), foot: b('foot'), toe: b('toe'),
+      sh: l + 'sh', el: l + 'el', wr: l + 'wr', fin: l + 'fin', kn: l + 'knee', an: l + 'ankle', to: l + 'toe', hp: l + 'hip' };
+  });
+  const hipsB = gb('DEF-hips'), spineB = gb('DEF-spine.001'), neckB = gb('DEF-neck'), headB = gb('DEF-head');
+  const res = { L: V(), R: V(), gL: V(), gR: V() };          // drive() fills and returns this same object every frame
   const curl = o.curl ?? 0;
   // fingers curl toward the palm (palms face down in the rest pose): the curl axis is found from each finger's own direction
   const curlers = [];
@@ -281,37 +292,39 @@ export function createSkinnedRig(template, o) {
   const rig = {
     root, skinned: true, B, hs, hc, meshes, gb, wp,
     /** how far a hand has turned from its rest orientation, in the rig's own space (to orient things held in it) */
-    handQ(K) { const b = gb(`DEF-hand.${K}`), rq = root.getWorldQuaternion(new THREE.Quaternion()).invert(); return rq.multiply(wq(b).multiply(restWQ[b.name].clone().invert())); },
+    handQ(K, out = new THREE.Quaternion()) { const b = limbs[K === 'L' ? 0 : 1].hand; root.getWorldQuaternion(out).invert(); return out.multiply(wq(b, _qf).multiply(restWQinv[b.name])); },
     drive(F, headYaw = 0) {
-      Object.values(B).forEach((b) => { b.quaternion.copy(rest[b.name].q); b.position.copy(rest[b.name].p); });
+      for (const b of boneList) { const r = rest[b.name]; b.quaternion.copy(r.q); b.position.copy(r.p); }
       root.updateMatrixWorld(true);
-      const hips = gb('DEF-hips'); hips.parent.updateWorldMatrix(true, false); hips.position.copy(hips.parent.worldToLocal(tw(F.hips))); hips.updateMatrixWorld(true);
+      const hips = hipsB; hips.parent.updateWorldMatrix(true, false); hips.position.copy(hips.parent.worldToLocal(tw(F.hips))); hips.updateMatrixWorld(true);
       // hips and spine take the captured body orientation
-      const up = F.neck.clone().sub(F.hips), sp = gb('DEF-spine.001');
-      setWorldQ(hips, basisQ(F.lhip.clone().sub(F.rhip), F.chest.clone().sub(F.hips)).multiply(restH.clone().invert()).multiply(restWQ[hips.name]));
-      setWorldQ(sp, basisQ(F.lsh.clone().sub(F.rsh), up).multiply(restS.clone().invert()).multiply(restWQ[sp.name]));
+      _up.subVectors(F.neck, F.hips);
+      setWorldQ(hips, basisQ(_lf.subVectors(F.lhip, F.rhip), _dir.subVectors(F.chest, F.hips), _qe).multiply(restHinv).multiply(restWQ[hips.name]));
+      setWorldQ(spineB, basisQ(_lf.subVectors(F.lsh, F.rsh), _up, _qe).multiply(restSinv).multiply(restWQ[spineB.name]));
       // neck and head (the face keeps looking where headYaw says)
-      aimDir(gb('DEF-neck'), gb('DEF-head'), F.head.clone().sub(F.neck));
-      const head = gb('DEF-head'), fw = V(0, 0, 1).applyQuaternion(wq(head).multiply(restWQ[head.name].clone().invert())); fw.y = 0; fw.normalize();
-      const des = V(-Math.sin(headYaw), 0, -Math.cos(headYaw)); let dy = Math.atan2(fw.x * des.z - fw.z * des.x, fw.x * des.x + fw.z * des.z); dy = clamp(dy, -1.2, 1.2);
-      applyWorld(head, new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -dy));
+      aimDir(neckB, headB, _dir.subVectors(F.head, F.neck));
+      const fw = _vf.set(0, 0, 1).applyQuaternion(wq(headB, _qf).multiply(restWQinv[headB.name])); fw.y = 0; fw.normalize();
+      const dx = -Math.sin(headYaw), dz = -Math.cos(headYaw); let dy = Math.atan2(fw.x * dz - fw.z * dx, fw.x * dx + fw.z * dz); dy = clamp(dy, -1.2, 1.2);
+      applyWorld(headB, _qe.setFromAxisAngle(Y, -dy));
       // arms and legs follow the captured bone directions
-      [['L', F.lsh, F.lel, F.lwr, F.lfin, F.lknee, F.lankle, F.ltoe, F.lhip], ['R', F.rsh, F.rel, F.rwr, F.rfin, F.rknee, F.rankle, F.rtoe, F.rhip]].forEach(([k, sh, el, wr, fin, kn, an, to, hp]) => {
-        aimDir(gb(`DEF-shoulder.${k}`), gb(`DEF-upper_arm.${k}`), sh.clone().sub(F.neck));
-        aimDir(gb(`DEF-upper_arm.${k}`), gb(`DEF-forearm.${k}`), el.clone().sub(sh));
-        aimDir(gb(`DEF-forearm.${k}`), gb(`DEF-hand.${k}`), wr.clone().sub(el));
-        aimDir(gb(`DEF-hand.${k}`), gb(`DEF-f_middle.01.${k}`), fin.clone().sub(wr));
-        aimDir(gb(`DEF-thigh.${k}`), gb(`DEF-shin.${k}`), kn.clone().sub(hp));
-        aimDir(gb(`DEF-shin.${k}`), gb(`DEF-foot.${k}`), an.clone().sub(kn));
-        aimDir(gb(`DEF-foot.${k}`), gb(`DEF-toe.${k}`), to.clone().sub(an));
-      });
-      if (curl) curlers.forEach((c) => { c.b.quaternion.multiply(tmpQ.setFromAxisAngle(c.axis, curl * c.k)); });
+      for (const L of limbs) {
+        aimDir(L.shoulder, L.upper, _dir.subVectors(F[L.sh], F.neck));
+        aimDir(L.upper, L.fore, _dir.subVectors(F[L.el], F[L.sh]));
+        aimDir(L.fore, L.hand, _dir.subVectors(F[L.wr], F[L.el]));
+        aimDir(L.hand, L.mid, _dir.subVectors(F[L.fin], F[L.wr]));
+        aimDir(L.thigh, L.shin, _dir.subVectors(F[L.kn], F[L.hp]));
+        aimDir(L.shin, L.foot, _dir.subVectors(F[L.an], F[L.kn]));
+        aimDir(L.foot, L.toe, _dir.subVectors(F[L.to], F[L.an]));
+      }
+      if (curl) for (const c of curlers) c.b.quaternion.multiply(tmpQ.setFromAxisAngle(c.axis, curl * c.k));
       root.updateMatrixWorld(true);
       // keep the feet on the ground whatever the proportions
-      const toeY = Math.min(wp(gb('DEF-toe.L')).y, wp(gb('DEF-toe.R')).y), want = root.getWorldPosition(V()).y + toeH, shift = want - toeY;
+      const toeY = Math.min(wp(limbs[0].toe, _va).y, wp(limbs[1].toe, _vb).y), want = root.getWorldPosition(_vc).y + toeH, shift = want - toeY;
       if (Math.abs(shift) < 1.5) { hips.position.y += shift / holder.scale.x; root.updateMatrixWorld(true); }
-      const grip = (K) => { const h = gb(`DEF-hand.${K}`), m = gb(`DEF-f_middle.01.${K}`), hp = wp(h), c = hp.clone().lerp(wp(m), .55), pn = V(0, -1, 0).applyQuaternion(wq(h).multiply(restWQ[h.name].clone().invert())); return root.worldToLocal(c.addScaledVector(pn, .055 * s)); };
-      return { L: root.worldToLocal(wp(gb('DEF-hand.L'))), R: root.worldToLocal(wp(gb('DEF-hand.R'))), gL: grip('L'), gR: grip('R') };
+      // the grip: between the palm and the middle finger, a touch off the palm
+      const grip = (L, out) => { const c = wp(L.hand, _va).lerp(wp(L.mid, _vb), .55), pn = _vc.set(0, -1, 0).applyQuaternion(wq(L.hand, _qf).multiply(restWQinv[L.hand.name])); return root.worldToLocal(out.copy(c).addScaledVector(pn, .055 * s)); };
+      root.worldToLocal(wp(limbs[0].hand, res.L)); root.worldToLocal(wp(limbs[1].hand, res.R)); grip(limbs[0], res.gL); grip(limbs[1], res.gR);
+      return res;
     },
   };
   return rig;

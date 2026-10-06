@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mk, canvasTex, rand, pick } from './util.js';
+import { mk, canvasTex, rand, pick, shared } from './util.js';
 
 // Candy the girls love, built from simple shapes: gummies, gummy worms, sour gummy kids, nerd-style candy boxes, sour rings and straws.
 // Also party things for the truck: gift boxes, teddy bears, balloons.
@@ -14,14 +14,18 @@ const sugarTex = () => _sugar || (_sugar = canvasTex(128, 128, (g, w, h) => {
   for (let i = 0; i < 160; i++) { g.fillStyle = 'rgba(255,255,255,1)'; g.fillRect(Math.random() * w, Math.random() * h, 2.5, 2.5); }
 }, [2, 2]));
 
-/** shiny jelly-like gummy */
-const gummy = (color, opts = {}) => new THREE.MeshPhysicalMaterial({ color, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.06, emissive: color, emissiveIntensity: 0.14, ...opts });
+/** shiny jelly-like gummy (one shared material per colour + recipe) */
+const makeGummy = (color, opts = {}) => new THREE.MeshPhysicalMaterial({ color, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.06, emissive: color, emissiveIntensity: 0.14, ...opts });
+const gummy = (color, opts = {}) => shared(makeGummy, new THREE.Color(color).getHex(), opts);
 /** sour sugar-coated candy */
-const sour = (color) => new THREE.MeshPhysicalMaterial({ color, map: sugarTex(), roughness: 0.55, clearcoat: 0.15, emissive: color, emissiveIntensity: 0.1 });
-const dark = new THREE.MeshBasicMaterial({ color: 0x2a1418 });
+const makeSour = (color) => new THREE.MeshPhysicalMaterial({ color, map: sugarTex(), roughness: 0.55, clearcoat: 0.15, emissive: color, emissiveIntensity: 0.1 });
+const sour = (color) => shared(makeSour, new THREE.Color(color).getHex());
+const dark = shared(function makeDark() { return new THREE.MeshBasicMaterial({ color: 0x2a1418 }); });
+const shine = shared(function makeShine() { return new THREE.MeshBasicMaterial({ color: 0xffffff }); });
+const makeLid = () => new THREE.MeshStandardMaterial({ color: 0xffffff });
 
 function face(g, y, z, r = .06) {
-  for (const s of [-1, 1]) g.add(mk(sph(r, 8, 6), dark, [s * r * 2.2, y, z]), mk(sph(r * .35, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), [s * r * 2.2 + r * .3, y + r * .4, z + r * .8]));
+  for (const s of [-1, 1]) g.add(mk(sph(r, 8, 6), dark, [s * r * 2.2, y, z]), mk(sph(r * .35, 6, 4), shine, [s * r * 2.2 + r * .3, y + r * .4, z + r * .8]));
   const sm = mk(new THREE.TorusGeometry(r * 1.6, r * .28, 6, 12, Math.PI), dark, [0, y - r * 2.2, z]); sm.rotation.z = Math.PI; g.add(sm);
 }
 
@@ -65,8 +69,8 @@ function sourKid(c = pick(GUMMY)) {
 function nerds(c1 = pick(GUMMY), c2 = pick(GUMMY)) {
   const g = new THREE.Group();
   g.add(mk(new THREE.BoxGeometry(.55, 1.5, .55), gummy(c1, { roughness: .35 }), [-.28, .8, 0]), mk(new THREE.BoxGeometry(.55, 1.5, .55), gummy(c2, { roughness: .35 }), [.28, .8, 0]));
-  g.add(mk(new THREE.BoxGeometry(1.12, .18, .57), new THREE.MeshStandardMaterial({ color: 0xffffff }), [0, 1.6, 0]));
-  for (let i = 0; i < 22; i++) g.add(mk(sph(rand(.05, .09), 6, 5), gummy(pick(GUMMY), { emissiveIntensity: .25 }), [rand(-.8, .8), .09, rand(-.5, .9)]));       // little pellets spilling out
+  g.add(mk(new THREE.BoxGeometry(1.12, .18, .57), shared(makeLid), [0, 1.6, 0]));
+  for (let i = 0; i < 22; i++) g.add(mk(sph(rand(.05, .09), 6, 5), gummy(GUMMY[i % GUMMY.length], { emissiveIntensity: .25 }), [rand(-.8, .8), .09, rand(-.5, .9)]));       // little pellets spilling out
   return g;
 }
 
@@ -89,22 +93,24 @@ export const CANDY_KINDS = {
 export const makeCandy = (kind) => CANDY_KINDS[kind].make();
 
 // ---------- party things the truck brings besides candy ----------
+const phys = (o) => new THREE.MeshPhysicalMaterial(o);
+const P = (o) => shared(phys, o);            // a shared MeshPhysicalMaterial per recipe
 export function makeGift(c = pick(GUMMY)) {
-  const g = new THREE.Group(), ribbon = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .3, clearcoat: .6 });
-  g.add(mk(new THREE.BoxGeometry(1, .8, 1), new THREE.MeshPhysicalMaterial({ color: c, roughness: .35, clearcoat: .5 }), [0, .4, 0]), mk(new THREE.BoxGeometry(1.06, .18, 1.06), new THREE.MeshPhysicalMaterial({ color: c, roughness: .35 }), [0, .85, 0]));
+  const g = new THREE.Group(), ribbon = P({ color: 0xffffff, roughness: .3, clearcoat: .6 });
+  g.add(mk(new THREE.BoxGeometry(1, .8, 1), P({ color: c, roughness: .35, clearcoat: .5 }), [0, .4, 0]), mk(new THREE.BoxGeometry(1.06, .18, 1.06), P({ color: c, roughness: .35 }), [0, .85, 0]));
   g.add(mk(new THREE.BoxGeometry(.18, .98, 1.08), ribbon, [0, .45, 0]), mk(new THREE.BoxGeometry(1.08, .98, .18), ribbon, [0, .45, 0]));
   g.add(mk(sph(.17, 10, 8), ribbon, [-.15, 1.02, 0], [1.2, .8, .8]), mk(sph(.17, 10, 8), ribbon, [.15, 1.02, 0], [1.2, .8, .8]));
   return g;
 }
 export function makeTeddy(c = 0xc98a4b) {
-  const g = new THREE.Group(), m = new THREE.MeshPhysicalMaterial({ color: c, roughness: .85, sheen: 1, sheenColor: new THREE.Color(0xffe0b0) }), lt = new THREE.MeshPhysicalMaterial({ color: 0xf4d6a8, roughness: .85 });
+  const g = new THREE.Group(), m = P({ color: c, roughness: .85, sheen: 1, sheenColor: 0xffe0b0 }), lt = P({ color: 0xf4d6a8, roughness: .85 });
   g.add(mk(sph(.5, 16, 12), m, [0, .55, 0], [1, 1.1, .9]), mk(sph(.38, 16, 12), m, [0, 1.3, 0]), mk(sph(.28, 12, 8), lt, [0, .5, .36], [1, 1.1, .5]), mk(sph(.16, 10, 8), lt, [0, 1.2, .32], [1.2, .9, .8]), mk(sph(.06, 8, 6), dark, [0, 1.25, .46]));
   for (const s of [-1, 1]) g.add(mk(sph(.14), m, [s * .27, 1.6, 0]), mk(sph(.07, 8, 6), dark, [s * .14, 1.38, .33]), mk(sph(.17, 10, 8), m, [s * .52, .75, .1]), mk(sph(.2, 10, 8), m, [s * .3, .12, .15]));
-  g.add(mk(new THREE.TorusGeometry(.3, .06, 6, 16), new THREE.MeshPhysicalMaterial({ color: 0xff4d6d, roughness: .4 }), [0, 1.0, 0]).rotateX(Math.PI / 2));   // bow
+  g.add(mk(new THREE.TorusGeometry(.3, .06, 6, 16), P({ color: 0xff4d6d, roughness: .4 }), [0, 1.0, 0]).rotateX(Math.PI / 2));   // bow
   return g;
 }
 export function makeBalloon(c = pick(GUMMY)) {
   const g = new THREE.Group();
-  g.add(mk(sph(.55, 16, 12), new THREE.MeshPhysicalMaterial({ color: c, roughness: .15, clearcoat: 1 }), [0, 3, 0], [1, 1.2, 1]), mk(cyl(.01, .01, 3, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), [0, 1.5, 0]));
+  g.add(mk(sph(.55, 16, 12), P({ color: c, roughness: .15, clearcoat: 1 }), [0, 3, 0], [1, 1.2, 1]), mk(cyl(.01, .01, 3, 4), shine, [0, 1.5, 0]));
   return g;
 }
