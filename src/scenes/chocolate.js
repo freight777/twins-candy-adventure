@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, makeSky, makeClouds, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic, voice } from '../audio.js';
 import { levelOf, recordItem, recordSkill } from '../learn/profile.js';
 import { renderShow } from '../learn/frame.js';
@@ -30,7 +30,6 @@ export class ChocolateScene extends BaseScene {
     this.pending = null;
     this.edibles = [];
     this.idle = 0;
-    this.wander = [];
     setStyle('candy');                      // this room gets the glossy, film-like look
     try {
       this.buildSky();
@@ -70,18 +69,9 @@ export class ChocolateScene extends BaseScene {
 
   // ===================================================================== build
   buildSky() {
-    this.scene.add(new THREE.Mesh(new THREE.SphereGeometry(500, 32, 16), new THREE.ShaderMaterial({
-      side: THREE.BackSide, depthWrite: false,
-      vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-      fragmentShader: `varying vec3 vP; void main(){ float h = clamp(vP.y*1.6+.1,0.,1.);
-        vec3 c = mix(vec3(1.,.92,.9), vec3(.55,.8,1.), pow(h,.7)); gl_FragColor = vec4(c,1.); }`,
-    })));
-    this.clouds = [];
-    for (let i = 0; i < 8; i++) {
-      const c = new THREE.Group();
-      for (let k = 0; k < 4; k++) c.add(mk(sph(rand(3, 5)), toon(pick([0xffffff, 0xffe3f1, 0xe8f4ff])), [k * 4 - 6, rand(-.5, 1), rand(-1, 1)], [1.3, .8, .9]));
-      c.position.set(rand(-150, 150), rand(30, 55), rand(-220, -90)); c.userData.noShadow = true; c.userData.bake = true; this.clouds.push(c); this.scene.add(c); this.addInteractive(c, () => this.tapCloud(c), 11);
-    }
+    this.scene.add(makeSky({ horizon: [1, .92, .9], zenith: [.55, .8, 1] }));
+    this.clouds = makeClouds(this.scene, 8, { colors: [0xffffff, 0xffe3f1, 0xe8f4ff], x: [-150, 150], y: [30, 55], z: [-220, -90] });
+    this.clouds.forEach((c) => this.addInteractive(c, () => this.tapCloud(c), 11));
   }
 
   buildGround() {
@@ -169,15 +159,10 @@ export class ChocolateScene extends BaseScene {
     this.mush = [];
     [[-9, 3], [8, 5], [-22, -2], [23, 3]].forEach(([x, z]) => {
       const g = new THREE.Group(); g.position.set(x, 0, z); this.scene.add(g);
-      const real = null;   // (the Kenney mushroom looked too pale next to the candy, so we keep our own red-and-white one)
-      let cap;
-      if (real) { real.rotation.y = rand(0, 6); g.add(real); cap = real; }
-      else {
-        g.add(outline(mk(cyl(.5, .7, 2.2, 12), 0xfff4e0, [0, 1.1, 0]), 1.05));
-        cap = outline(mk(sph(2, 20, 12), 0xff4d6d, [0, 2.4, 0], [1, .6, 1]), 1.03); cap.userData.dynamic = true; g.add(cap);
-        for (let k = 0; k < 6; k++) { const a = k * 1.05; g.add(mk(sph(.28, 8, 6), 0xffffff, [Math.cos(a) * 1.2, 3.1 + Math.sin(a * 2) * .1, Math.sin(a) * 1.2], [1, .5, 1])); }
-      }
-      g.userData.cap = cap; g.userData.real = !!real; g.userData.bake = true; this.mush.push(g);
+      g.add(outline(mk(cyl(.5, .7, 2.2, 12), 0xfff4e0, [0, 1.1, 0]), 1.05));
+      const cap = outline(mk(sph(2, 20, 12), 0xff4d6d, [0, 2.4, 0], [1, .6, 1]), 1.03); cap.userData.dynamic = true; g.add(cap);
+      for (let k = 0; k < 6; k++) { const a = k * 1.05; g.add(mk(sph(.28, 8, 6), 0xffffff, [Math.cos(a) * 1.2, 3.1 + Math.sin(a * 2) * .1, Math.sin(a) * 1.2], [1, .5, 1])); }
+      g.userData.cap = cap; g.userData.bake = true; this.mush.push(g);
       this.addInteractive(g, () => this.tapMush(g), 2, [0, 2.2, 0]);
     });
     // singing daisies
@@ -368,12 +353,8 @@ export class ChocolateScene extends BaseScene {
   tapMush(m) {
     this.touch(); sfx.boing();
     this.fx.burst(m.position.clone().add(new THREE.Vector3(0, 3.5, 0)), { count: 24, colors: [0xff4d6d, 0xffffff, 0xffe14d], speed: 4, gravity: -5, life: 1.1 });
-    const cap = m.userData.cap, real = m.userData.real, b = real ? cap.userData.baseScale : 1;
-    this.tm.tween(.8, (k) => {
-      const w = Math.sin(k * Math.PI * 4) * .18 * (1 - k);
-      if (real) cap.scale.set(b * (1 + w), b * (1 - w * 1.2), b * (1 + w));      // squash and stretch the whole mushroom
-      else cap.scale.set(1 + w, .6 - w * 1.1, 1 + w);
-    });
+    const cap = m.userData.cap;
+    this.tm.tween(.8, (k) => { const w = Math.sin(k * Math.PI * 4) * .18 * (1 - k); cap.scale.set(1 + w, .6 - w * 1.1, 1 + w); });   // squash and stretch the cap
   }
   tapDaisy(d) {
     this.touch(); sfx.note(d.userData.note);
@@ -474,8 +455,8 @@ export class ChocolateScene extends BaseScene {
     const G = this.game;
     G.ui.eat(false); G.ui.hideHint(); this.hintOn = false;
     sfx.chime();
-    G.ui.message('\u{1F3B2}\u{1F3C1}', 'Ready to play Candyland?', "Let's go!", () => {
+    G.ui.message('\u{1F3B2}\u{1F3C1}', 'Ready to play Candyland?', "\u{1F680} Let's go!", () => {
       sfx.tada(); G.party.frozen = true; G.goto('board', { flash: '#ffd9f0' });
-    }, 'Not yet', () => { G.party.walkTo(PAD.x - 6, PAD.z + 3); this.tm.after(1.5, () => (this.starting = false)); });
+    }, '\u23F3 Not yet', () => { G.party.walkTo(PAD.x - 6, PAD.z + 3); this.tm.after(1.5, () => (this.starting = false)); });
   }
 }

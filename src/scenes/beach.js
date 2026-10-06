@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, smooth, ease, glowSprite, stripedGeo, vertexToon, canvasTex, setStyle, shade, bakeStatic, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, smooth, ease, glowSprite, stripedGeo, vertexToon, canvasTex, setStyle, shade, bakeStatic, makeSky, makeClouds, RAINBOW, CANDY } from '../util.js';
+import { Q } from '../engine/quality.js';
 import { createAdult, createToddler } from '../characters.js';
 import { sfx, playMusic } from '../audio.js';
 import { model } from '../assets.js';
@@ -17,7 +18,6 @@ export class BeachScene extends BaseScene {
     this.phase = 'title';
     this.autopilot = false;
     this.idle = 0;
-    this.wander = [];       // things that update every frame
     this.surprises = 0;
     setStyle('candy');                      // world gets the glossy film look; the girls stay classic cartoon
     try {
@@ -42,13 +42,7 @@ export class BeachScene extends BaseScene {
 
   // ===================================================================== build
   buildSky() {
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 32, 16), new THREE.ShaderMaterial({
-      side: THREE.BackSide, depthWrite: false, fog: false,
-      vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-      fragmentShader: `varying vec3 vP; void main(){ float h = clamp(vP.y*1.7+.12,0.,1.);
-        vec3 c = mix(vec3(1.,.96,.84), vec3(.28,.7,1.), pow(h,.65)); gl_FragColor = vec4(c,1.); }`,
-    }));
-    this.scene.add(sky);
+    this.scene.add(makeSky({ horizon: [1, .96, .84], zenith: [.28, .7, 1], k: 1.7, offset: .12, curve: .65, fog: false }));
 
     // smiling sun
     const sunG = new THREE.Group(); sunG.position.set(36, 30, -170); sunG.scale.setScalar(1.6); sunG.userData.noShadow = true;
@@ -64,15 +58,7 @@ export class BeachScene extends BaseScene {
     this.addInteractive(sunG, () => this.tapSun(), 9);
 
     // clouds
-    this.clouds = [];
-    for (let i = 0; i < 9; i++) {
-      const c = new THREE.Group();
-      const n = 3 + Math.floor(Math.random() * 3);
-      for (let k = 0; k < n; k++) c.add(mk(sph(rand(3, 5)), toon(0xffffff), [k * 4 - n * 2, rand(-.5, 1.2), rand(-1, 1)], [1.3, .8, .9]));
-      c.userData.noShadow = true; c.userData.bake = true;
-      c.position.set(rand(-160, 160), rand(24, 50), rand(-230, -110));
-      this.clouds.push(c); this.scene.add(c);
-    }
+    this.clouds = makeClouds(this.scene, 9, { puffs: [3, 5] });
   }
 
   buildGround() {
@@ -135,7 +121,8 @@ export class BeachScene extends BaseScene {
           gl_FragColor = vec4(c, a);
         }`,
     });
-    this.water = new THREE.Mesh(new THREE.PlaneGeometry(500, 320, 220, 200).rotateX(-Math.PI / 2), this.waterMat);
+    const seg = Q.name === 'high' ? [220, 200] : [120, 100];       // the swells need fewer vertices on lighter tiers
+    this.water = new THREE.Mesh(new THREE.PlaneGeometry(500, 320, seg[0], seg[1]).rotateX(-Math.PI / 2), this.waterMat);
     this.water.position.set(0, -.04, SHORE - 160);
     this.water.renderOrder = 5;
     this.scene.add(this.water);
@@ -639,6 +626,8 @@ export class BeachScene extends BaseScene {
     this.orb.position.y = ORB.y + Math.sin(t * 1.6) * .35;
     this.orbCore.rotation.y = t * 1.5; this.orbCore.rotation.x = t * .8;
     const pulse = 1.5 + Math.sin(t * 5) * .18; this.orb.scale.setScalar(pulse);
+    const glow = .5 + .5 * Math.sin(t * 2.4); this.orbCore.material.color.setRGB(1, .95, .63).multiplyScalar(1 + glow * 2.2);   // > 1 so the bloom catches it
+    if (this.phase === 'play' && !this.autopilot) { this.glintT = (this.glintT ?? 3) - dt; if (this.glintT <= 0) { this.glintT = 6; sfx.ting(); this.fx.burst(this.orb.position, { count: 24, colors: [0xffffff, 0xffe14d], speed: 3.5, gravity: 0, life: 1, size: .9 }); } }
     if (Math.random() < dt * 3) this.fx.burst(_a.copy(this.orb.position).add(_b.set(rand(-1.5, 1.5), rand(-1, 2), rand(-1, 1))), { count: 2, colors: [0xffffff, 0xffe14d], speed: .6, gravity: 0, life: 1.1, size: .6 });
 
     // critters
@@ -676,7 +665,7 @@ export class BeachScene extends BaseScene {
     // idle hint: after a while, make the shiny thing call out to the girls
     if (this.phase === 'play' && !this.autopilot) {
       this.idle += dt;
-      if (this.idle > 22 && !this.hintOn) { this.hintOn = true; sfx.ting(); G.ui.hint('✨'); G.ui.bubble('✨ 👆', 'Something shiny in the water!'); this.tm.after(4, () => G.ui.hideBubble()); }
+      if (this.idle > 12 && !this.hintOn) { this.hintOn = true; sfx.ting(); G.ui.hint('✨'); G.ui.bubble('✨ 👆', 'Something shiny in the water!'); this.tm.after(4, () => G.ui.hideBubble()); }
     }
     if (this.hintOn) { const s = this.toScreen(this.orb.position); G.ui.hintAt(s.x, s.y - 70); }
 

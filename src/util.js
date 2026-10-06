@@ -237,6 +237,26 @@ export function emojiSprite(ch, size = 2.4) {
   s.scale.set(size, size, 1);
   return s;
 }
+/** a sky dome: a soft gradient from the horizon colour to the zenith colour (colours as [r, g, b] 0..1) */
+export function makeSky({ radius = 500, horizon = [1, .95, .88], zenith = [.4, .75, 1], k = 1.6, offset = .1, curve = .7, fog = false } = {}) {
+  const v3 = (c) => `vec3(${c.map((x) => x.toFixed(3)).join(',')})`;
+  return new THREE.Mesh(new THREE.SphereGeometry(radius, 32, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog,
+    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader: `varying vec3 vP; void main(){ float h = clamp(vP.y*${k.toFixed(2)}+${offset.toFixed(2)},0.,1.); gl_FragColor = vec4(mix(${v3(horizon)}, ${v3(zenith)}, pow(h,${curve.toFixed(2)})),1.); }`,
+  }));
+}
+/** puffy clouds (each one merged into a few meshes); returns the cloud groups so the scene can drift them */
+export function makeClouds(scene, n, { puffs = [4, 4], r = [3, 5], spacing = 4, colors = [0xffffff], x = [-160, 160], y = [24, 50], z = [-230, -110] } = {}) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const c = new THREE.Group(), m = Math.round(rand(puffs[0], puffs[1] + .49));
+    for (let k = 0; k < m; k++) c.add(mk(new THREE.SphereGeometry(rand(r[0], r[1]), 16, 12), toon(pick(colors)), [k * spacing - (m - 1) * spacing / 2, rand(-.5, 1.2), rand(-1, 1)], [1.3, .8, .9]));
+    c.position.set(rand(x[0], x[1]), rand(y[0], y[1]), rand(z[0], z[1])); c.userData.noShadow = true; c.userData.bake = true;
+    scene.add(c); out.push(c);
+  }
+  return out;
+}
 export function glowSprite(color = 0xffffff, size = 3, opacity = 1) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
   s.scale.set(size, size, 1);

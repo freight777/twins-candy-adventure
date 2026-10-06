@@ -14,7 +14,7 @@ function makeRoyal(kind) {
   g.add(outline(mk(cyl(.4, king ? 1.0 : 1.3, 2.3), robe, [0, 1.15, 0]), 1.04));
   g.add(mk(new THREE.TorusGeometry(.5, .17, 8, 20), 0xffffff, [0, 2.2, 0]).rotateX(Math.PI / 2));
   g.add(mk(new THREE.TorusGeometry(.62, .06, 8, 24), 0xffc83d, [0, 1.3, 0]).rotateX(Math.PI / 2));
-  for (const s of [-1, 1]) g.add(mk(cyl(.07, .07, 1.5, 8), 0xffffff, [s * (king ? .9 : 1.2) * .5, 1.1, 0.0]).rotateZ(s * .08).translateY(-.5).translateY(.5));
+  for (const s of [-1, 1]) g.add(mk(cyl(.07, .07, 1.5, 8), 0xffffff, [s * (king ? .9 : 1.2) * .5, 1.1, 0.0]).rotateZ(s * .08));
   const head = outline(mk(sph(.55), skin, [0, 2.8, 0]), 1.04); g.add(head);
   if (king) {
     g.add(mk(sph(.5), 0xdddddd, [0, 2.95, -.1], [1, .8, 1]));                                    // grey hair

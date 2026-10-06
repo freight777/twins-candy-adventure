@@ -17,34 +17,6 @@ const swirlTex = (a, b) => canvasTex(256, 256, (g, w, h) => {
   for (let t = 0; t < 14; t += .05) { const r = t * 8; g.lineTo(w / 2 + Math.cos(t) * r, h / 2 + Math.sin(t) * r); } g.stroke();
 });
 
-/** The Cheshire-style talking cat. Grin first, then the rest of him fades in. */
-function makeCatOld() {      // (the old purple grinning cat, replaced by the friendlier gray tabby in ../cat.js)
-  const g = new THREE.Group(), body = [], grin = [];
-  const purple = 0xb07cff, dark = 0x7a4ed1, cream = 0xfff0f8;
-  const reg = (m, list = body) => { m.material.transparent = true; m.material.opacity = 0; list.push(m.material); return m; };
-  g.add(reg(mk(sph(1), purple, [0, 0, 0], [1, 1.15, .9])));
-  g.add(reg(mk(sph(.8), cream, [0, -.1, .45], [.9, 1.05, .6])));
-  for (let i = 0; i < 4; i++) { const r = mk(new THREE.TorusGeometry(.97 - Math.abs(i - 1.5) * .06, .07, 6, 24), dark, [0, -.6 + i * .42, 0]); r.rotation.x = Math.PI / 2; r.scale.set(1, .9, 1); g.add(reg(r)); }
-  const head = new THREE.Group(); head.position.set(0, 1.75, .15); g.add(head);
-  head.add(reg(mk(sph(.95), purple, [0, 0, 0], [1.2, 1, 1])));
-  for (const s of [-1, 1]) {
-    const ear = mk(new THREE.ConeGeometry(.35, .7, 4), purple, [s * .75, .85, 0]); ear.rotation.z = -s * .35; head.add(reg(ear));
-    head.add(reg(mk(new THREE.ConeGeometry(.2, .4, 4), 0xff9fcb, [s * .75, .8, .12]).rotateZ(-s * .35)));
-    head.add(reg(mk(sph(.28), 0xeaff7a, [s * .42, .2, .8], [1, 1.2, .5])));
-    head.add(reg(mk(sph(.08), 0x222222, [s * .42, .2, 1.02], [.5, 1.5, .3])));
-    for (let k = 0; k < 3; k++) { const w = mk(cyl(.012, .012, .9, 4), 0xffffff, [s * .95, -.15 - k * .08, .7]); w.rotation.z = s * (Math.PI / 2 + (k - 1) * .22); head.add(reg(w)); }
-  }
-  head.add(reg(mk(sph(.09), 0xff7fbf, [0, -.08, .93], [1.2, .8, .6])));
-  const grinM = mk(new THREE.TorusGeometry(.62, .06, 8, 28, Math.PI), 0xffffff, [0, -.12, .86]); grinM.rotation.z = Math.PI; grinM.scale.set(1.1, .8, .5);
-  head.add(reg(grinM, grin));
-  for (let i = -2; i <= 2; i++) head.add(reg(mk(new THREE.BoxGeometry(.1, .15, .05), 0xffffff, [i * .24, -.53 + (Math.abs(i) === 2 ? .2 : Math.abs(i) === 1 ? .08 : 0), .96]), grin));
-  const tail = new THREE.Group(); g.add(tail); const tailBalls = [];
-  for (let i = 0; i < 9; i++) { const b = reg(mk(sph(.3 - i * .018), i % 2 ? dark : purple), body); tail.add(b); tailBalls.push(b); }
-  for (const s of [-1, 1]) { const a = reg(mk(sph(.22), purple, [s * .9, .2, .5], [1, 1.4, 1])); g.add(a); g.userData['arm' + (s > 0 ? 'R' : 'L')] = a; }
-  g.userData = { ...g.userData, body, grin, head, tail, tailBalls };
-  return g;
-}
-
 export class CatRoomScene extends BaseScene {
   constructor(game) {
     super(game);

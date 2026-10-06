@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, makeSky, makeClouds, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic, sayAsync, voice } from '../audio.js';
 import { model } from '../assets.js';
 import { settings as learnSettings } from '../learn/profile.js';
@@ -92,18 +92,10 @@ export class BoardScene extends BaseScene {
 
   buildWorld() {
     // sky
-    this.scene.add(new THREE.Mesh(new THREE.SphereGeometry(700, 32, 16), new THREE.ShaderMaterial({
-      side: THREE.BackSide, depthWrite: false,
-      vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-      fragmentShader: `varying vec3 vP; void main(){ float h = clamp(vP.y*1.5+.1,0.,1.); gl_FragColor = vec4(mix(vec3(1.,.9,.94), vec3(.5,.78,1.), pow(h,.7)),1.); }`,
-    })));
+    this.scene.add(makeSky({ radius: 700, horizon: [1, .9, .94], zenith: [.5, .78, 1], k: 1.5 }));
     const grass = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#86e864'; g.fillRect(0, 0, w, h); g.fillStyle = '#9af276'; g.fillRect(0, 0, w / 2, h); }, [60, 60]);
     const meadow = mk(new THREE.CircleGeometry(160, 64).rotateX(-Math.PI / 2), toon(0xffffff, { map: grass }), [0, -.6, 0]); meadow.receiveShadow = true; this.scene.add(meadow);
-    this.clouds = [];
-    for (let i = 0; i < 10; i++) {
-      const c = new THREE.Group(); for (let k = 0; k < 4; k++) c.add(mk(sph(rand(4, 6)), toon(pick([0xffffff, 0xffe3f1, 0xe8f4ff])), [k * 5 - 8, rand(-.5, 1), rand(-1, 1)], [1.3, .8, .9]));
-      c.position.set(rand(-180, 180), rand(40, 70), rand(-200, 0)); c.userData.noShadow = true; c.userData.bake = true; this.clouds.push(c); this.scene.add(c);
-    }
+    this.clouds = makeClouds(this.scene, 10, { r: [4, 6], spacing: 5, colors: [0xffffff, 0xffe3f1, 0xe8f4ff], x: [-180, 180], y: [40, 70], z: [-200, 0] });
     const near = (x, z, r) => this.tiles.some((p) => Math.hypot(p.x - x, p.z - z) < r);
     const place = (n, r, fn) => { let k = 0, tries = 0; while (k < n && tries++ < 400) { const x = rand(-70, 70), z = rand(-60, 50); if (near(x, z, r)) continue; fn(x, z); k++; } };
     // gumdrop mountains & lollipop forest & candy decor, kept clear of the path
