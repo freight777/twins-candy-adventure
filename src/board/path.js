@@ -39,7 +39,7 @@ export function buildTiles(scene, curve, { base = 0xfff6fb, lift = 0, glow = [5.
     g.position.copy(p); g.position.y += lift;
     g.rotation.order = 'YXZ'; g.rotation.y = Math.atan2(tan.x, tan.z); g.rotation.x = -Math.asin(clamp(tan.y, -.6, .6));
     const b = new THREE.Mesh(baseGeo, baseMat); b.position.y = -.1; g.add(b);
-    const tile = new THREE.Mesh(tileGeo, toon(colr.hex, { clearcoat: 1, clearcoatRoughness: .08 })); tile.position.y = .1; g.add(tile);
+    const tile = new THREE.Mesh(tileGeo, toon(colr.hex, { clearcoat: 1, clearcoatRoughness: .08 })); tile.position.y = .1; tile.receiveShadow = b.receiveShadow = true; g.add(tile);
     const shine = new THREE.Mesh(innerGeo, toon(new THREE.Color(colr.hex).lerp(white, .45), { clearcoat: 1 })); shine.position.y = .5; g.add(shine);
     const gl = glowSprite(colr.hex, glow[0], glow[1]); gl.position.y = .5; g.add(gl);
     scene.add(g);

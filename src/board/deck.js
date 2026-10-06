@@ -328,6 +328,19 @@ export function createBoardGame(cfg) {
     look.copy(up).addScaledVector(S.dirS, C.ahead); look.y += C.lookUp;
   }
   G.followShot = followShot;
+  /** if a collider (W.colliders: tree tops as spheres) sits between what we look at and the camera, bring the camera in front of it */
+  function unblock(look, desired) {
+    const cols = G.W.colliders; if (!cols) return;
+    const dx = desired.x - look.x, dy = desired.y - look.y, dz = desired.z - look.z, len = Math.hypot(dx, dy, dz) || 1;
+    let f = 1;
+    for (const c of cols) {
+      const ox = c.x - look.x, oy = c.y - look.y, oz = c.z - look.z, s = (ox * dx + oy * dy + oz * dz) / len;   // along the sight line
+      if (s < 0 || s > len + c.r) continue;
+      const d2 = ox * ox + oy * oy + oz * oz - s * s, r2 = (c.r + .6) * (c.r + .6);
+      if (d2 < r2) f = Math.min(f, Math.max(.4, (s - Math.sqrt(r2 - d2)) / len));
+    }
+    if (f < 1) desired.set(look.x + dx * f, look.y + dy * f, look.z + dz * f);
+  }
   function updateCamera(dt, t) {
     if (S.debugCam) { camera.position.copy(S.debugCam.p); camera.lookAt(S.debugCam.l); return; }
     const k = 1 - Math.exp(-3 * dt), desired = _d, look = _l;
@@ -340,6 +353,7 @@ export function createBoardGame(cfg) {
       look.copy(mid); look.y += gr.lookUp;
     } else followShot(desired, look, t);
     desired.y = Math.max(desired.y, G.W.heightAt(desired.x, desired.z) + C.floor);
+    unblock(look, desired);
     camera.position.lerp(desired, k); camTarget.lerp(look, 1 - Math.exp(-4 * dt)); camera.lookAt(camTarget);
   }
   function update(dt) {
@@ -395,6 +409,8 @@ export function createBoardGame(cfg) {
   G.start = () => {
     gfx.start((dt) => {
       if (!G.W) return false;
+      // (no bloom indoors: a bright little room is mostly above the bloom threshold and turned into pink-white haze)
+      gfx.bloomPass.enabled = Q.bloom && !S.house;
       if (S.house) { S.house.update(dt); gfx.setScene(S.house.scene, S.house.camera); }
       else { update(dt); gfx.setScene(scene, camera); }
     });

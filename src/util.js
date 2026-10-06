@@ -257,6 +257,17 @@ export function makeClouds(scene, n, { puffs = [4, 4], r = [3, 5], spacing = 4, 
   }
   return out;
 }
+/** a soft round contact shadow lying on the ground (one shared texture; each blob has its own material so it can fade) */
+let _blob;
+export function blobShadow(size = 2.4, opacity = .3) {
+  if (!_blob) {
+    _blob = canvasTex(64, 64, (g, w, h) => { const gr = g.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(40,20,60,1)'); gr.addColorStop(.55, 'rgba(40,20,60,.55)'); gr.addColorStop(1, 'rgba(40,20,60,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+    _blob.wrapS = _blob.wrapT = THREE.ClampToEdgeWrapping; keep.add(_blob);
+  }
+  const m = new THREE.Mesh(shared(() => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), 'blobGeo'), new THREE.MeshBasicMaterial({ map: _blob, transparent: true, opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  m.scale.set(size, 1, size); m.renderOrder = 1; m.userData.noShadow = true; m.userData.blob = opacity;
+  return m;
+}
 export function glowSprite(color = 0xffffff, size = 3, opacity = 1) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
   s.scale.set(size, size, 1);

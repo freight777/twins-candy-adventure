@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, mk, canvasTex, glowSprite, setStyle, getStyle } from '../util.js';
+import { toon, mk, canvasTex, glowSprite, blobShadow, setStyle, getStyle } from '../util.js';
 
 const sph = (r, w = 22, h = 16) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 16) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -118,12 +118,20 @@ export function createUnicorn(spec) {
     [[0, 0, 0, .55], [-.5, -.1, 0, .4], [.5, -.1, 0, .42], [.2, .3, 0, .4], [-.2, .28, .1, .36]].forEach(([x, y, z, r]) => cloud.add(mk(sph(r), toon(0xc9d4f2), [x, y, z], [1, .75, 1])));
     for (let i = 0; i < 6; i++) { const d = mk(sph(.06, 8, 6), 0x7fc4ff, [(i - 2.5) * .22, -.4, 0], [.7, 1.4, .7]); d.userData.ph = i / 6; cloud.add(d); drops.push(d); }
   }
+  // grounding: a soft contact shadow under the hooves on every tier, and real shadows from the big shapes where the tier
+  // has a shadow map (eyes, lashes and other little parts would only add shadow-pass draws)
+  const blob = blobShadow(2.5, .34); blob.position.set(0, -.1, -.05); root.add(blob);
+  root.traverse((o) => {
+    if (!o.isMesh || o === blob || o.material.transparent) return;
+    o.geometry.computeBoundingSphere(); const s = o.scale;
+    if (o.geometry.boundingSphere.radius * Math.max(s.x, s.y, s.z) > .25) o.castShadow = true;   // ~20 of ~70 parts
+  });
   setStyle(prev);
 
   // ---- animation ----
   let phase = 0, blinkT = 2 + Math.random() * 3, blink = 0, earT = 3;
   const api = {
-    root, body, head, speed: 0, mood: 1, eyes, hornGlow,
+    root, body, head, speed: 0, mood: 1, eyes, hornGlow, blob,
     /** t = scene time, speed 0 = standing, 1 = trotting, 2 = galloping */
     update(dt, t, speed = 0) {
       phase += dt * (3 + speed * 5.5) * (speed > 0.05 ? 1 : 0);
@@ -144,6 +152,7 @@ export function createUnicorn(spec) {
       blinkT -= dt; if (blinkT <= 0) { blink = .14; blinkT = 2.5 + Math.random() * 3.5; }
       blink = Math.max(0, blink - dt); const e = blink > 0 ? .1 : 1; eyes.forEach((ey) => (ey.scale.y = 1.18 * e));
       hornGlow.material.opacity = .55 + Math.sin(t * 3) * .2;
+      const up = Math.max(0, body.position.y); blob.scale.setScalar(2.5 * (1 - Math.min(.45, up * .3))); blob.material.opacity = .34 * (1 - Math.min(.6, up * .4));   // shrinks as she hops
       if (cloud) { cloud.position.y = 4.9 + Math.sin(t * 1.5) * .08; drops.forEach((d) => { const f = (d.userData.ph + t * .9) % 1; d.position.y = -.3 - f * 1.3; d.material.opacity = 1; d.scale.y = 1.4 - f * .4; }); }
     },
     jump(h) { body.position.y += h; },

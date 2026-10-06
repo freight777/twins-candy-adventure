@@ -124,8 +124,10 @@ export function buildWorld(scene) {
 
   // ---------------------------------------------------------------- forest (instanced, so there can be lots)
   const inst = instancer(scene);
-  const friendSpots = FRIEND_TILES.map((i) => { const t = W.tiles[i], side = i % 2 ? 1 : -1, n = new THREE.Vector3(t.tan.z, 0, -t.tan.x).multiplyScalar(side * 6.2); const p = t.pos.clone().add(n); p.y = heightAt(p.x, p.z); return p; });
+  const friendSpots = FRIEND_TILES.map((i) => { const t = W.tiles[i], side = i % 2 ? 1 : -1, n = new THREE.Vector3(t.tan.z, 0, -t.tan.x).multiplyScalar(side * 6.2); const p = t.pos.clone().add(n); p.y = heightAt(p.x, p.z) + .12; return p; });
   W.friendSpots = friendSpots;
+  W.colliders = [];                                         // tree tops the camera must not end up inside (board/deck.js)
+  const block = (x, y, z, r) => W.colliders.push({ x, y, z, r });
   const endTile = W.tiles[N - 1];
   const castleAt = new THREE.Vector3(castleXZ.x, endP.y, castleXZ.z);
   const clear = (x, z, minPath = 7) => {
@@ -143,6 +145,7 @@ export function buildWorld(scene) {
   const trees = spots(210, 11);
   const trunkM = toon(0xffffff, { clearcoat: 0, roughness: .8 }), leafM = toon(0xffffff);
   const th = trees.map(([x, z]) => ({ x, z, y: heightAt(x, z), h: rand(3.5, 7.5), s: rand(.8, 1.45), c: pick(PASTELS), c2: pick(PASTELS) }));
+  th.forEach((t) => block(t.x, t.y + t.h + t.s * 1.1, t.z, t.s * 3.4));
   inst(cyl(.28, .48, 1, 10), trunkM, th.length, (i, o, c) => { const t = th[i]; o.position.set(t.x, t.y + t.h / 2 - .3, t.z); o.scale.set(t.s, t.h, t.s); c.set(0xb78aa8); });
   inst(sph(1, 20, 14), leafM, th.length, (i, o, c) => { const t = th[i]; o.position.set(t.x, t.y + t.h + t.s * 1.3, t.z); o.scale.setScalar(t.s * 3.1); c.set(t.c); });
   inst(sph(1, 16, 12), leafM, th.length, (i, o, c) => { const t = th[i]; o.position.set(t.x + t.s * 1.8, t.y + t.h + t.s * .5, t.z + t.s * .5); o.scale.setScalar(t.s * 2.1); c.set(t.c2); });
@@ -158,7 +161,9 @@ export function buildWorld(scene) {
   inst(new THREE.TorusGeometry(1.75, .42, 10, 24).rotateX(Math.PI / 2), leafM, iceT.length, (i, o, c) => { const t = iceT[i]; o.position.set(t.x, t.y + 5.1 * t.s, t.z); o.scale.setScalar(t.s); c.set(t.c); });
 
   // star trees: tall slim pines with a glowing star on top
+  iceT.forEach((t) => block(t.x, t.y + 7 * t.s, t.z, 2.7 * t.s));
   const starT = spots(22, 11).map(([x, z]) => ({ x, z, y: heightAt(x, z), s: rand(.9, 1.5), c: pick([0x7fe3c8, 0x9ad8ff, 0xb9a8ff]) }));
+  starT.forEach((t) => block(t.x, t.y + 6.5 * t.s, t.z, 2.7 * t.s));
   inst(new THREE.ConeGeometry(2, 6, 12), leafM, starT.length, (i, o, c) => { const t = starT[i]; o.position.set(t.x, t.y + 5.5 * t.s, t.z); o.scale.setScalar(t.s); c.set(t.c); });
   inst(new THREE.ConeGeometry(1.6, 5, 12), leafM, starT.length, (i, o, c) => { const t = starT[i]; o.position.set(t.x, t.y + 8.4 * t.s, t.z); o.scale.setScalar(t.s); c.set(t.c); });
   inst(cyl(.3, .4, 3), trunkM, starT.length, (i, o, c) => { const t = starT[i]; o.position.set(t.x, t.y + 1.2, t.z); c.set(0xb78aa8); });
@@ -194,8 +199,8 @@ export function buildWorld(scene) {
   // big ice-cream treats standing in the forest (real sculpted models)
   const GIANTS = [['ice-cream-cne', 9], ['sundae', 7], ['popsicle', 10], ['popsicle-chocolate', 10], ['cupcake', 6], ['donut-sprinkles', 5], ['lollypop', 11], ['cake-birthday', 6], ['ice-cream', 8]];
   spots(18, 15).forEach(([x, z], i) => {
-    const [n, h] = GIANTS[i % GIANTS.length], m = model(`food/${n}`, { height: h * rand(.9, 1.3) });
-    if (!m) return; m.position.set(x, heightAt(x, z) - .2, z); m.rotation.y = rand(0, 6); m.rotation.z = rand(-.1, .1); scene.add(m);
+    const [n, h0] = GIANTS[i % GIANTS.length], h = h0 * rand(.9, 1.3), m = model(`food/${n}`, { height: h });
+    if (!m) return; m.position.set(x, heightAt(x, z) - .2, z); block(x, m.position.y + h * .5, z, h * .55); m.rotation.y = rand(0, 6); m.rotation.z = rand(-.1, .1); scene.add(m);
   });
 
   // ---------------------------------------------------------------- ice-cream stops (a big cone next to the square)
@@ -269,11 +274,16 @@ export function buildWorld(scene) {
 
   // ---------------------------------------------------------------- start arch & castle
   {
-    const t = W.tiles[0], g = new THREE.Group(); g.position.copy(t.pos).add(new THREE.Vector3(0, -.3, 0)); g.rotation.y = Math.atan2(t.tan.x, t.tan.z); scene.add(g);
+    const u6 = 6 / curve.getLength(), p6 = curve.getPointAt(u6), t6 = curve.getTangentAt(u6);
+    const g = new THREE.Group(); g.position.copy(p6).add(new THREE.Vector3(0, .2, 0)); g.rotation.y = Math.atan2(t6.x, t6.z); scene.add(g);
     [-1, 1].forEach((s) => g.add(mk(cyl(.4, .4, 8.5, 12), toon(0xffffff, { map: candyCaneTex(8) }), [s * 4.4, 4, 0]), mk(sph(.7), 0xff6fb5, [s * 4.4, 8.6, 0])));
     RAINBOW.forEach((c, k) => { const a = new THREE.Mesh(new THREE.TorusGeometry(4.4 - k * .38 + 0, .22, 8, 36, Math.PI), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: .5 })); a.position.y = 8.2; g.add(a); });
-    const sign = canvasTex(512, 160, (c, w, h) => { c.fillStyle = '#fff'; c.fillRect(0, 0, w, h); c.strokeStyle = '#ff6fb5'; c.lineWidth = 14; c.strokeRect(7, 7, w - 14, h - 14); c.fillStyle = '#ff4fa0'; c.font = '700 96px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('START', w / 2, h / 2 + 6); });
-    const sg = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 1.7), new THREE.MeshBasicMaterial({ map: sign })); sg.position.set(0, 7.3, .1); g.add(sg);
+    const drawSign = (c, w, h) => { c.fillStyle = '#fff'; c.fillRect(0, 0, w, h); c.strokeStyle = '#ff6fb5'; c.lineWidth = 14; c.strokeRect(7, 7, w - 14, h - 14); c.fillStyle = '#ff4fa0'; c.font = '700 96px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('START', w / 2, h / 2 + 6); };
+    const sign = canvasTex(512, 160, drawSign);
+    // the sign is painted again once Fredoka has loaded (the first paint may use a fallback font)
+    if (document.fonts) document.fonts.load('700 96px Fredoka').then(() => { drawSign(sign.image.getContext('2d'), 512, 160); sign.needsUpdate = true; }).catch(() => {});
+    W.startSign = new THREE.Group(); g.add(W.startSign);
+    [1, -1].forEach((s) => { const sg = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 1.7), new THREE.MeshBasicMaterial({ map: sign })); sg.position.set(0, 7.3, s * .1); sg.rotation.y = s > 0 ? 0 : Math.PI; W.startSign.add(sg); });   // readable from both sides
   }
   {
     const C = new THREE.Group(); C.position.copy(castleAt); C.position.y = heightAt(castleAt.x, castleAt.z) - .4; C.rotation.y = Math.atan2(-endTile.tan.x, -endTile.tan.z); C.scale.setScalar(1.35); scene.add(C);

@@ -23,7 +23,13 @@ const FRIENDS = [
   { key: 'rain', name: 'Rain', emoji: '\u{1F4A7}', css: '#7f96f0', voice: 'rain', line: "Hi Uni! I'm Rain. Splish splash!", burst: [0x7fc4ff, 0xbfd0ff, 0xffffff] },
 ];
 const upBy = (y) => new THREE.Vector3(0, y, 0);
-const _q = new THREE.Vector3();
+const _q = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3();
+const smooth = (a, b, x) => { const k = clamp((x - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
+/** the title's opening shot: the Rainbow Castle from the front, drifting slowly (fills pos and look) */
+function castleShot(t, pos, look) {
+  const C = W.castle.position, e = W.tiles[N - 1].tan, a = Math.atan2(-e.x, -e.z) + Math.sin(t * .25) * .35;
+  pos.set(C.x + Math.sin(a) * 72, C.y + 36, C.z + Math.cos(a) * 72); look.set(C.x, C.y + 20, C.z);
+}
 let W, uni, twin, kingU, queenU;
 
 const G = createBoardGame({
@@ -38,7 +44,7 @@ const G = createBoardGame({
   houses: { keys: ['sparkle', 'rainbow', 'cloud', 'rain', 'uni'], info: HOUSES, create: createHouse, lockedTwin: 'Meet your twin at the castle first!' },
   build,
   hooks: {
-    ready() { G.camera.position.copy(uni.root.position).add(new THREE.Vector3(8, 4.4, 9)); G.camTarget.copy(uni.root.position); },
+    ready() { castleShot(0, G.camera.position, G.camTarget); },
     trail: (p, t) => G.fx.burst(_q.set(p.x - t.x * 1.4, p.y + 1.1 + Math.random() * .7, p.z - t.z * 1.4), { count: 1, colors: RAINBOW, speed: .6, gravity: -.4, life: 1, size: .8 }),
     wake: (p) => G.fx.burst(_q.set(p.x, p.y + .3, p.z), { count: 1, colors: [0xffffff, 0xffe9a0], speed: .4, gravity: -.2, life: .8, size: .6 }),
     stop: async (i) => { const ice = W.iceProps.find((p) => p.tile === i); if (ice) await iceCream(ice); },
@@ -57,12 +63,17 @@ const G = createBoardGame({
       twin.root.position.copy(W.endSpot); twin.root.position.y = W.heightAt(W.endSpot.x, W.endSpot.z) + 0.3;
       const e = W.tiles[N - 1]; twin.root.rotation.y = Math.atan2(-e.tan.x, -e.tan.z); twin.root.visible = true;
     },
-    update(dt, t) { kingU.update(dt, t, 0); queenU.update(dt, t, 0); updateTreats(dt, t); },
+    update(dt, t) {
+      kingU.update(dt, t, 0); queenU.update(dt, t, 0); updateTreats(dt, t);
+      W.startSign.visible = S.mode !== 'title';                              // (no START under the title text while it is up)
+    },
     camera(mode, desired, look, t) {
       const up = uni.root.position;
-      if (mode === 'title') {                                                    // a slow orbit around Uni
-        const a = t * 0.2 + 0.4;
-        desired.set(up.x + Math.sin(a) * 12, up.y + 4.4, up.z + Math.cos(a) * 12); look.copy(up); look.y += 2.4; return true;
+      if (mode === 'title') {                                                    // the castle for a few seconds, then a slow orbit around Uni
+        const a = t * 0.2 + 0.4, k = smooth(3, 6.5, t);
+        castleShot(t, _a, _b);
+        desired.set(up.x + Math.sin(a) * 12, up.y + 4.4, up.z + Math.cos(a) * 12); look.copy(up); look.y += 2.4;
+        desired.lerpVectors(_a, desired, k); look.lerpVectors(_b, look, k); return true;
       }
       if (mode === 'finale') {                                                   // swing gently in front of the castle
         const e = G.pathTan(1, look); e.y = 0; e.normalize();
