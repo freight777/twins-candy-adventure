@@ -109,7 +109,7 @@ export class CastleScene extends BaseScene {
     P.ground = () => ({ y: 0, swim: 0 });
     P.bounds = { xmin: -9, xmax: 9, zmin: -6, zmax: 9 };
     P.frozen = false; P.setMode('idle'); P.target = null;
-    P.players = null;
+
     P.both().forEach((t) => { t.root.scale.setScalar(1); t.fx.lift = 0; t.fx.spin = 0; t.fx.squash = 1; t.root.rotation.set(0, 0, 0); t.face = 0; t.body.rotation.set(0, 0, 0); });
     P.leader.root.position.set(-1.2, 0, 11); P.follower.root.position.set(1.2, 0, 11);
     G.ui.hud(false); G.ui.progress(false);
