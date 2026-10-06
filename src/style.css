@@ -99,22 +99,6 @@ html, body {
 @keyframes bobBanner { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-8px); } }
 @keyframes bannerIn { from { transform: translateX(-50%) scale(.2) rotate(-8deg); opacity: 0; } to { transform: translateX(-50%) scale(1) rotate(0); opacity: 1; } }
 
-/* ---------- reading question before each board turn ---------- */
-#quiz { position: absolute; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; justify-content: center; padding: 0 2vw; }
-.q-card { width: min(96vw, 980px); background: rgba(255,255,255,.96); border-radius: 36px; padding: clamp(10px, 2vw, 22px); box-shadow: 0 10px 0 rgba(0,0,0,.16), 0 0 0 6px #c79bff; animation: popq .35s cubic-bezier(.3,1.5,.5,1); }
-.q-top { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: clamp(8px, 1.6vw, 18px); }
-.q-big { font-size: clamp(56px, 12vw, 120px); font-weight: 700; line-height: 1.05; color: #7a4ed1; letter-spacing: .06em; }
-#q-say { width: clamp(56px, 10vw, 92px); height: clamp(56px, 10vw, 92px); border-radius: 50%; border: 5px solid #fff; font-size: clamp(28px, 5vw, 46px);
-  background: radial-gradient(circle at 35% 30%, #b8e8ff, #2f9be6 75%); box-shadow: 0 6px 0 #1b6aa8; color: #fff; }
-.q-choices { display: flex; gap: clamp(8px, 1.8vw, 20px); justify-content: center; flex-wrap: wrap; }
-.q-choice { min-width: clamp(110px, 21vw, 210px); height: clamp(86px, 15vw, 140px); padding: 0 18px; border-radius: 28px; border: 5px solid #fff; background: linear-gradient(#ffe6f4, #ffc2e2);
-  font-size: clamp(54px, 10vw, 100px); font-weight: 700; color: #7a4ed1; box-shadow: 0 7px 0 #e08abd, 0 10px 14px rgba(0,0,0,.18); transition: transform .12s; }
-.q-choice.word { font-size: clamp(40px, 8.5vw, 84px); letter-spacing: .02em; }
-.q-choice:active { transform: translateY(5px); box-shadow: 0 2px 0 #e08abd; }
-.q-choice.right { background: linear-gradient(#c8ffd0, #5be37d); box-shadow: 0 7px 0 #2fa84d, 0 0 26px 8px rgba(91,227,125,.8); animation: bounce .5s ease-in-out 2; }
-.q-choice.reveal { background: linear-gradient(#fff3b0, #ffd84d); box-shadow: 0 7px 0 #c9a000, 0 0 26px 8px rgba(255,216,77,.9); animation: bounce .5s ease-in-out 3; }
-.q-choice.wrong { opacity: .25; transform: scale(.9); pointer-events: none; }
-@keyframes popq { from { transform: translateY(40px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
 
 @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }

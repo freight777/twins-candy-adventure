@@ -102,13 +102,13 @@ homeGate();
 document.getElementById('pclose').onclick = () => parentEl.classList.add('hidden');
 const LEVELS = [[0, 'off'], [0.3, 'quiet'], [0.5, 'medium'], [0.8, 'loud']];
 const pmute = document.getElementById('pmute'), pmusic = document.getElementById('pmusic');
-// reading questions: on/off, level (auto follows each girl's answers), and what a wrong answer does
+// reading questions: on/off, level (auto follows each girl's answers), and whether brand-new items show their answer softly
 const pquiz = document.getElementById('pquiz'), plevel = document.getElementById('plevel'), pretry = document.getElementById('pretry');
 const LEVELS_R = ['auto', 0, 1, 2, 3, 4, 5, 6];         // reading level: auto follows each girl's answers (up and down); a number pins it
-const showLearn = () => { pquiz.textContent = `Questions: ${learnSettings.on ? 'on' : 'off'}`; plevel.textContent = learnSettings.level === 'auto' ? 'Reading level: auto' : `Reading level: ${learnSettings.level}`; pretry.textContent = learnSettings.retry ? 'Wrong answer: try again' : 'Wrong answer: skip turn'; };
+const showLearn = () => { pquiz.textContent = `Questions: ${learnSettings.on ? 'on' : 'off'}`; plevel.textContent = learnSettings.level === 'auto' ? 'Reading level: auto' : `Reading level: ${learnSettings.level}`; pretry.textContent = learnSettings.scaffoldNew !== false ? 'New words: answer glows' : 'New words: no hint'; };
 pquiz.onclick = () => { learnSettings.on = !learnSettings.on; saveLearn(); showLearn(); };
 plevel.onclick = () => { const i = LEVELS_R.findIndex((v) => String(v) === String(learnSettings.level)); learnSettings.level = LEVELS_R[(i + 1) % LEVELS_R.length]; saveLearn(); showLearn(); };
-pretry.onclick = () => { learnSettings.retry = !learnSettings.retry; saveLearn(); showLearn(); };
+pretry.onclick = () => { learnSettings.scaffoldNew = learnSettings.scaffoldNew === false; saveLearn(); showLearn(); };   // errorless help for brand-new items
 showLearn();
 const pvoice = document.getElementById('pvoice'); pvoice.textContent = `Voices: ${voicesEnabled() ? 'on' : 'off'}`;
 pvoice.onclick = () => { setVoices(!voicesEnabled()); pvoice.textContent = `Voices: ${voicesEnabled() ? 'on' : 'off'}`; };

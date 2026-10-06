@@ -3,8 +3,9 @@ import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic, sayAsync } from '../audio.js';
 import { model } from '../assets.js';
-import * as learn from '../learning.js';
-import { makeQuestion } from '../learning.js';
+import { settings as learnSettings } from '../learn/profile.js';
+import { makeReadingQuestion } from '../learn/reading.js';
+import { ask } from '../engine/quiz.js';
 
 const sph = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -201,19 +202,16 @@ export class BoardScene extends BaseScene {
     }
     ui.bubble(pl.tw.name === 'adalyn' ? '\u{1F984} \u{1F3B2}' : '\u{1F9DC}‍♀️ \u{1F3B2}', pl.tw.name === 'adalyn' ? "Adalyn's turn!" : "Esmae's turn!");
     sfx.chime();
-    // a reading question comes first. Right on the first try = a sparkle dice (a big number); a miss gets a second try, then she still rolls
-    if (learn.settings.on && !noQuiz) {
+    // a reading question comes first (CKLA-gated, errorless: it always ends on a right answer). Right on the first try = sparkle dice
+    if (learnSettings.on && !noQuiz) {
       await this.sleep(1.6);                                           // let "Adalyn's turn!" be heard
       ui.hideBubble();
-      const q = makeQuestion(pl.tw.name);
-      const res = await ui.quiz(q, { retry: learn.settings.retry });
-      learn.record(pl.tw.name, q, res.correct, res.first);
-      if (res.correct && res.first) {
-        pl.sparkle = true; sfx.magic(); ui.bubble('✨ \u{1F3B2} ✨', 'Sparkle dice! Big roll!');
+      const res = await ask(makeReadingQuestion(pl.tw.name), pl.tw.name);
+      if (this.disposed) return;
+      if (res.first && !res.helped) {
+        pl.sparkle = true; sfx.magic();
         this.fx.burst(pl.tw.root.position.clone().add(new THREE.Vector3(0, 2.2, 0)), { count: 60, colors: [0xffe14d, 0xffffff, 0xff9fcb], speed: 6, gravity: -2, life: 1.6, size: 1 });
-        await this.sleep(1.6);
-      } else if (!res.correct && !learn.settings.retry) {              // grown-up chose "skip turn"
-        ui.bubble('\u{1F605}', 'Oops! Next time!'); await this.sleep(1.6); ui.hideBubble(); return;
+        await ui.bubble('✨ \u{1F3B2} ✨', 'Sparkle dice! Big roll!');
       }
       ui.hideBubble();
     }
