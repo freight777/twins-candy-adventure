@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, candyCaneTex, setStyle, shade, bakeStatic, RAINBOW, CANDY } from '../util.js';
-import { sfx, playMusic, voice } from '../audio.js';
+import { sfx, playMusic, voice, level, currentSpeaker } from '../audio.js';
 import { makeGift } from '../candies.js';
 
 const sph = (r, w = 18, h = 12) => new THREE.SphereGeometry(r, w, h);
@@ -24,8 +24,10 @@ function makeRoyal(kind) {
     g.add(mk(sph(.62), 0xd9a05b, [0, 2.75, -.2], [1, 1.1, .8]), mk(sph(.3), 0xd9a05b, [0, 2.2, -.4], [1.3, 2, .6]));
     g.add(mk(sph(.35), 0xd9a05b, [0, 3.18, .22], [1.1, .5, .7]));
   }
-  for (const s of [-1, 1]) g.add(mk(sph(.07), 0x3a2315, [s * .2, 2.85, .5], [1, 1.3, .5]), mk(sph(.08), 0xff9a9a, [s * .33, 2.68, .45], [1, .6, .4]));
+  const eyes = [];
+  for (const s of [-1, 1]) { const e = mk(sph(.07), 0x3a2315, [s * .2, 2.85, .5], [1, 1.3, .5]); eyes.push(e); g.add(e, mk(sph(.08), 0xff9a9a, [s * .33, 2.68, .45], [1, .6, .4])); }
   const sm = mk(new THREE.TorusGeometry(.12, .02, 6, 12, Math.PI), 0xc0504d, [0, 2.65, .52]); sm.rotation.z = Math.PI; g.add(sm);
+  Object.assign(g.userData, { eyes, smile: sm, who: kind, blinkT: 1 + Math.random() * 3, blink: 0 });
   const crown = new THREE.Group(); crown.position.set(0, 3.38, 0); g.add(crown);
   crown.add(mk(cyl(.4, .36, .25, 16), 0xffd84d));
   for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; crown.add(mk(new THREE.ConeGeometry(.12, .3, 6), 0xffd84d, [Math.cos(a) * .36, .25, Math.sin(a) * .36]), mk(sph(.07), pick([0xff4d6d, 0x4db8ff, 0x5be37d]), [Math.cos(a) * .36, .42, Math.sin(a) * .36])); }
@@ -164,7 +166,13 @@ export class CastleScene extends BaseScene {
     this.portalMat.uniforms.uTime.value = t;
     P.update(dt, t);
     this.king.userData.arm.rotation.z += (0 - this.king.userData.arm.rotation.z) * dt * 2;
-    [this.king, this.queen].forEach((r, i) => { r.position.y = 1.5 + Math.sin(t * 2 + i) * .04; });
+    [this.king, this.queen].forEach((r, i) => {
+      r.position.y = 1.5 + Math.sin(t * 2 + i) * .04;
+      const u = r.userData, amp = currentSpeaker() === u.who ? level.v : 0;
+      u.smile.scale.set(1 + amp * .5, 1 + amp * 2, 1);
+      u.blinkT -= dt; if (u.blinkT < 0) { u.blinkT = 2.5 + Math.random() * 3.5; u.blink = .14; }
+      u.blink = Math.max(0, u.blink - dt); u.eyes.forEach((e) => (e.scale.y = u.blink > 0 ? .15 : 1.3));
+    });
     if (this.stage === 'portal' && !this.leaving) {
       const L = P.leader.root.position;
       if (Math.hypot(L.x - 0, L.z - 1.4) < 1.3) {

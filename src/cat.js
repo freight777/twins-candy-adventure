@@ -9,7 +9,7 @@ const cyl = (rt, rb, h, s = 8) => new THREE.CylinderGeometry(rt, rb, h, s);
  * Everything starts invisible and fades in (the glasses first, then the rest of him).
  */
 export function makeCat() {
-  const g = new THREE.Group(), body = [], glasses = [];
+  const g = new THREE.Group(), body = [], glasses = [], eyes = [], smiles = [];
   const gray = 0xaab1bb, stripe = 0x707884, belly = 0xf3f4f7, pink = 0xffa3bb, frame = 0x20c4b4;
   const reg = (m, list = body) => { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0; list.push(m.material); return m; };   // private copy: it fades in
 
@@ -27,7 +27,8 @@ export function makeCat() {
     const ear = mk(new THREE.ConeGeometry(.35, .7, 4), gray, [s * .75, .85, 0]); ear.rotation.z = -s * .35; head.add(reg(ear));
     head.add(reg(mk(new THREE.ConeGeometry(.2, .4, 4), pink, [s * .75, .8, .12]).rotateZ(-s * .35)));
     // big, kind eyes: white, dark pupil, sparkle
-    head.add(reg(mk(sph(.25), 0xffffff, [s * .4, .2, .8], [1, 1.1, .55])), reg(mk(sph(.17), 0x2b2430, [s * .4, .2, .93], [1, 1.1, .5])), reg(mk(sph(.06), 0xffffff, [s * .4 + .05, .27, 1.0])));
+    const eye = new THREE.Group(); eye.position.set(s * .4, .2, 0); head.add(eye); eyes.push(eye);
+    eye.add(reg(mk(sph(.25), 0xffffff, [0, 0, .8], [1, 1.1, .55])), reg(mk(sph(.17), 0x2b2430, [0, 0, .93], [1, 1.1, .5])), reg(mk(sph(.06), 0xffffff, [.05, .07, 1.0])));
     head.add(reg(mk(sph(.16), 0xffb3c7, [s * .62, -.18, .72], [1.2, .7, .4])));                                                                                 // blush
     for (let k = 0; k < 3; k++) { const w = mk(cyl(.012, .012, .8, 4), 0xe4e8ee, [s * .95, -.2 - k * .07, .65]); w.rotation.z = s * (Math.PI / 2 + (k - 1) * .2); head.add(reg(w)); }   // whiskers
     // round glasses
@@ -36,7 +37,7 @@ export function makeCat() {
   }
   head.add(reg(mk(cyl(.025, .025, .18, 6), frame, [0, .24, 1.01]).rotateZ(Math.PI / 2), glasses));         // bridge of the glasses
   head.add(reg(mk(sph(.09), pink, [0, -.06, .96], [1.3, .8, .7])));                                              // nose
-  for (const s of [-1, 1]) { const m = mk(new THREE.TorusGeometry(.1, .022, 6, 12, Math.PI), 0xc2576f, [s * .1, -.2, .94]); m.rotation.z = Math.PI; head.add(reg(m)); }   // small happy smile
+  for (const s of [-1, 1]) { const m = mk(new THREE.TorusGeometry(.1, .022, 6, 12, Math.PI), 0xc2576f, [s * .1, -.2, .94]); m.rotation.z = Math.PI; head.add(reg(m)); smiles.push(m); }   // small happy smile
 
   // tail with stripes
   const tail = new THREE.Group(); g.add(tail); const tailBalls = [];
@@ -45,6 +46,6 @@ export function makeCat() {
   for (const s of [-1, 1]) { const a = reg(mk(sph(.22), gray, [s * .9, .2, .5], [1, 1.4, 1])); g.add(a); g.add(reg(mk(sph(.14), belly, [s * .9, -.08, .56]))); g.userData['arm' + (s > 0 ? 'R' : 'L')] = a; }
 
   g.traverse((o) => { if (o.isMesh && o.material && o.material.clearcoat !== undefined) { o.material.clearcoat = 0; o.material.roughness = 0.85; } });     // soft fur, not shiny metal
-  g.userData = { ...g.userData, body, grin: glasses, head, tail, tailBalls };
+  g.userData = { ...g.userData, body, grin: glasses, head, tail, tailBalls, eyes, smiles, blinkT: 2, blink: 0 };
   return g;
 }

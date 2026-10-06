@@ -97,5 +97,8 @@ story('uni', "Let's go on a mermaid adventure, Esmae!", 'A dolphin ride!', 'A sh
 // Tony's Home Run Derby
 story('counter', 'Play ball!', 'Home run!');
 story('announcer', 'Play ball!', 'Home run!', 'Almost! Try again!', 'Great game!', 'Home run hero!', 'Here comes the pitch!', 'Left!', 'Right!');
+// Mom and Dad
+story('mom', "Girls! Don't go too far!", 'Wake up, sleepyheads!', 'Look! Candy, presents and toys are here!', 'Have fun, girls!');
+story('dad', 'Look at you two!', 'Great swimming!');
 // Princess Kitchen
 story('princess', 'Try again!', 'Thank you!');

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
-import { sfx, playMusic, stopSpeech } from '../audio.js';
+import { sfx, playMusic, stopSpeech, level, currentSpeaker } from '../audio.js';
 import { makeCat } from '../cat.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
@@ -286,8 +286,11 @@ export class CatRoomScene extends BaseScene {
       this.cat.position.y = 2.4 + Math.sin(t * 1.4) * .2;
       u.head.rotation.z = Math.sin(t * 1.1) * .08;
       u.tailBalls.forEach((b, i) => b.position.set(Math.sin(t * 2 + i * .5) * .35 * (i / 8), -.2 + i * .28, -.95 - Math.sin(i * .3) * .2));
-      this.talk = Math.max(0, (this.talk || 0) - dt);
-      u.head.scale.y = 1 + (this.talk > 0 ? Math.abs(Math.sin(t * 14)) * .04 : 0);
+      // she talks with her voice: the smile opens and the head bobs with the loudness of her line; she blinks now and then
+      const amp = currentSpeaker() === 'cat' ? level.v : 0;
+      u.smiles.forEach((m) => m.scale.set(1 + amp * .4, 1 + amp * 1.8, 1)); u.head.scale.y = 1 + amp * .05;
+      u.blinkT -= dt; if (u.blinkT < 0) { u.blinkT = 2.5 + Math.random() * 3.5; u.blink = .14; }
+      u.blink = Math.max(0, u.blink - dt); u.eyes.forEach((e) => (e.scale.y = u.blink > 0 ? .12 : 1));
     }
     if (this.hintOn) { const s = this.toScreen(new THREE.Vector3(0, 12.5, DOOR_Z)); G.ui.hintAt(s.x, s.y + 20); }
     // marker bobbing

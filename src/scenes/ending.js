@@ -69,7 +69,7 @@ export class WakeScene extends BeachScene {
     ui.bubble('\u{1F634} \u{1F4A4}', '');
     this.camera.position.set(-9.5, 5, 18); this.look.set(-9.8, .8, 10);
 
-    this.tm.after(3, () => { ui.bubble('\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F467} ☀️', 'Wake up, sleepyheads!', 'queen'); this.tapParents(); });
+    this.tm.after(3, () => { ui.bubble('\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F467} ☀️', 'Wake up, sleepyheads!', 'mom'); this.tapParents(); });
     this.tm.after(6, () => this.wakeUp());
   }
 
@@ -111,7 +111,7 @@ export class WakeScene extends BeachScene {
     shade(T); bakeStatic(T); bakeStatic(bed); this.scene.add(T); this.truckG = T;
     this.pieces = [];
 
-    ui.bubble('\u{1F69A} \u{1F36C}\u{1F381}\u{1F9F8}', 'Look! Candy, presents and toys are here!', 'queen');
+    ui.bubble('\u{1F69A} \u{1F36C}\u{1F381}\u{1F9F8}', 'Look! Candy, presents and toys are here!', 'mom');
     sfx.honk(); this.tm.after(.9, () => sfx.honk());
     this.tm.tween(4.2, (k) => {
       T.position.x = -26 + (-1.2 + 26) * k; wheels.forEach((w) => (w.rotation.y += .25));

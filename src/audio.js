@@ -122,6 +122,8 @@ export function stopSpeech() {
   duck(false);
 }
 export const isSpeaking = () => !!current;
+/** the speaker of the line playing right now ('cat', 'king', ...), so only that character's mouth moves */
+export const currentSpeaker = () => (current && !current.ended ? current.who : null);
 /** for debugging in the console: what the sound system is doing */
 export const audioState = () => ({ ctx: ctx && ctx.state, time: ctx && +ctx.currentTime.toFixed(2), playing, queued: queue.length, speaking: !!current });
 
@@ -144,7 +146,7 @@ export function sayAsync(text, who = 'narrator', { priority = 1, minMs = 0 } = {
   const clean = cleanText(text), id = storyId(who, clean);
   if (clean && LINES[id]) return voice(id, { who, priority, minMs });
   const p = PROFILES[who] || PROFILES.narrator, silent = !hasTTS || !voicesOn || muted || !clean;
-  return enqueueSpeech({ priority, minMs, est: silent ? 0 : 1500 + clean.length * 90 / p.rate, play: silent ? (done) => { done(); return null; } : ttsPlayer(clean, who) });
+  return enqueueSpeech({ who, priority, minMs, est: silent ? 0 : 1500 + clean.length * 90 / p.rate, play: silent ? (done) => { done(); return null; } : ttsPlayer(clean, who) });
 }
 
 // ================= recorded voice clips (Kokoro-82M, rendered at build time) =================
@@ -186,9 +188,9 @@ export function voice(ids, { who = null, priority = 1, minMs = 0, gap = 0.08, fa
   const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
   const speaker = who || LINES[list[0]]?.who || 'narrator';
   const text = cleanText(fallback ?? list.map((id) => LINES[id]?.text ?? id.replace(/_/g, ' ')).join(' '));
-  if (!voicesOn || muted || !list.length) return enqueueSpeech({ priority, minMs, est: 0, play: (done) => { done(); return null; } });
+  if (!voicesOn || muted || !list.length) return enqueueSpeech({ who: speaker, priority, minMs, est: 0, play: (done) => { done(); return null; } });
   return enqueueSpeech({
-    priority, minMs, est: 20000,
+    who: speaker, priority, minMs, est: 20000,
     play(done, started) {
       let stopped = false, stopTts = null, guard = 0; const srcs = [];
       Promise.all(list.map(clipBuffer)).then((bufs) => {

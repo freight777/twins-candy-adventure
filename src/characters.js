@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { toon, mk, outline, glowSprite, setStyle, getStyle, bakeStatic, RAINBOW } from './util.js';
+import { toon, mk, outline, glowSprite, setStyle, getStyle, bakeStatic, clamp, RAINBOW } from './util.js';
+const _hp = new THREE.Vector3();
 
 const SKIN = 0xf3c8a2, HAIR = 0x5b3a24, EYE = 0x3a2315;
 const sph = (r, w = 24, h = 18) => new THREE.SphereGeometry(r, w, h);
@@ -66,6 +67,7 @@ function buildTwin(name) {
 
   // ---- head ----
   const head = new THREE.Group(); head.position.y = 1.42; body.add(head);
+  const eyes = [], shines = [];
   head.add(outline(mk(sph(.42, 28, 20), SKIN), 1.05));
   head.add(outline(mk(sph(.46), HAIR, [0, .04, -.08], [1.02, 1, 1]), 1.04));         // back of hair
   head.add(mk(sph(.33), HAIR, [0, .3, .2], [1.15, .5, .7]));                          // bangs
@@ -73,7 +75,8 @@ function buildTwin(name) {
     head.add(mk(sph(.13), HAIR, [s * .38, -.05, .1], [1, 1.7, 1]));                   // side locks
     const tail = mk(sph(.17), HAIR, [s * .5, -.18, -.06], [1, 1.7, 1]); head.add(tail);
     head.add(mk(sph(.08), accent, [s * .43, .1, -.02]), mk(sph(.06), accent2, [s * .5, .13, -.02]));      // bows
-    head.add(mk(sph(.065), EYE, [s * .15, -.02, .37], [1, 1.35, .5]), mk(sph(.022), 0xffffff, [s * .15 + .02, .03, .4]));
+    const eye = mk(sph(.065), EYE, [s * .15, -.02, .37], [1, 1.35, .5]), shine = mk(sph(.022), 0xffffff, [s * .15 + .02, .03, .4]);
+    eye.userData.keep = shine.userData.keep = true; head.add(eye, shine); eyes.push(eye); shines.push(shine);    // kept separate so they can blink
     head.add(mk(sph(.07), 0xff9a9a, [s * .25, -.13, .3], [1, .6, .4]));
   }
   const smile = mk(new THREE.TorusGeometry(.07, .014, 6, 16, Math.PI), 0xc0504d, [0, -.12, .39]); smile.rotation.z = Math.PI; head.add(smile);
@@ -120,7 +123,8 @@ function buildTwin(name) {
   // ---- animation state ----
   const fxs = { lift: 0, spin: 0, squash: 1 };
   const T = {
-    name, root, body, form: 'girl', outfit: 'dress', mode: 'idle', fx: fxs, accent, phase: Math.random() * 6, face: 0,
+    name, root, body, head, form: 'girl', outfit: 'dress', mode: 'idle', fx: fxs, accent, phase: Math.random() * 6, face: 0,
+    blinkT: 1 + Math.random() * 4, blink: 0, pokeT: 0,
     setForm(f) {
       T.form = f;
       if (f !== 'girl') T.outfit = 'dress';          // unicorn and mermaid have their own outfits
@@ -145,8 +149,22 @@ function buildTwin(name) {
       T.face += d * Math.min(1, dt * 12);
       root.rotation.y = T.face;
     },
-    /** @param moving walking? @param swim 0..1 how deep in water */
-    update(dt, t, moving = false, swim = 0) {
+    /** a poke: a quick squash-and-stretch (the scene adds the giggle and sparkles) */
+    poke() { T.pokeT = .35; },
+    /** @param moving walking? @param swim 0..1 how deep in water @param camera when given and she stands still, she looks at you */
+    update(dt, t, moving = false, swim = 0, camera = null) {
+      // blink every few seconds (each twin on her own clock)
+      T.blinkT -= dt; if (T.blinkT < 0) { T.blinkT = 2.4 + Math.random() * 4; T.blink = .14; }
+      T.blink = Math.max(0, T.blink - dt); const open = T.blink <= 0;
+      eyes.forEach((e) => (e.scale.y = open ? 1.35 : .12)); shines.forEach((s) => (s.visible = open));
+      // look at the viewer when standing still; face forward when walking or falling
+      let yaw = 0, pitch = 0;
+      if (camera && !moving && T.mode !== 'fall' && swim < .5) {
+        _hp.copy(camera.position); body.worldToLocal(_hp);
+        const dx = _hp.x - head.position.x, dy = _hp.y - head.position.y, dz = _hp.z - head.position.z;
+        yaw = clamp(Math.atan2(dx, dz), -.7, .7); pitch = clamp(-Math.atan2(dy, Math.hypot(dx, dz)) * .5, -.3, .2);
+      }
+      const kh = 1 - Math.exp(-dt * 4); head.rotation.y += (yaw - head.rotation.y) * kh; head.rotation.x += (pitch - head.rotation.x) * kh;
       T.phase += dt * (moving ? 11 : 2.5);
       const p = T.phase;
       const merm = T.form === 'mermaid';
@@ -189,7 +207,8 @@ function buildTwin(name) {
       // transformation / special effects
       body.position.y += fxs.lift;
       body.rotation.y = fxs.spin;
-      const sq = fxs.squash;
+      let sq = fxs.squash;
+      if (T.pokeT > 0) { T.pokeT = Math.max(0, T.pokeT - dt); const k = 1 - T.pokeT / .35; sq *= 1 + Math.sin(k * Math.PI * 2) * .15 * (1 - k); }
       body.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
       shadow.visible = root.position.y > -.1;
       shadow.scale.setScalar(Math.max(.4, 1 - fxs.lift * .2));

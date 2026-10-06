@@ -492,7 +492,7 @@ export class BeachScene extends BaseScene {
   // ===================================================================== flow
   enter() {
     const G = this.game, P = G.party;
-    this.scene.add(P.group);
+    this.scene.add(P.group); this.addPokes();
     P.ground = (x, z) => {
       if (z > SHORE) return { y: 0, swim: 0 };
       const d = clamp((SHORE - z) / 6, 0, 1);
@@ -558,6 +558,9 @@ export class BeachScene extends BaseScene {
   }
   tapParents() {
     this.touch(); sfx.babble(5);
+    this.parentLine = ((this.parentLine ?? -1) + 1) % 3;
+    const [who, text] = [['mom', 'Have fun, girls!'], ['dad', 'Look at you two!'], ['dad', 'Great swimming!']][this.parentLine];
+    this.game.ui.say(text, who, { priority: 0 });
     const hearts = this.parents.position.clone().add(new THREE.Vector3(0, 3, 0));
     this.fx.burst(hearts, { count: 24, colors: [0xff6f91, 0xff9fcb], speed: 3, gravity: 1.5, life: 1.6, size: .9 });
     this.tm.tween(1.8, (k) => {
@@ -703,6 +706,7 @@ export class BeachScene extends BaseScene {
   }
   changeOutfits(to) {
     this.changing = true;
+    if (to === 'swim' && !this.warned) { this.warned = true; this.game.ui.say("Girls! Don't go too far!", 'mom', { priority: 1 }); }
     const P = this.game.party;
     sfx.sparkle();
     P.both().forEach((tw, i) => {

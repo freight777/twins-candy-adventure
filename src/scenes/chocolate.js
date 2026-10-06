@@ -248,7 +248,7 @@ export class ChocolateScene extends BaseScene {
   // ===================================================================== flow
   enter() {
     const G = this.game, P = G.party;
-    this.scene.add(P.group);
+    this.scene.add(P.group); this.addPokes();
     P.ground = () => ({ y: 0, swim: 0 });
     P.bounds = { xmin: -28, xmax: 28, zmin: -9.5, zmax: 13 };
     P.speed = 4.8; P.frozen = false; P.target = null; P.setMode('idle');

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Timers, Fx, clamp, linearizeFrag, disposeObject, keep, bakeStatic } from './util.js';
 import { Q } from './engine/quality.js';
-import { sayAsync } from './audio.js';
+import { sayAsync, sfx } from './audio.js';
 
 const hitMat = new THREE.MeshBasicMaterial({ visible: false }); keep.add(hitMat);
 const _v = new THREE.Vector3(), _w = new THREE.Vector3();
@@ -81,7 +81,15 @@ export class BaseScene {
     this.scene.add(light.target);
   }
 
+  /** let the twins be poked (a giggle, sparkles and a squash) instead of walking when you tap one */
+  addPokes() {
+    this.pokeHits = this.game.party.both().map((tw) => this.addInteractive(tw.root, () => {
+      tw.poke(); sfx.giggle();
+      this.fx.burst(_w.set(tw.root.position.x, tw.root.position.y + 2, tw.root.position.z), { count: 14, colors: [0xffffff, 0xffe14d, 0xff9fcb], speed: 3, gravity: -2, life: .9, size: .7 });
+    }, .8, [0, 1.1, 0]));
+  }
   update(dt) {
+    this.game.party.camera = this.camera;                 // the twins look at the viewer when they stand still
     if (!this.patched) {                    // raw shaders were written in screen colours; fix them up for the post-processing chain
       this.patched = true;
       this.scene.traverse((o) => {
@@ -113,6 +121,7 @@ export class BaseScene {
 
   dispose() {
     this.disposed = true;
+    (this.pokeHits || []).forEach((h) => { h.removeFromParent(); h.geometry.dispose(); });   // the twins outlive the scene; their hit spheres don't
     this.game.party.group.removeFromParent();
     disposeObject(this.scene);           // shared materials/textures (util.toon cache, glow/star sprites) stay alive for the next scene
   }

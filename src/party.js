@@ -74,7 +74,7 @@ export class Party {
     for (const tw of this.both()) {
       const p = tw.root.position, g = this.ground(p.x, p.z);
       p.y = g.y;
-      tw.update(dt, t, this.moving[tw.name], g.swim);
+      tw.update(dt, t, this.moving[tw.name], g.swim, this.camera);
     }
   }
 }
