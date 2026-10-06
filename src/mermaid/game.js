@@ -361,5 +361,5 @@ canvas.addEventListener('pointerdown', (e) => {
 // ---------------------------------------------------------------- go
 gfx.start((dt) => { if (!W) return false; update(dt); });
 $('#play').addEventListener('click', () => { unlock(); playMusic('ocean'); play(); });
-window.mermaidGame = { S, scene, camera, get W() { return W; }, get hero() { return hero; }, get friends() { return friends; }, get lucy() { return lucy; }, tp: (i) => { S.idx = i; placeHero(i / (N - 1)); }, force: (name, double = false) => { S.forceCard = { c: COLORS.find((c) => c.name === name), double }; } };
+window.mermaidGame = { S, scene, camera, step: (dt = 1 / 60) => update(dt), get W() { return W; }, get hero() { return hero; }, get friends() { return friends; }, get lucy() { return lucy; }, tp: (i) => { S.idx = i; placeHero(i / (N - 1)); }, force: (name, double = false) => { S.forceCard = { c: COLORS.find((c) => c.name === name), double }; } };
 boot().catch((e) => { console.error(e); loading.fail(); });
