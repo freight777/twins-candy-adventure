@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, candyCaneTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
-import { sfx, playMusic } from '../audio.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, candyCaneTex, setStyle, shade, bakeStatic, RAINBOW, CANDY } from '../util.js';
+import { sfx, playMusic, voice } from '../audio.js';
+import { makeGift } from '../candies.js';
 
 const sph = (r, w = 18, h = 12) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 14) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -123,12 +124,30 @@ export class CastleScene extends BaseScene {
     this.stage = 'greet'; this.wave(this.king); this.wave(this.queen); sfx.fanfare(); this.confetti(); P.both().forEach((t) => (t.mode = 'cheer'));
     ui.bubble('\u{1F451}\u{1F389}\u{1F389}', 'Congratulations Adalyn and Esmae!', 'king', false);
     await this.line('Congratulations Adalyn and Esmae!', 'king', { priority: 2, minMs: 2500 }); await this.wait(.4);
+    // the tunnel stars pay off: the King names how many they caught (counting to 10, incidentally)
+    const stars = Math.min(10, this.game.stars || 0);
+    if (stars > 0) { ui.bubble('\u2B50'.repeat(Math.min(stars, 5)), '', 'king', false); await this.alive(voice(['you_caught', `n_${stars}`, 'stars_in_tunnel'], { priority: 2 })); await this.wait(.3); }
     ui.bubble('\u{1F36C} \u{1F69A} \u{1F3E0}', 'Your candy is on its way to your house!', 'queen', false); sfx.babble(9); this.wave(this.queen); P.both().forEach((t) => (t.mode = 'idle'));
-    await this.line('Your candy is on its way to your house!', 'queen', { priority: 2, minMs: 2500 }); await this.wait(.6);
+    await this.line('Your candy is on its way to your house!', 'queen', { priority: 2, minMs: 2500 }); await this.wait(.3);
+    await this.countCandy(Math.min(10, this.game.eaten || 0));
+    await this.wait(.4);
     ui.bubble('\u{1F3E0} \u{1F4A4}', 'Time to go home!', 'king', false); sfx.magic(); this.openPortal();
     await this.line('Time to go home!', 'king', { priority: 2 });
   }
 
+  /** every candy they ate in the meadow drops into a gift box, and the voice counts them: one... two... three... */
+  async countCandy(n) {
+    if (n <= 0) return;
+    const box = makeGift(0xff6fb5); box.scale.setScalar(1.6); box.position.set(0, 1.5, -6.5); shade(box); bakeStatic(box); this.scene.add(box);
+    this.tm.tween(.5, (k) => box.scale.setScalar(1.6 * ease.outBack(k)));
+    await this.wait(.6);
+    for (let i = 1; i <= n; i++) {
+      const g = mk(new THREE.SphereGeometry(.32, 14, 10), pick(CANDY), [rand(-1, 1), 7, -6.5], [1, .85, 1]); this.scene.add(g);
+      this.tm.tween(.55, (k) => { g.position.y = 7 - ease.in(k) * 4.6; }, { ease: ease.linear, done: () => { g.visible = false; sfx.pop(); this.fx.burst(new THREE.Vector3(0, 3, -6.2), { count: 6, colors: CANDY, speed: 2, gravity: -3, life: .6, size: .6 }); } });
+      await this.alive(voice(`n_${i}`, { priority: 2, minMs: 600 }));
+    }
+    await this.alive(voice('yum_count_done', { priority: 2 }));
+  }
   confetti() {
     for (let i = 0; i < 6; i++) this.tm.after(i * .35, () => this.fx.burst(new THREE.Vector3(rand(-8, 8), rand(9, 13), rand(-8, 2)), { count: 60, colors: RAINBOW.concat(CANDY), speed: 5, gravity: -6, life: 2.4, size: .8 }));
   }

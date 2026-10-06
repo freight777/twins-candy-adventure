@@ -62,7 +62,9 @@ export class BaseScene {
   /** wait (in game time, so it pauses with the scene) */
   wait(sec) { return new Promise((r) => this.tm.after(sec, r)); }
   /** speak a line and wait until it has been said; if the scene has ended meanwhile the chain just stops */
-  line(text, who = 'narrator', opts = {}) { return sayAsync(text, who, opts).then((v) => (this.disposed ? new Promise(() => {}) : v)); }
+  line(text, who = 'narrator', opts = {}) { return this.alive(sayAsync(text, who, opts)); }
+  /** await something (a voice line, a tween) but quietly stop the chain if the scene has ended meanwhile */
+  alive(p) { return p.then((v) => (this.disposed ? new Promise(() => {}) : v)); }
   /** a bigger sparkle pool for busy scenes (the finale pile, fireworks) */
   setFxMax(n) { this.scene.remove(this.fx.points); this.fx.points.geometry.dispose(); this.fx = new Fx(this.scene, n); }
   /** merge the meshes inside every object marked userData.bake (after shadows are set up): far fewer draw calls */

@@ -162,7 +162,8 @@ export class WakeScene extends BeachScene {
       this.floaters = [];                                                  // party balloons drifting up behind the family
       for (let i = 0; i < 10; i++) { const b = makeBalloon(); b.position.set(rand(-15, -2), rand(-1, 6), rand(5.5, 8)); b.userData.sp = rand(.5, 1); b.userData.ph = rand(0, 6); this.scene.add(b); this.floaters.push(b); }
       // a shower of candy, presents and teddy bears lands in a big pile right next to the family
-      for (let i = 0; i < 34; i++) this.tm.after(i * .06, () => {
+      const bonus = Math.min(10, G.stars || 0);                          // the tunnel stars become extra presents in the pile
+      for (let i = 0; i < 34 + bonus; i++) this.tm.after(i * .06, () => {
         const m = goodie(rand(1.5, 2.3));
         m.position.set(rand(-5.2, -2.4), rand(9, 14), rand(7.2, 10.6)); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6)); this.scene.add(m);
         this.pieces.push({ m, vy: 0, vx: rand(-.4, .4), vz: rand(-.4, .4), spin: rand(-3, 3), rest: false });

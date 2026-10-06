@@ -58,6 +58,7 @@ P('and_how_many_more_make_ten', 'and how many more make ten?'); P('and_how_many'
 P('yes_great', 'Yes! Great job!', 'counter'); P('you_got_it', 'You got it!', 'counter'); P('thats_it', "That's it!", 'counter'); P('hmm_try_again', 'Hmm, try again!', 'counter');
 P('tap_the_one_that', 'Tap the one that is bouncing!', 'counter'); P('lets_count', "Let's count together!", 'counter'); P('well_done', 'Well done!', 'counter'); P('wow', 'Wow!', 'counter');
 P('hold_to_go_home', 'Hold the house to go home!');
+P('you_caught', 'You caught'); P('stars_in_tunnel', 'stars in the tunnel!'); P('yum_count_done', 'Yummy! All for you!', 'queen'); P('sparkle_dice', 'Sparkle dice! Roll three or more!');
 
 // ---------------------------------------------------------------- the story lines, exactly as the games pass them to say()/bubble()
 // Candy Adventure

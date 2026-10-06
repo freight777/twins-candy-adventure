@@ -291,7 +291,7 @@ export class ChocolateScene extends BaseScene {
       L.fx.squash = 1 + Math.sin(k * Math.PI * 6) * .12;
     }, { ease: ease.linear, done: () => {
       L.fx.squash = 1; e.visible = false;
-      this.eaten++; G.ui.setStars(this.eaten);
+      this.eaten++; G.ui.setStars(this.eaten); G.eaten = (G.eaten || 0) + 1;
       const hp = L.root.position.clone().add(new THREE.Vector3(0, 2.4, 0));
       this.fx.burst(hp, { count: 14, colors: [0xff6f91, 0xff9fcb], speed: 2.5, gravity: 1.5, life: 1.5, size: .9 });
       if (this.eaten % 5 === 0) { sfx.tada(); this.fx.burst(hp, { count: 60, colors: RAINBOW.concat(CANDY), speed: 7, gravity: -4, life: 1.8, size: 1 }); G.ui.bubble('\u{1F36C}\u{1F389}', 'Yum yum!'); this.tm.after(2.5, () => G.ui.hideBubble()); }

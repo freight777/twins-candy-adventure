@@ -149,5 +149,5 @@ async function boot() {
 boot().catch((e) => { console.error(e); loading.fail(); });
 
 // wire up the Play button (also unlocks audio, which iPads require)
-ui.onPlay(() => { unlock(); game.current.startPlay && game.current.startPlay(); });
+ui.onPlay(() => { unlock(); game.stars = 0; game.eaten = 0; game.current.startPlay && game.current.startPlay(); });   // a fresh run: tunnel stars and eaten candy start at zero
 export { playMusic, stopMusic };

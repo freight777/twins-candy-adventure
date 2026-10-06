@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
-import { sfx, playMusic, sayAsync } from '../audio.js';
+import { sfx, playMusic, sayAsync, voice } from '../audio.js';
 import { model } from '../assets.js';
 import { settings as learnSettings } from '../learn/profile.js';
 import { makeReadingQuestion } from '../learn/reading.js';
@@ -177,11 +177,12 @@ export class BoardScene extends BaseScene {
   anim(dur, fn, e = ease.inOut) { return new Promise((r) => this.tm.tween(dur, fn, { ease: e, done: r })); }
 
   async loop() {
-    let turn = 0;
+    let turn = 0; this.turnNo = 0; this.asked = 0;
     while (!this.over) {
       const pl = this.players[this.order[turn % 2]];
       turn++;
       if (pl.done) continue;
+      this.turnNo++;
       await this.takeTurn(pl);
       if (this.players.every((p) => p.done)) this.over = true;
     }
@@ -200,11 +201,14 @@ export class BoardScene extends BaseScene {
       await this.sleep(.4);
       return;
     }
-    ui.bubble(pl.tw.name === 'adalyn' ? '\u{1F984} \u{1F3B2}' : '\u{1F9DC}‍♀️ \u{1F3B2}', pl.tw.name === 'adalyn' ? "Adalyn's turn!" : "Esmae's turn!");
     sfx.chime();
-    // a reading question comes first (CKLA-gated, errorless: it always ends on a right answer). Right on the first try = sparkle dice
-    if (learnSettings.on && !noQuiz) {
-      await this.sleep(1.6);                                           // let "Adalyn's turn!" be heard
+    const turnSaid = ui.bubble(pl.tw.name === 'adalyn' ? '\u{1F984} \u{1F3B2}' : '\u{1F9DC}‍♀️ \u{1F3B2}', pl.tw.name === 'adalyn' ? "Adalyn's turn!" : "Esmae's turn!");
+    // a reading question comes first (CKLA-gated, errorless). Every N turns and at most N per game (grown-ups page),
+    // so a whole game stays around 12-15 minutes. Right on the first try = sparkle dice.
+    const due = learnSettings.on && !noQuiz && this.asked < (learnSettings.maxPerSession || 12) && (this.turnNo - 1) % (learnSettings.every || 1) === 0;
+    if (due) {
+      this.asked++;
+      await turnSaid; await this.sleep(.3);                            // "Adalyn's turn!" is heard in full
       ui.hideBubble();
       const res = await ask(makeReadingQuestion(pl.tw.name), pl.tw.name);
       if (this.disposed) return;
