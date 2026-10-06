@@ -1,14 +1,15 @@
 import * as THREE from 'three';
-import { toon, mk, canvasTex, glowSprite, blobShadow, setStyle, getStyle } from '../util.js';
+import { toon, mk, canvasTex, glowSprite, blobShadow, emojiTex, keep, setStyle, getStyle } from '../util.js';
 
 const sph = (r, w = 22, h = 16) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 16) => new THREE.CylinderGeometry(rt, rb, h, s);
 
-const emojiTex = (ch) => canvasTex(128, 128, (g, w, h) => { g.font = '84px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, w / 2, h / 2 + 6); });
-const hornTex = (a, b, c) => canvasTex(64, 128, (g, w, h) => {
-  g.fillStyle = a; g.fillRect(0, 0, w, h);
-  for (let i = -4; i < 8; i++) { g.fillStyle = i % 2 ? b : c; g.beginPath(); g.moveTo(0, i * 22); g.lineTo(w, i * 22 - 22); g.lineTo(w, i * 22 - 4); g.lineTo(0, i * 22 + 18); g.fill(); }
-});
+/** the candy-striped horn: one texture for every unicorn (so they share one horn material too) */
+let _horn;
+const hornTex = () => _horn || (_horn = canvasTex(64, 128, (g, w, h) => {
+  g.fillStyle = '#fff2c4'; g.fillRect(0, 0, w, h);
+  for (let i = -4; i < 8; i++) { g.fillStyle = i % 2 ? '#ffd36a' : '#ffb3dc'; g.beginPath(); g.moveTo(0, i * 22); g.lineTo(w, i * 22 - 22); g.lineTo(w, i * 22 - 4); g.lineTo(0, i * 22 + 18); g.fill(); }
+}), keep.add(_horn), _horn);
 
 /**
  * A cute 3D unicorn, built from smooth shapes. Faces +Z, stands on y=0, about 3.4 units tall to the ears.
@@ -52,7 +53,7 @@ export function createUnicorn(spec) {
     const inner = mk(new THREE.ConeGeometry(.095, .38, 10), 0xffb0cf, [s * .33, .58, -.06]); inner.rotation.z = -s * .28; inner.rotation.x = -.1; head.add(inner);
   });
   // spiral horn
-  const hornMat = toon(0xffffff, { map: hornTex('#fff2c4', '#ffd36a', '#ffb3dc'), emissive: 0xffd88a, emissiveIntensity: .25 });
+  const hornMat = toon(0xffffff, { map: hornTex(), emissive: 0xffd88a, emissiveIntensity: .25 });
   const horn = new THREE.Group(); horn.position.set(0, .62, .32); horn.rotation.x = .5; head.add(horn);
   horn.add(mk(new THREE.ConeGeometry(.15, 1.35, 20), hornMat, [0, .68, 0]));
   const hornGlow = glowSprite(0xffe9a0, 1.5, .7); hornGlow.position.set(0, 1.35, 0); horn.add(hornGlow);

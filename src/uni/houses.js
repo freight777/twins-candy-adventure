@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { toon, mk, glowSprite, setStyle, canvasTex, Timers, Fx, ease, rand, pick, clamp, lerp, RAINBOW } from '../util.js';
+import { toon, mk, glowSprite, setStyle, canvasTex, disposeObject, keep, Timers, Fx, ease, rand, pick, clamp, lerp, RAINBOW } from '../util.js';
+import { starGeo } from '../board/path.js';
 import { ask } from '../engine/quiz.js';
 import { storyAdd } from '../learn/math.js';
 import { createUnicorn, LOOKS } from './unicorn.js';
@@ -7,12 +8,14 @@ import { createUnicorn, LOOKS } from './unicorn.js';
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 20) => new THREE.CylinderGeometry(rt, rb, h, s);
 
-function starGeo(R = 1, r = .48, depth = .3) {
-  const sh = new THREE.Shape();
-  for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 + Math.PI / 2, rad = i % 2 ? r : R; sh[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rad, Math.sin(a) * rad); }
-  const g = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelThickness: .1, bevelSize: .1, bevelSegments: 3 });
-  g.translate(0, 0, -depth / 2); return g;
-}
+/** made once, kept for every visit (a house's own geometry/materials are freed when you leave) */
+let _wall, _star;
+const wallTex = () => _wall || (_wall = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+  g.fillStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 24; i++) { g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 3 + Math.random() * 6, 0, 7); g.fill(); }
+  g.strokeStyle = 'rgba(0,0,0,.05)'; g.lineWidth = 3; for (let x = 0; x < w; x += 64) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
+}, [6, 1]), keep.add(_wall), _wall);
+const sparkleStar = () => _star || (_star = starGeo(.8, .38, .25), keep.add(_star), _star);
 const hitSphere = (obj, r) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); obj.add(m); return m; };
 
 export const HOUSES = {
@@ -44,12 +47,7 @@ export function createHouse(key, api) {
     rain:    { wall: 0x7a8fe0, floor: 0xb8c8f0, rug: 0x4a62c8, ceil: 0x4a5ab8, light: 0xd8e4ff },
     uni:     { wall: 0xffd0e6, floor: 0xfff4f8, rug: 0xff9ecb, ceil: 0xffb8d8, light: 0xfff0e8 },
   }[key];
-  const wallTex = canvasTex(256, 256, (g, w, h) => {
-    g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
-    g.fillStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 24; i++) { g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 3 + Math.random() * 6, 0, 7); g.fill(); }
-    g.strokeStyle = 'rgba(0,0,0,.05)'; g.lineWidth = 3; for (let x = 0; x < w; x += 64) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
-  }, [6, 1]);
-  const wallMat = new THREE.MeshStandardMaterial({ color: theme.wall, map: wallTex, side: THREE.BackSide, roughness: .9 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: theme.wall, map: wallTex(), side: THREE.BackSide, roughness: .9 });
   scene.add(new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 9, 56, 1, true), wallMat).translateY(4.5));
   scene.add(new THREE.Mesh(new THREE.SphereGeometry(11.1, 40, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: theme.ceil, side: THREE.BackSide, roughness: .9 })).translateY(9));
   const floor = new THREE.Mesh(new THREE.CircleGeometry(11, 56).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: theme.floor, roughness: .6 })); scene.add(floor);
@@ -90,7 +88,7 @@ export function createHouse(key, api) {
     H.extra.push({ update: (t) => { disco.rotation.y = t * .6; dg.material.opacity = .4 + Math.sin(t * 4) * .15; } });
     scene.add(mk(sph(1.6, 24, 16), toon(0xff7ab8), [0, 0, -7], [2.2, 1.1, 1]), mk(new THREE.BoxGeometry(5, 3.4, .2), 0xffffff, [0, 3.6, -10]));
     const mirror = mk(new THREE.CircleGeometry(1.4, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: .05 }), [0, 3.7, -9.85]); scene.add(mirror);
-    const sg = starGeo(.8, .38, .25), smat = new THREE.MeshStandardMaterial({ color: 0xffd84d, emissive: 0xffc83a, emissiveIntensity: 1.6, roughness: .35 });
+    const sg = sparkleStar(), smat = new THREE.MeshStandardMaterial({ color: 0xffd84d, emissive: 0xffc83a, emissiveIntensity: 1.6, roughness: .35 });
     const stars = [];
     const place = (s) => { s.position.set(rand(-7, 7), rand(2.5, 8), rand(-6, 3)); s.userData.ph = rand(0, 6); s.userData.y0 = s.position.y; s.scale.setScalar(1); s.visible = true; };
     for (let i = 0; i < 12; i++) {
@@ -167,7 +165,7 @@ export function createHouse(key, api) {
         H.count = pots.filter((q) => q.grown).length; progress(); H.busy = false; if (H.count >= 5) celebrate();
       }, 1.6);
     }
-    H.extra.push({ update: (t) => { cloud.position.y += Math.sin(t * 2) * .003; eyeL.scale.y = eyeR.scale.y = 1; pots.forEach((p) => { if (!p.grown) p.flower.rotation.z = Math.sin(t * 1.5) * .1; }); } });
+    H.extra.push({ update: (t) => { cloud.position.y = 6.4 + Math.sin(t * 2) * .1; pots.forEach((p) => { if (!p.grown) p.flower.rotation.z = Math.sin(t * 1.5) * .1; }); } });
     const bow = RAINBOW.map((c, k) => { const a = new THREE.Mesh(new THREE.TorusGeometry(8 - k * .55, .3, 8, 40, Math.PI), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0 })); a.position.set(0, .5, -10.3); scene.add(a); return a; });
     H.extra.push({ update: () => bow.forEach((a) => (a.material.opacity = lerp(a.material.opacity, H.done ? .85 : 0, .04))) });
   }
@@ -236,7 +234,7 @@ export function createHouse(key, api) {
     let o = hit.object; while (o && !o.userData.tap) o = o.parent; if (o) o.userData.tap(o);
   };
   H.resize = (a) => { camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(76 / 2)) / a)), 42, 82); camera.updateProjectionMatrix(); };
-  H.dispose = () => scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  H.dispose = () => { timers.clear(); disposeObject(scene); };
   setStyle('toon');
   progress(false);
   return H;

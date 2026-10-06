@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { toon, mk, rand, pick, clamp, lerp, canvasTex, glowSprite, emojiSprite, candyCaneTex as caneBase, setStyle, RAINBOW } from '../util.js';
+import { toon, mk, rand, pick, clamp, lerp, canvasTex, glowSprite, glowTex, emojiSprite, candyCaneTex as caneBase, setStyle, RAINBOW } from '../util.js';
 import { model } from '../assets.js';
 import { N, controlPoints, starGeo, buildTiles, findShortcuts, pickupTiles, pathField, instancer, spotFinder } from '../board/path.js';
 const candyCaneTex = (ry = 4) => { const t = caneBase().clone(); t.repeat.set(2, ry); return t; };
@@ -261,9 +261,16 @@ export function buildWorld(scene) {
   const MOTES = 520, mpos = new Float32Array(MOTES * 3), mcol = new Float32Array(MOTES * 3), mc = new THREE.Color();
   for (let i = 0; i < MOTES; i++) { const t = W.tiles[Math.floor(rand(0, N))].pos; mpos.set([t.x + rand(-26, 26), t.y + rand(.5, 12), t.z + rand(-26, 26)], i * 3); mc.set(pick([0xfff0a0, 0xffb8e0, 0xb8f0ff, 0xffffff, 0xd8c0ff])); mcol.set([mc.r, mc.g, mc.b], i * 3); }
   const mgeo = new THREE.BufferGeometry(); mgeo.setAttribute('position', new THREE.BufferAttribute(mpos, 3)); mgeo.setAttribute('color', new THREE.BufferAttribute(mcol, 3));
-  const motes = new THREE.Points(mgeo, new THREE.PointsMaterial({ size: .5, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, map: glowSprite().material.map }));
-  motes.frustumCulled = false; scene.add(motes);
-  W.animated.push((t) => { for (let i = 0; i < MOTES; i++) { mpos[i * 3 + 1] += Math.sin(t * .8 + i) * .004; mpos[i * 3] += Math.sin(t * .5 + i * 1.7) * .006; } mgeo.attributes.position.needsUpdate = true; });
+  const mmat = new THREE.PointsMaterial({ size: .5, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, map: glowTex() });
+  W.time = { value: 0 };
+  mmat.onBeforeCompile = (sh) => {             // each mote drifts around its own spot, on the GPU (no per-frame buffer upload)
+    sh.uniforms.time = W.time;
+    sh.vertexShader = 'uniform float time;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      float ph = float(gl_VertexID);
+      transformed.y += sin(time * .8 + ph) * .3;
+      transformed.x += sin(time * .5 + ph * 1.7) * .7;`);
+  };
+  const motes = new THREE.Points(mgeo, mmat); motes.frustumCulled = false; scene.add(motes);
   for (let i = 0; i < 26; i++) {
     const b = new THREE.Group(), col = pick([0xff7fb5, 0x7bd8ff, 0xffe14d, 0xc9a8ff]);
     const wing = new THREE.PlaneGeometry(.9, .7).translate(.45, 0, 0), wm = new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .4, side: THREE.DoubleSide, roughness: .6 });
@@ -308,7 +315,7 @@ export function buildWorld(scene) {
   }
 
   W.update = (dt, t) => {
-    W.waterMat.uniforms.time.value = t; W.sky.material.uniforms.time.value = t;
+    W.waterMat.uniforms.time.value = t; W.sky.material.uniforms.time.value = t; W.time.value = t;
     W.clouds.forEach((c) => { c.position.x += dt * 1.1; if (c.position.x > 240) c.position.x = -240; });
     W.pickups.forEach((s) => { if (!s.taken) { s.mesh.rotation.y = t * 1.6 + s.tile; s.mesh.position.y = s.y0 + Math.sin(t * 2 + s.tile) * .35; } });
     W.animated.forEach((f) => f(t));
