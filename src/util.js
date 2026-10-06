@@ -12,13 +12,41 @@ let STYLE = 'toon';
 export const setStyle = (s) => { STYLE = s; };
 export const getStyle = () => STYLE;
 /** a new material in the current style. opts.cheap = plain MeshStandardMaterial (no clearcoat/sheen) for big scenery surfaces */
-export function makeToon(color, { cheap, unique, ...opts } = {}) {
+export function makeToon(color, opts = {}) {
+  const m = makeToon0(color, opts);
+  return CAUSTIC ? addCaustics(m, CAUSTIC) : m;
+}
+function makeToon0(color, { cheap, unique, ...opts } = {}) {
   if (cheap && STYLE !== 'toon') return new THREE.MeshStandardMaterial({ color, roughness: opts.map ? 0.8 : 0.5, ...opts });
   return STYLE === 'film'
     ? new THREE.MeshPhysicalMaterial({ color, roughness: 0.6, clearcoat: 0.1, clearcoatRoughness: 0.4, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.5), ...opts })
     : STYLE === 'candy'
     ? new THREE.MeshPhysicalMaterial({ color, roughness: opts.map ? 0.78 : 0.34, clearcoat: opts.map ? 0 : 0.75, clearcoatRoughness: 0.16, ...opts })
     : new THREE.MeshToonMaterial({ color, gradientMap, ...opts });
+}
+// ---------- underwater caustics: wobbling light on everything a "caustic" material covers ----------
+/** one clock for every water effect (the ocean's shaders and caustic materials); the scene sets CAUSTIC_TIME.value each frame */
+export const CAUSTIC_TIME = { value: 0 };
+/** GLSL: caus(worldXZ) -> 0..1 bright caustic lines (needs uniform float causTime) */
+export const CAUSTIC_GLSL = `float caus(vec2 p){ p *= .2; float t = causTime*.55; float v = sin(p.x*3.+t)+sin(p.y*3.2-t*1.1);
+  vec2 q = vec2(p.x*.76-p.y*.64, p.x*.64+p.y*.76); v += sin(q.x*4.-t*.8)+sin(q.y*4.4+t); return pow(1.-abs(sin(v*1.2)), 7.); }`;
+let CAUSTIC = 0;
+/** while k > 0, every toon() material made gets caustic light of strength k (like setStyle: a scene turns it on while it builds) */
+export const setCaustic = (k) => { CAUSTIC = k; };
+export function addCaustics(mat, k = .45) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.causTime = CAUSTIC_TIME;
+    sh.vertexShader = 'varying vec3 vCausW;\n' + sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      vec4 cw = vec4(transformed, 1.);
+      #ifdef USE_INSTANCING
+        cw = instanceMatrix * cw;
+      #endif
+      vCausW = (modelMatrix * cw).xyz;`);
+    sh.fragmentShader = 'varying vec3 vCausW;\nuniform float causTime;\n' + CAUSTIC_GLSL + '\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      diffuseColor.rgb *= 1. + caus(vCausW.xz) * ${k.toFixed(2)};`);
+  };
+  mat.customProgramCacheKey = () => 'caustic' + k;
+  return mat;
 }
 /** key for a material recipe, or null when it can't be shared (textures, functions) */
 export function recipeKey(...parts) {
@@ -43,7 +71,7 @@ const matCache = new Map();
  */
 export function toon(color, opts = {}) {
   if (opts.unique || (opts.map && !keep.has(opts.map))) return makeToon(color, opts);
-  const k = recipeKey(STYLE, typeof color === 'number' ? color : new THREE.Color(color).getHex(), opts);
+  const k = recipeKey(STYLE, CAUSTIC, typeof color === 'number' ? color : new THREE.Color(color).getHex(), opts);
   if (k === null) return makeToon(color, opts);
   let m = matCache.get(k);
   if (!m) { m = makeToon(color, opts); keep.add(m); matCache.set(k, m); }

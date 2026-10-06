@@ -3,7 +3,7 @@ import './mermaid.css';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { skyEnv } from '../env.js';
-import { ease, clamp, rand, pick, RAINBOW, stripedGeo } from '../util.js';
+import { ease, clamp, rand, pick, RAINBOW, stripedGeo, setCaustic } from '../util.js';
 import { playMusic, sfx, playScore, stopScore } from '../audio.js';
 import { createBoardGame } from '../board/deck.js';
 import { buildOcean, FRIEND_TILES } from './ocean.js';
@@ -25,7 +25,8 @@ const bubblesAt = (p, count = 6) => G.fx.burst(p, { count, colors: [0xffffff, 0x
 const G = createBoardGame({
   hero: { name: 'Esmae', voice: 'uni', emoji: '\u{1F9DC}‍♀️' }, friends: FRIENDS, twin: { name: 'Lucy', emoji: '\u{1F496}', css: '#ff9ed8' },
   deckIcon: '&#128026;', banner: 'You did it, Esmae!', music: 'ocean', debugName: 'mermaidGame',
-  pipeline: { exposure: 0.85, bloom: { strength: 0.22, radius: 0.6, threshold: 0.95 }, grade: { sat: 1.12, con: 1.05 } },
+  pipeline: { exposure: 0.85, bloom: { strength: 0.22, radius: 0.6, threshold: 0.95 }, grade: { sat: 1.12, con: 1.05 }, shadows: false },
+  shadows: false,                                                              // hard sun shadows under the sea looked wrong (and cost the most)
   lift: HOVER, cardTime: 1.8, leg: { perStep: .34, min: .7 },
   intro: ['\u{1F9DC}‍♀️ \u{1F42C} \u{1F496}', "Let's go on a mermaid adventure, Esmae!", 3.6],
   slide: ['\u{1F42C} \u{1F30A}', 'A dolphin ride!'],
@@ -73,6 +74,7 @@ Object.assign(S, { gifts: [], pets: [] });
 async function build() {
   await new Promise((r) => setTimeout(r, 30));
   const { scene } = G;
+  setCaustic(.45);                                                              // everything built under the sea shimmers with caustic light
   W = G.W = buildOcean(scene);
   scene.environment = skyEnv(G.renderer, 'ocean', { top: 0x8fe8ff, mid: 0x4ab8e8, bottom: 0x1a5a9a, sun: [10, 40, 5], sunColor: 0xe8fff8, sunPower: 5 }); scene.environmentIntensity = 0.5;
   scene.fog = new THREE.FogExp2(0x2a9fd0, 0.0105);
@@ -89,6 +91,7 @@ async function build() {
   king = mermaid(LOOKS.king, 1); queen = mermaid(LOOKS.queen, 1);
   [king, queen].forEach((m) => { m.upright = true; m.root.rotation.y = Math.atan2(-W.endT.x, -W.endT.z); });
   king.root.position.copy(W.kingSpot); queen.root.position.copy(W.queenSpot);
+  setCaustic(0);
   G.taps = [{ u: lucy, n: 'Lucy' }, { u: king, n: 'The King' }, { u: queen, n: 'The Queen' }];
 }
 

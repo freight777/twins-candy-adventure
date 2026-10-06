@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { toon, mk, rand, pick, clamp, lerp, canvasTex, glowSprite, emojiSprite, setStyle } from '../util.js';
+import { toon, mk, rand, pick, clamp, lerp, canvasTex, glowSprite, glowTex, emojiSprite, setStyle, CAUSTIC_TIME, CAUSTIC_GLSL } from '../util.js';
+import { Q } from '../engine/quality.js';
 import { heartGeo, createDolphin } from './mermaid.js';
 import { N, controlPoints, buildTiles, findShortcuts, pickupTiles, pathField, instancer, spotFinder } from '../board/path.js';
 
@@ -11,7 +12,7 @@ const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); retu
 export const FRIEND_TILES = [9, 22, 35];                 // Sparkle, Rainbow, Kitty. Lucy (twin) waits at the palace
 export const PEARL_TILES = [14, 28, 41];                 // giant clams with pearls
 
-export const TIME = { value: 0 };
+export const TIME = CAUSTIC_TIME;                       // one clock for every water shader
 /** make a material sway like it is in a current (kelp, grass, fans) */
 function sway(mat, amp = .5) {
   mat.onBeforeCompile = (sh) => {
@@ -73,12 +74,11 @@ export function buildOcean(scene) {
     const ripple = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#f2f2f2'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(190,170,120,.35)'; g.lineWidth = 3; for (let y = 0; y < h; y += 14) { g.beginPath(); for (let x = 0; x <= w; x += 8) g.lineTo(x, y + Math.sin(x * .07 + y) * 4); g.stroke(); } }, [70, 70]);
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: ripple, roughness: .95 });
     mat.onBeforeCompile = (sh) => {
-      sh.uniforms.time = TIME;
+      sh.uniforms.causTime = TIME;
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix*vec4(transformed,1.)).xyz;');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-        varying vec3 vWP; uniform float time;
-        float caus(vec2 p){ p *= .2; float t = time*.55; float v = sin(p.x*3.+t)+sin(p.y*3.2-t*1.1);
-          vec2 q = vec2(p.x*.76-p.y*.64, p.x*.64+p.y*.76); v += sin(q.x*4.-t*.8)+sin(q.y*4.4+t); return pow(1.-abs(sin(v*1.2)), 7.); }`)
+        varying vec3 vWP; uniform float causTime;
+        ${CAUSTIC_GLSL}`)
         .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= 1. + caus(vWP.xz)*.95*smoothstep(80.,10.,vWP.y+40.);');
     };
     const t = new THREE.Mesh(geo, mat); t.receiveShadow = true; scene.add(t);
@@ -93,11 +93,28 @@ export function buildOcean(scene) {
         vec3 d = normalize(vP); float h = d.y;
         vec3 deep = vec3(.04,.22,.52), mid = vec3(.12,.55,.80), top = vec3(.55,.92,.98);
         vec3 c = h > 0. ? mix(mid, top, smoothstep(0.,.9,h)) : mix(mid, deep, smoothstep(0.,-.6,h));
-        if (h > .2) { vec2 p = d.xz/(d.y+.05)*3.; float w = sin(p.x*2.+time*.8)+sin(p.y*2.3-time*.7)+sin((p.x+p.y)*1.7+time*.5); c += vec3(.5,.8,.7)*pow(max(w*.33+.5,0.),4.)*smoothstep(.2,.7,h); }
+        if (h > .2) { vec2 p = d.xz/(d.y+.05)*3.; float w = sin(p.x*2.+time*.8)+sin(p.y*2.3-time*.7)+sin((p.x+p.y)*1.7+time*.5); c += vec3(.7,1.12,.98)*pow(max(w*.33+.5,0.),4.)*smoothstep(.2,.7,h); }
         gl_FragColor = vec4(c, 1.);
       }`,
   }));
   scene.add(sky); W.sky = sky;
+  // the sea's surface overhead: a sheet of moving light you see when you look up (the finale camera does)
+  {
+    const surf = new THREE.Mesh(new THREE.PlaneGeometry(420, 420).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+      side: THREE.BackSide, transparent: true, depthWrite: false, fog: false, uniforms: { time: TIME },
+      vertexShader: 'varying vec2 vXZ; void main(){ vec4 w = modelMatrix*vec4(position,1.); vXZ = w.xz; gl_Position = projectionMatrix*viewMatrix*w; }',
+      fragmentShader: `varying vec2 vXZ; uniform float time;
+        void main(){
+          vec2 p = vXZ * .045;
+          float w = sin(p.x*3.+time*.7)*sin(p.y*2.6-time*.5) + .5*sin((p.x+p.y)*5.3+time*1.3) + .25*sin((p.x-p.y)*9.1-time*1.7);
+          float glint = pow(clamp(w*.4+.5, 0., 1.), 5.);
+          vec3 c = mix(vec3(.62,.95,1.), vec3(1.), glint);
+          float edge = 1. - smoothstep(110., 205., length(vXZ + vec2(3., 14.)));
+          gl_FragColor = vec4(c, (.2 + glint*.55) * edge);
+        }`,
+    }));
+    surf.position.set(-3, 60, -14); surf.renderOrder = -1; scene.add(surf); W.surface = surf;
+  }
 
   // ---------------------------------------------------------------- the squares (sea-glass tiles that float along the path)
   W.tiles = buildTiles(scene, curve, { base: 0xf4fbff, glow: [6.5, .22] });
@@ -224,19 +241,36 @@ export function buildOcean(scene) {
   {
     const n = 1100, P = new Float32Array(n * 3), spd = new Float32Array(n), geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(P, 3));
     for (let i = 0; i < n; i++) { const t = W.tiles[Math.floor(rand(0, N))].pos; P.set([t.x + rand(-40, 40), t.y + rand(-12, 40), t.z + rand(-40, 40)], i * 3); spd[i] = rand(.8, 2.4); }
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: .85, map: bubbleTex(), transparent: true, depthWrite: false, opacity: .85 })); pts.frustumCulled = false; scene.add(pts);
-    W.bubbles = { P, spd, n, geo };
+    geo.setAttribute('aSpeed', new THREE.BufferAttribute(spd, 1));
+    const mat = new THREE.PointsMaterial({ size: .85, map: bubbleTex(), transparent: true, depthWrite: false, opacity: .85 });
+    mat.onBeforeCompile = (sh) => {               // rise from the sea floor (y -8) to the surface (60), then start again
+      sh.uniforms.time = TIME;
+      sh.vertexShader = 'uniform float time;\nattribute float aSpeed;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        float ph = float(gl_VertexID);
+        transformed.y = mod(position.y + 8. + time * aSpeed, 68.) - 8.;
+        transformed.x += sin(time + ph) * .3;`);
+    };
+    const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);
   }
   {
     const n = 900, P = new Float32Array(n * 3), geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(P, 3));
     for (let i = 0; i < n; i++) { const t = W.tiles[Math.floor(rand(0, N))].pos; P.set([t.x + rand(-35, 35), t.y + rand(-14, 24), t.z + rand(-35, 35)], i * 3); }
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: .22, color: 0xe8fff8, map: glowSprite().material.map, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .8 })); pts.frustumCulled = false; scene.add(pts); W.plankton = { P, n, geo };
+    const mat = new THREE.PointsMaterial({ size: .22, color: 0xe8fff8, map: glowTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .8 });
+    mat.onBeforeCompile = (sh) => {               // each speck drifts around its own spot
+      sh.uniforms.time = TIME;
+      sh.vertexShader = 'uniform float time;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        float ph = float(gl_VertexID);
+        transformed.x += sin(time * .4 + ph) * 1.25;
+        transformed.y += sin(time * .3 + ph * 1.3);`);
+    };
+    const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);
   }
   const rayTex = canvasTex(64, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); const m = g.createLinearGradient(0, 0, w, 0); m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(.5, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)'); g.globalCompositeOperation = 'destination-out'; g.fillStyle = m; g.fillRect(0, 0, w, h); });
   W.rays = [];
-  for (let i = 0; i < 34; i++) {
+  const rays = Q.name === 'high' ? 18 : Q.name === 'medium' ? 12 : 8;           // (34 big additive planes were a lot of overdraw)
+  for (let i = 0; i < rays; i++) {
     const t = W.tiles[Math.floor(rand(0, N))].pos, m = new THREE.Mesh(new THREE.PlaneGeometry(rand(6, 13), 70), new THREE.MeshBasicMaterial({ map: rayTex, transparent: true, opacity: .16, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, color: 0xbfffee }));
-    m.position.set(t.x + rand(-45, 45), t.y + 24, t.z + rand(-45, 45)); m.rotation.set(0, rand(0, 3.14), .22); m.userData.ph = rand(0, 6); scene.add(m); W.rays.push(m);
+    m.position.set(t.x + rand(-45, 45), t.y + 24, t.z + rand(-45, 45)); m.rotation.set(0, rand(0, 3.14), .22); m.userData.ph = rand(0, 6); m.userData.x0 = m.position.x; scene.add(m); W.rays.push(m);
   }
 
   // ---------------------------------------------------------------- the mermaid palace, terrace and thrones
@@ -281,9 +315,7 @@ export function buildOcean(scene) {
     W.animated.forEach((f) => f(t));
     W.dolphins.forEach((o, i) => { const a = t * o.sp + o.ph, r = o.R; const x = o.cx + Math.cos(a) * r, z = o.cz + Math.sin(a) * r, y = o.cy + Math.sin(t * .6 + i) * 4; const dir = Math.sign(o.sp); o.d.root.position.set(x, y, z); o.d.root.rotation.y = Math.atan2(-Math.sin(a) * dir, Math.cos(a) * dir); o.d.root.rotation.x = Math.cos(t * .6 + i) * .18; o.d.update(t, 1); });
     W.jellies.forEach((j) => { const u = j.userData; const p = .8 + Math.sin(t * 2 + u.ph) * .2; u.dome.scale.set(1 / Math.sqrt(p), p, 1 / Math.sqrt(p)); j.position.y = u.baseY + Math.sin(t * .6 + u.ph) * 1.5 + Math.sin(t * 2 + u.ph) * .25; u.tents.forEach((tg, k) => { tg.rotation.z = Math.sin(t * 1.6 + k + u.ph) * .25; tg.rotation.x = Math.cos(t * 1.4 + k * 1.3) * .25; }); });
-    const B = W.bubbles; for (let i = 0; i < B.n; i++) { B.P[i * 3 + 1] += B.spd[i] * dt; B.P[i * 3] += Math.sin(t + i) * dt * .3; if (B.P[i * 3 + 1] > 60) B.P[i * 3 + 1] = -8; } B.geo.attributes.position.needsUpdate = true;
-    const Pl = W.plankton; for (let i = 0; i < Pl.n; i++) { Pl.P[i * 3] += Math.sin(t * .4 + i) * dt * .5; Pl.P[i * 3 + 1] += Math.cos(t * .3 + i * 1.3) * dt * .3; } Pl.geo.attributes.position.needsUpdate = true;
-    W.rays.forEach((m) => { m.material.opacity = .13 + Math.sin(t * .5 + m.userData.ph) * .06; m.position.x += Math.sin(t * .1 + m.userData.ph) * dt * .5; });
+    W.rays.forEach((m) => { m.material.opacity = .13 + Math.sin(t * .5 + m.userData.ph) * .06; m.position.x = m.userData.x0 + Math.sin(t * .1 + m.userData.ph) * 5; });
     if (W.palaceGlow) W.palaceGlow.material.opacity = .3 + Math.sin(t * 2) * .1;
   };
   setStyle('toon');

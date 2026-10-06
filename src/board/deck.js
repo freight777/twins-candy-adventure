@@ -39,7 +39,7 @@ function mountUI({ deckIcon, banner }) {
 
 /**
  * cfg: hero { name, voice, emoji }, friends [{ name, emoji, css }] + twin { name, emoji, css } (the top bar), deckIcon, banner,
- * music, debugName, reader (whose learning profile: 'adalyn' | 'esmae'), pipeline (createPipeline options), lift (hero height above the path line), walk (keep feet on the ground),
+ * music, debugName, reader (whose learning profile: 'adalyn' | 'esmae'), pipeline (createPipeline options), shadows (false: none), lift (hero height above the path line), walk (keep feet on the ground),
  * intro [emoji, line, seconds], slide [emoji, line] (shortcut bubble), pickupColors, joinColors, sparkle { gravity, life },
  * tapUp, party { center(), r, y: [lo, hi], colors }, leg { perStep, min }, meet { side, ahead, dur, hop, up: [friend, hero] },
  * parade { side, bob }, cam { back, side, up, ahead, lookUp, ride, bob, floor, greet { back, side, up, lookUp } },
@@ -100,7 +100,7 @@ export function createBoardGame(cfg) {
   /** the sun follows the hero so the shadow map covers what the camera sees */
   function addSun(color, intensity, pos, half) {
     const sun = new THREE.DirectionalLight(color, intensity); sun.position.set(...pos); scene.add(sun, sun.target);
-    sun.castShadow = true; const sc = sun.shadow.camera; sc.left = sc.bottom = -half; sc.right = sc.top = half; sc.near = 1; sc.far = 160; sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.05; sun.shadow.radius = 3;
+    sun.castShadow = cfg.shadows !== false; const sc = sun.shadow.camera; sc.left = sc.bottom = -half; sc.right = sc.top = half; sc.near = 1; sc.far = 160; sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.05; sun.shadow.radius = 3;
     S.sun = sun; S.sunOff = sun.position.clone(); return sun;
   }
   /** the world's sky/water shaders write sRGB colours; the pipeline wants linear ones */
@@ -369,7 +369,7 @@ export function createBoardGame(cfg) {
     if (S.celebrate && Math.random() < dt * 5) { const c = P.center(); sparkleAt(_q.set(c.x + rand(-P.r, P.r), c.y + rand(P.y[0], P.y[1]), c.z + rand(-P.r, P.r)), P.colors, 50, 7); if (Math.random() < .3) sfx.pop(); }
     if (S.sun) {
       const f = G.hero.root.position; S.sun.target.position.copy(f); S.sun.position.copy(f).add(S.sunOff);
-      const want = Q.shadow > 0; if (S.sun.castShadow !== want) S.sun.castShadow = want;
+      const want = Q.shadow > 0 && cfg.shadows !== false; if (S.sun.castShadow !== want) S.sun.castShadow = want;
       if (want && S.sun.shadow.mapSize.x !== Q.shadow) { S.sun.shadow.mapSize.set(Q.shadow, Q.shadow); S.sun.shadow.map && S.sun.shadow.map.dispose(); S.sun.shadow.map = null; }
     }
     // a bouncing finger over the deck (or the cards to pick from) if nobody taps for a while
