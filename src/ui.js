@@ -1,5 +1,5 @@
 // Thin wrapper around the HTML overlay (title screen, who-is-playing buttons, speech bubbles, hints).
-import { say, sayAsync, sfx } from './audio.js';
+import { say, sayAsync, voice, sfx } from './audio.js';
 const $ = (s) => document.querySelector(s);
 
 function portraitSVG(who) {
@@ -69,7 +69,7 @@ export const ui = {
     return new Promise((resolve) => {
       const root = $('#quiz'), box = $('#quiz .q-choices');
       root.classList.remove('hidden'); const big = $('#quiz .q-big'); big.textContent = q.prompt.big; big.className = 'q-big ' + (q.prompt.bigClass || ''); box.innerHTML = '';
-      const speak = () => say(q.prompt.say, 'narrator');
+      const speak = () => (q.prompt.voice ? voice(q.prompt.voice, { priority: 2, fallback: q.prompt.say }) : say(q.prompt.say, 'narrator'));   // recorded clips when the question has them
       $('#q-say').onclick = speak; speak();
       let wrong = 0, done = false;
       const finish = (correct, delay) => { done = true; setTimeout(() => { root.classList.add('hidden'); resolve({ correct, first: correct && wrong === 0 }); }, delay); };
@@ -81,7 +81,7 @@ export const ui = {
           wrong++; b.classList.add('wrong'); sfx.pop();
           if (retry && wrong === 1) { setTimeout(() => say('Not quite. Try again!', 'counter', { priority: 2 }), 150); return; }
           q.choices.find((c) => c.correct).el.classList.add('reveal');                          // show the right answer and say it
-          setTimeout(() => say(q.answerSay, 'narrator', { priority: 2 }), 250);
+          setTimeout(() => (q.answerVoice ? voice(q.answerVoice, { priority: 2, fallback: q.answerSay }) : say(q.answerSay, 'narrator', { priority: 2 })), 250);
           finish(false, 3000);
         };
       });

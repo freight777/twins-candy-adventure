@@ -1,6 +1,7 @@
-// All sound is synthesized here (no audio files). Effects + a small generative band per scene.
-// Real voice-over (v2) will be recordings played through the same unlock/master chain.
-let ctx = null, master = null, musicBus = null, reverbIn = null, muted = false, musicLevel = 0.5;
+// All sound effects and music are synthesized here. Speech is recorded clips (public/voice, rendered by tools/voice-bank.mjs
+// from src/engine/lines.js) played through the same chain, with the device's own voice as the fallback for anything not recorded.
+import { LINES, storyId, cleanText } from './engine/lines.js';
+let ctx = null, master = null, musicBus = null, reverbIn = null, voiceBus = null, analyser = null, muted = false, musicLevel = 0.5;
 
 function createGraph() {
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -14,6 +15,10 @@ function createGraph() {
   for (let c = 0; c < 2; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.4); }
   const conv = ctx.createConvolver(); conv.buffer = buf;
   reverbIn = ctx.createGain(); reverbIn.gain.value = 0.28; reverbIn.connect(conv); conv.connect(master);
+  // voices: their own bus (a touch of the same room), metered so characters can move their mouths with the words
+  voiceBus = ctx.createGain(); voiceBus.gain.value = 1; voiceBus.connect(master);
+  const room = ctx.createGain(); room.gain.value = 0.1; voiceBus.connect(room); room.connect(reverbIn);
+  analyser = ctx.createAnalyser(); analyser.fftSize = 256; analyser.connect(voiceBus);
 }
 function primeSpeech() {                    // iPads only allow speech after a tap: "prime" it with a silent word
   if (!hasTTS || primeSpeech.done) return;
@@ -58,6 +63,9 @@ const PROFILES = {
   cloud:    { pitch: 1.05, rate: 0.82, prefer: ['Tessa', 'Moira', ...FEMALE] },
   rain:     { pitch: 0.95, rate: 0.92, prefer: ['Karen', 'Serena', ...FEMALE] },
   princess: { pitch: 1.3,  rate: 0.92, prefer: FEMALE },
+  mom:      { pitch: 1.05, rate: 0.95, prefer: ['Karen', 'Moira', ...FEMALE] },
+  dad:      { pitch: 0.85, rate: 0.95, prefer: MALE },
+  announcer: { pitch: 0.95, rate: 1.0, prefer: MALE },
 };
 function pickVoice(prefer) {
   const en = voiceList.filter((v) => /^en/i.test(v.lang));
@@ -114,22 +122,87 @@ export function stopSpeech() {
   duck(false);
 }
 export const isSpeaking = () => !!current;
+/** for debugging in the console: what the sound system is doing */
+export const audioState = () => ({ ctx: ctx && ctx.state, time: ctx && +ctx.currentTime.toFixed(2), playing, queued: queue.length, speaking: !!current });
 
-const cleanText = (text) => String(text || '').replace(/[^p{L}p{N}s.,!?'-]/gu, ' ').replace(/s+/g, ' ').trim();
-/** Speak a line as one of the characters and resolve when it has finished. opts: { priority, minMs }. */
+/** the device's own text-to-speech as a queue player (used when there is no recorded clip) */
+function ttsPlayer(clean, who) {
+  const p = PROFILES[who] || PROFILES.narrator;
+  return (done, started) => {
+    if (!hasTTS || !clean) { done(); return null; }
+    const synth = window.speechSynthesis, u = new SpeechSynthesisUtterance(clean);
+    const v = pickVoice(p.prefer); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
+    u.pitch = p.pitch; u.rate = p.rate; u.volume = 1;
+    u.onstart = started; u.onend = done; u.onerror = done;
+    synth.speak(u);
+    return () => synth.cancel();
+  };
+}
+/** Speak a line as one of the characters and resolve when it has finished. opts: { priority, minMs }.
+ *  If the exact sentence is in the voice bank (src/engine/lines.js) the recorded clip plays instead of the device voice. */
 export function sayAsync(text, who = 'narrator', { priority = 1, minMs = 0 } = {}) {
-  const clean = cleanText(text), p = PROFILES[who] || PROFILES.narrator;
-  const silent = !hasTTS || !voicesOn || muted || !clean;
+  const clean = cleanText(text), id = storyId(who, clean);
+  if (clean && LINES[id]) return voice(id, { who, priority, minMs });
+  const p = PROFILES[who] || PROFILES.narrator, silent = !hasTTS || !voicesOn || muted || !clean;
+  return enqueueSpeech({ priority, minMs, est: silent ? 0 : 1500 + clean.length * 90 / p.rate, play: silent ? (done) => { done(); return null; } : ttsPlayer(clean, who) });
+}
+
+// ================= recorded voice clips (Kokoro-82M, rendered at build time) =================
+const clips = new Map();
+/** 0..1: how loud the voice is right now (talking mouths read this) */
+export const level = { v: 0 };
+function clipBuffer(id) {
+  if (!clips.has(id)) {
+    clips.set(id, (async () => {
+      if (!ctx) createGraph();
+      if (!ctx) return null;
+      try {
+        const r = await fetch(`${import.meta.env.BASE_URL}voice/${id}.mp3`);
+        if (!r.ok || !/audio|mpeg|octet/.test(r.headers.get('content-type') || 'audio')) return null;     // (a dev server answers missing files with the HTML page)
+        return await ctx.decodeAudioData(await r.arrayBuffer());
+      } catch { return null; }
+    })());
+  }
+  return clips.get(id);
+}
+/** fetch + decode ahead of time (e.g. a scene's story lines) so the first line starts instantly */
+export const preloadVoice = (ids) => Promise.all(ids.map(clipBuffer));
+let playing = 0;
+function meter() {
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  const tick = () => {
+    if (!playing) { level.v = 0; return; }
+    analyser.getByteTimeDomainData(data); let m = 0; for (let i = 0; i < data.length; i++) m = Math.max(m, Math.abs(data[i] - 128));
+    level.v += (Math.min(1, m / 48) - level.v) * .5;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+/**
+ * Play one clip or several back to back (['which_starts_with', 'snd_m']) as ONE line in the speech queue.
+ * opts: { who, priority, minMs, gap (s between clips), fallback (text for the device voice if a clip is missing) }
+ */
+export function voice(ids, { who = null, priority = 1, minMs = 0, gap = 0.08, fallback = null } = {}) {
+  const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
+  const speaker = who || LINES[list[0]]?.who || 'narrator';
+  const text = cleanText(fallback ?? list.map((id) => LINES[id]?.text ?? id.replace(/_/g, ' ')).join(' '));
+  if (!voicesOn || muted || !list.length) return enqueueSpeech({ priority, minMs, est: 0, play: (done) => { done(); return null; } });
   return enqueueSpeech({
-    priority, minMs, est: silent ? 0 : 1500 + clean.length * 90 / p.rate,
+    priority, minMs, est: 20000,
     play(done, started) {
-      if (silent) { done(); return null; }
-      const synth = window.speechSynthesis, u = new SpeechSynthesisUtterance(clean);
-      const v = pickVoice(p.prefer); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
-      u.pitch = p.pitch; u.rate = p.rate; u.volume = 1;
-      u.onstart = started; u.onend = done; u.onerror = done;
-      synth.speak(u);
-      return () => synth.cancel();
+      let stopped = false, stopTts = null, guard = 0; const srcs = [];
+      Promise.all(list.map(clipBuffer)).then((bufs) => {
+        if (stopped) return;
+        if (!ctx || ctx.state !== 'running' || bufs.some((b) => !b)) { stopTts = ttsPlayer(text, speaker)(done, started); return; }
+        let t = ctx.currentTime + 0.03;
+        bufs.forEach((b, i) => { const s = ctx.createBufferSource(); s.buffer = b; s.connect(analyser); s.start(t); t += b.duration + (i < bufs.length - 1 ? gap : 0); srcs.push(s); });
+        playing++;
+        // if the audio clock ever stalls (an interrupted audio session), the line still ends on time by the wall clock
+        guard = setTimeout(() => { if (stopped) return; srcs.forEach((x) => { try { x.stop(); } catch { /* ended */ } }); done(); }, (t - ctx.currentTime) * 1000 + 1200);
+        srcs[srcs.length - 1].onended = () => { playing = Math.max(0, playing - 1); clearTimeout(guard); if (!stopped) done(); };
+        started(); if (playing === 1) meter();
+      });
+      return () => { stopped = true; clearTimeout(guard); srcs.forEach((s) => { try { s.stop(); } catch { /* not started */ } }); if (stopTts) stopTts(); };
     },
   });
 }
