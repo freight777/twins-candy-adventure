@@ -1,59 +1,27 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, canvasTex, glowSprite, candyCaneTex as caneBase, setStyle, RAINBOW } from '../util.js';
-const candyCaneTex = (ry = 4) => { const t = caneBase().clone(); t.repeat.set(2, ry); return t; };
+import { toon, mk, rand, pick, clamp, lerp, canvasTex, glowSprite, emojiSprite, candyCaneTex as caneBase, setStyle, RAINBOW } from '../util.js';
 import { model } from '../assets.js';
+import { N, controlPoints, starGeo, buildTiles, findShortcuts, pickupTiles, pathField, instancer, spotFinder } from '../board/path.js';
+const candyCaneTex = (ry = 4) => { const t = caneBase().clone(); t.repeat.set(2, ry); return t; };
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
 const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
-// standard Candy Land colours, in the board's repeating order
-export const COLORS = [
-  { name: 'red', hex: 0xff3b4e, css: '#ff3b4e' }, { name: 'purple', hex: 0xa64dff, css: '#a64dff' }, { name: 'yellow', hex: 0xffd83d, css: '#ffd83d' },
-  { name: 'blue', hex: 0x3da5ff, css: '#3da5ff' }, { name: 'orange', hex: 0xff8a2a, css: '#ff8a2a' }, { name: 'green', hex: 0x3ddc6b, css: '#3ddc6b' },
-];
-export const N = 50;
-const SC = 0.62;
-const CP = [[-70, 0, 40], [-50, .5, 46], [-28, 1, 40], [-8, 2, 44], [14, 3, 36], [34, 3.5, 24], [44, 3, 6], [34, 2, -10], [14, 2.5, -16], [-6, 4, -12],
-  [-26, 5, -18], [-42, 4, -32], [-38, 2, -50], [-18, 1.5, -60], [4, 2, -54], [24, 3, -60], [42, 4, -74], [58, 5, -90]].map(([x, y, z]) => new THREE.Vector3(x * SC, y, z * SC));
+// the path climbs gently through the forest: heights for the shared board's control points
+const PATH_Y = [0, .5, 1, 2, 3, 3.5, 3, 2, 2.5, 4, 5, 4, 2, 1.5, 2, 3, 4, 5];
 export const FRIEND_TILES = [7, 16, 26, 36];          // Sparkle, Rainbow, Cloud, Rain wait beside these squares; twin Uni waits at the castle
-export const ICE_TILES = [11, 21, 31, 42];
-
-function emojiSprite(ch, size = 2.6) {
-  const tex = canvasTex(128, 128, (g, w, h) => { g.font = '96px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, w / 2, h / 2 + 6); });
-  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-  s.scale.set(size, size, 1);
-  return s;
-}
-function starGeo(R = 1, r = .48, depth = .35) {
-  const sh = new THREE.Shape();
-  for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 + Math.PI / 2, rad = i % 2 ? r : R; sh[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rad, Math.sin(a) * rad); }
-  const g = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelThickness: .1, bevelSize: .1, bevelSegments: 3 });
-  g.translate(0, 0, -depth / 2); return g;
-}
-function roundedGeo(w, depth, rad, bevel = .1) {
-  const h = w / 2 - bevel, sh = new THREE.Shape();
-  sh.moveTo(-h + rad, -h); sh.lineTo(h - rad, -h); sh.quadraticCurveTo(h, -h, h, -h + rad); sh.lineTo(h, h - rad); sh.quadraticCurveTo(h, h, h - rad, h);
-  sh.lineTo(-h + rad, h); sh.quadraticCurveTo(-h, h, -h, h - rad); sh.lineTo(-h, -h + rad); sh.quadraticCurveTo(-h, -h, -h + rad, -h);
-  const g = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 10 });
-  g.rotateX(-Math.PI / 2); return g;
-}
+const ICE_TILES = [11, 21, 31, 42];
 
 export function buildWorld(scene) {
   setStyle('candy');
-  const W = { tiles: [], animated: [], stars: [], clouds: [], butterflies: [], iceProps: [] };
+  const W = { tiles: [], animated: [], pickups: [], clouds: [], butterflies: [], iceProps: [] };
 
   // ---------------------------------------------------------------- the path
-  const curve = new THREE.CatmullRomCurve3(CP, false, 'catmullrom', .5);
+  const curve = new THREE.CatmullRomCurve3(controlPoints(PATH_Y), false, 'catmullrom', .5);
   W.curve = curve;
-  W.length = curve.getLength();
-  const dense = curve.getSpacedPoints(700);
-  const dx = new Float32Array(dense.length), dz = new Float32Array(dense.length), dy = new Float32Array(dense.length);
-  dense.forEach((p, i) => { dx[i] = p.x; dz[i] = p.z; dy[i] = p.y; });
-  const pathDist = (x, z) => { let best = 1e9, bi = 0; for (let i = 0; i < dx.length; i++) { const d = (dx[i] - x) ** 2 + (dz[i] - z) ** 2; if (d < best) { best = d; bi = i; } } return [Math.sqrt(best), dy[bi]]; };
-  W.pathDist = pathDist;
+  const field = pathField(curve), pathDist = field.dist;           // nearest-path distance from a precomputed grid (path height in field.y)
 
   const endP = curve.getPointAt(1), endT = curve.getTangentAt(1).setY(0).normalize();
   const castleXZ = { x: endP.x + endT.x * 18, z: endP.z + endT.z * 18 };
@@ -63,8 +31,8 @@ export function buildWorld(scene) {
     let h = hills(x, z);
     const r = Math.hypot(x + 3, z + 14);
     h += Math.pow(Math.max(0, (r - 62) / 40), 1.7) * 34;                                    // mountains all around
-    const [d, py] = pathDist(x, z);
-    h = lerp(h, py - .25, 1 - smoothstep(4, 15, d));
+    const d = pathDist(x, z);
+    h = lerp(h, field.y - .25, 1 - smoothstep(4, 15, d));
     h = lerp(h, endP.y - .25, 1 - smoothstep(16, 34, Math.hypot(x - castleXZ.x, z - castleXZ.z)));
     const ld = Math.hypot(x - lake.x, z - lake.z);
     h -= Math.exp(-(ld * ld) / (lake.r * lake.r * .55)) * 5.5;
@@ -83,7 +51,7 @@ export function buildWorld(scene) {
       c.copy(greens[0]).lerp(greens[1], .5 + n * .5).lerp(greens[2], clamp(n * .6, 0, .6));
       if (Math.sin(x * .05 + 2) * Math.cos(z * .06 - 1) > .55) c.lerp(greens[4], .3);        // pink meadow patches
       if (Math.sin(x * .07 - 1) * Math.cos(z * .05 + 2) > .62) c.lerp(greens[5], .25);          // lilac patches
-      const [d] = pathDist(x, z); c.lerp(new THREE.Color(0xfff0d8), (1 - smoothstep(2.4, 6.5, d)) * .85);
+      const d = pathDist(x, z); c.lerp(new THREE.Color(0xfff0d8), (1 - smoothstep(2.4, 6.5, d)) * .85);
       const r = Math.hypot(x + 3, z + 14); c.lerp(new THREE.Color(0xd9c4ff), smoothstep(70, 130, r) * .8);
       col.set([c.r, c.g, c.b], i * 3);
     }
@@ -128,37 +96,10 @@ export function buildWorld(scene) {
     });
 
   // ---------------------------------------------------------------- the squares
-  const tileGeo = roundedGeo(3.7, .34, .8), innerGeo = roundedGeo(2.5, .12, .55, .06), baseGeo = roundedGeo(4.15, .28, .9, .08);
-  const baseMat = toon(0xfff6fb);
-  for (let i = 0; i < N; i++) {
-    const u = i / (N - 1), p = curve.getPointAt(u), tan = curve.getTangentAt(u);
-    const colr = i === 0 ? { hex: 0xffffff } : i === N - 1 ? { hex: 0xffd84d } : COLORS[(i - 1) % 6], g = new THREE.Group();
-    g.position.copy(p).add(new THREE.Vector3(0, .12, 0));
-    g.rotation.order = 'YXZ'; g.rotation.y = Math.atan2(tan.x, tan.z); g.rotation.x = -Math.asin(clamp(tan.y, -.6, .6));
-    const base = new THREE.Mesh(baseGeo, baseMat); base.position.y = -.1; g.add(base);
-    const tile = new THREE.Mesh(tileGeo, toon(colr.hex, { clearcoat: 1, clearcoatRoughness: .08 })); tile.position.y = .1; g.add(tile);
-    const shine = new THREE.Mesh(innerGeo, toon(new THREE.Color(colr.hex).lerp(new THREE.Color(0xffffff), .45), { clearcoat: 1 })); shine.position.y = .5; g.add(shine);
-    const gl = glowSprite(colr.hex, 5.5, .13); gl.position.y = .5; g.add(gl);
-    scene.add(g);
-    W.tiles.push({ i, pos: p.clone().add(new THREE.Vector3(0, .5, 0)), tan, u, color: i === 0 || i === N - 1 ? null : colr, group: g });
-  }
-  W.tileU = (i) => i / (N - 1);
+  W.tiles = buildTiles(scene, curve, { base: 0xfff6fb, lift: .12, glow: [5.5, .13] });
 
   // ---------------------------------------------------------------- shortcut rainbows (found where the path bends back on itself)
-  const used = new Set([0, N - 1, ...FRIEND_TILES, ...ICE_TILES]);
-  W.shortcuts = [];
-  for (let k = 0; k < 2; k++) {
-    let best = null;
-    for (let a = 4; a < N - 14; a++) {
-      if (used.has(a) || W.shortcuts.some((s) => Math.abs(s.from - a) < 12)) continue;
-      for (let b = a + 8; b <= Math.min(N - 3, a + 15); b++) {
-        if (used.has(b)) continue;
-        const d = W.tiles[a].pos.distanceTo(W.tiles[b].pos), score = d / (b - a);
-        if (d < 40 && (!best || score < best.score)) best = { from: a, to: b, score };
-      }
-    }
-    if (best) { W.shortcuts.push(best); used.add(best.from); used.add(best.to); }
-  }
+  W.shortcuts = findShortcuts(W.tiles, [...FRIEND_TILES, ...ICE_TILES]);
   W.shortcuts.forEach((s) => {
     const a = W.tiles[s.from].pos.clone().add(new THREE.Vector3(0, .3, 0)), b = W.tiles[s.to].pos.clone().add(new THREE.Vector3(0, .3, 0));
     const dir = b.clone().sub(a).setY(0).normalize(), side = new THREE.Vector3(dir.z, 0, -dir.x), apex = 10 + a.distanceTo(b) * .2;
@@ -175,36 +116,27 @@ export function buildWorld(scene) {
 
   // ---------------------------------------------------------------- stars to collect along the path
   const starG = starGeo(.9, .42, .3), starMat = new THREE.MeshStandardMaterial({ color: 0xffd84d, emissive: 0xffc83a, emissiveIntensity: 1.6, roughness: .35, metalness: .2 });
-  for (let i = 3; i < N - 2; i += 3) {
-    if (FRIEND_TILES.includes(i) || ICE_TILES.includes(i) || W.shortcuts.some((s) => s.from === i || s.to === i)) continue;
+  for (const i of pickupTiles([...FRIEND_TILES, ...ICE_TILES], W.shortcuts)) {
     const m = new THREE.Mesh(starG, starMat); m.position.copy(W.tiles[i].pos).add(new THREE.Vector3(0, 3.2, 0)); m.userData.noShadow = true;
     m.add(glowSprite(0xffe680, 3.4, .6)); scene.add(m);
-    W.stars.push({ mesh: m, tile: i, taken: false, y0: m.position.y });
+    W.pickups.push({ mesh: m, tile: i, taken: false, y0: m.position.y });
   }
 
   // ---------------------------------------------------------------- forest (instanced, so there can be lots)
-  const inst = (geo, mat, n, fn, shadow = true) => {
-    const m = new THREE.InstancedMesh(geo, mat, n), o = new THREE.Object3D(), c = new THREE.Color();
-    for (let i = 0; i < n; i++) { o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1); c.set(0xffffff); fn(i, o, c); o.updateMatrix(); m.setMatrixAt(i, o.matrix); m.setColorAt(i, c); }
-    m.castShadow = shadow; m.receiveShadow = true; m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; scene.add(m); return m;
-  };
+  const inst = instancer(scene);
   const friendSpots = FRIEND_TILES.map((i) => { const t = W.tiles[i], side = i % 2 ? 1 : -1, n = new THREE.Vector3(t.tan.z, 0, -t.tan.x).multiplyScalar(side * 6.2); const p = t.pos.clone().add(n); p.y = heightAt(p.x, p.z); return p; });
   W.friendSpots = friendSpots;
   const endTile = W.tiles[N - 1];
   const castleAt = new THREE.Vector3(castleXZ.x, endP.y, castleXZ.z);
   const clear = (x, z, minPath = 7) => {
-    if (pathDist(x, z)[0] < minPath) return false;
+    if (pathDist(x, z) < minPath) return false;
     if (Math.hypot(x - lake.x, z - lake.z) < lake.r + 3) return false;
     if (friendSpots.some((p) => Math.hypot(p.x - x, p.z - z) < 8)) return false;
     if (Math.hypot(x - castleAt.x, z - castleAt.z) < 26) return false;
     if (minPath > 8 && Math.hypot(x - W.tiles[0].pos.x, z - W.tiles[0].pos.z) < 22) return false;
     return true;
   };
-  const spots = (n, minPath, area = [-110, 80, -125, 80]) => {
-    const out = []; let tries = 0;
-    while (out.length < n && tries++ < n * 60) { const x = rand(area[0], area[1]), z = rand(area[2], area[3]); if (clear(x, z, minPath)) out.push([x, z]); }
-    return out;
-  };
+  const spots = spotFinder(clear);
   const PASTELS = [0xff9ecb, 0xc9a8ff, 0x9ff0c8, 0xffc9a0, 0x8fd3ff, 0xfff0a0, 0xff8fb0, 0xb6f09a];
 
   // puffy pastel trees
@@ -368,7 +300,7 @@ export function buildWorld(scene) {
   W.update = (dt, t) => {
     W.waterMat.uniforms.time.value = t; W.sky.material.uniforms.time.value = t;
     W.clouds.forEach((c) => { c.position.x += dt * 1.1; if (c.position.x > 240) c.position.x = -240; });
-    W.stars.forEach((s) => { if (!s.taken) { s.mesh.rotation.y = t * 1.6 + s.tile; s.mesh.position.y = s.y0 + Math.sin(t * 2 + s.tile) * .35; } });
+    W.pickups.forEach((s) => { if (!s.taken) { s.mesh.rotation.y = t * 1.6 + s.tile; s.mesh.position.y = s.y0 + Math.sin(t * 2 + s.tile) * .35; } });
     W.animated.forEach((f) => f(t));
     W.butterflies.forEach((b) => { const d = b.userData, a = t * d.sp + d.ph; b.position.set(d.cx + Math.cos(a) * 5, d.cy + Math.sin(a * 2) * .8, d.cz + Math.sin(a * 1.3) * 5); b.rotation.y = -a + Math.PI / 2; const f = Math.sin(t * 16 + d.ph) * .9; d.wl.rotation.z = f; d.wr.rotation.z = -f; });
     if (W.castleGlow) W.castleGlow.material.opacity = .4 + Math.sin(t * 2.2) * .12;

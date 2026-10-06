@@ -1,20 +1,13 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { toon, mk, rand, pick, clamp, lerp, canvasTex, glowSprite, setStyle, RAINBOW } from '../util.js';
+import { toon, mk, rand, pick, clamp, lerp, canvasTex, glowSprite, emojiSprite, setStyle } from '../util.js';
 import { heartGeo, createDolphin } from './mermaid.js';
+import { N, controlPoints, buildTiles, findShortcuts, pickupTiles, pathField, instancer, spotFinder } from '../board/path.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
 const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
-export const COLORS = [
-  { name: 'red', hex: 0xff3b4e, css: '#ff3b4e' }, { name: 'purple', hex: 0xa64dff, css: '#a64dff' }, { name: 'yellow', hex: 0xffd83d, css: '#ffd83d' },
-  { name: 'blue', hex: 0x3da5ff, css: '#3da5ff' }, { name: 'orange', hex: 0xff8a2a, css: '#ff8a2a' }, { name: 'green', hex: 0x3ddc6b, css: '#3ddc6b' },
-];
-export const N = 50;
-const SC = 0.62;
-const CP = [[-70, 40], [-50, 46], [-28, 40], [-8, 44], [14, 36], [34, 24], [44, 6], [34, -10], [14, -16], [-6, -12], [-26, -18], [-42, -32], [-38, -50], [-18, -60], [4, -54], [24, -60], [42, -74], [58, -90]]
-  .map(([x, z]) => new THREE.Vector3(x * SC, 0, z * SC));
 export const FRIEND_TILES = [9, 22, 35];                 // Sparkle, Rainbow, Kitty. Lucy (twin) waits at the palace
 export const PEARL_TILES = [14, 28, 41];                 // giant clams with pearls
 
@@ -36,27 +29,14 @@ function sway(mat, amp = .5) {
   mat.customProgramCacheKey = () => 'sway' + amp;
   return mat;
 }
-function emojiSprite(ch, size = 2.6) {
-  const tex = canvasTex(128, 128, (g, w, h) => { g.font = '96px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, w / 2, h / 2 + 6); });
-  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-  s.scale.set(size, size, 1); return s;
-}
-function roundedGeo(w, depth, rad, bevel = .1) {
-  const h = w / 2 - bevel, sh = new THREE.Shape();
-  sh.moveTo(-h + rad, -h); sh.lineTo(h - rad, -h); sh.quadraticCurveTo(h, -h, h, -h + rad); sh.lineTo(h, h - rad); sh.quadraticCurveTo(h, h, h - rad, h);
-  sh.lineTo(-h + rad, h); sh.quadraticCurveTo(-h, h, -h, h - rad); sh.lineTo(-h, -h + rad); sh.quadraticCurveTo(-h, -h, -h + rad, -h);
-  const g = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 10 });
-  g.rotateX(-Math.PI / 2); return g;
-}
 const part = (geo, pos = [0, 0, 0], rot = [0, 0, 0], scl = [1, 1, 1]) => { const g = geo.clone(); g.scale(...scl); g.rotateX(rot[0]); g.rotateY(rot[1]); g.rotateZ(rot[2]); g.translate(...pos); return g; };
 
 export function buildOcean(scene) {
   setStyle('candy');
-  const W = { tiles: [], animated: [], hearts: [], bubbleSets: [], jellies: [], fish: null, dolphins: [] };
+  const W = { tiles: [], animated: [], pickups: [], bubbleSets: [], jellies: [], fish: null, dolphins: [] };
 
   // ---------------------------------------------------------------- seabed + the path (which floats above it)
-  const ends = new THREE.CatmullRomCurve3(CP, false, 'catmullrom', .5);
+  const ends = new THREE.CatmullRomCurve3(controlPoints(), false, 'catmullrom', .5);
   const e0 = ends.getPointAt(1), eT = ends.getTangentAt(1).setY(0).normalize();
   const palaceXZ = { x: e0.x + eT.x * 44, z: e0.z + eT.z * 44 };
   const hills = (x, z) => Math.sin(x * .05 + 1) * 3 + Math.cos(z * .045) * 2.8 + Math.sin((x + z) * .025) * 4 + Math.sin(x * .4 + z * .3) * .12 + Math.sin(x * .13) * Math.cos(z * .11) * 1.5;
@@ -72,10 +52,7 @@ export function buildOcean(scene) {
   const sm = ys.map((_, i) => { let s = 0, c = 0; for (let k = -18; k <= 18; k++) { s += ys[clamp(i + k, 0, 300)]; c++; } return s / c; });
   const curve = new THREE.CatmullRomCurve3(raw.filter((_, i) => i % 6 === 0 || i === 300).map((p) => { const i = raw.indexOf(p); return new THREE.Vector3(p.x, sm[i], p.z); }), false, 'catmullrom', .5);
   W.curve = curve;
-  const dense = curve.getSpacedPoints(600), dx = new Float32Array(dense.length), dz = new Float32Array(dense.length);
-  dense.forEach((p, i) => { dx[i] = p.x; dz[i] = p.z; });
-  const pathDist = (x, z) => { let best = 1e9; for (let i = 0; i < dx.length; i++) { const d = (dx[i] - x) ** 2 + (dz[i] - z) ** 2; if (d < best) best = d; } return Math.sqrt(best); };
-  W.pathDist = pathDist;
+  const pathDist = pathField(curve, { samples: 600 }).dist;         // nearest-path distance from a precomputed grid
   const endP = curve.getPointAt(1), endT = curve.getTangentAt(1).setY(0).normalize();
 
   // terrain: warm sand with ripples, lit by wobbling caustic light
@@ -123,34 +100,10 @@ export function buildOcean(scene) {
   scene.add(sky); W.sky = sky;
 
   // ---------------------------------------------------------------- the squares (sea-glass tiles that float along the path)
-  const tileGeo = roundedGeo(3.7, .34, .8), innerGeo = roundedGeo(2.5, .12, .55, .06), baseGeo = roundedGeo(4.15, .28, .9, .08), baseMat = toon(0xf4fbff);
-  for (let i = 0; i < N; i++) {
-    const u = i / (N - 1), p = curve.getPointAt(u), tan = curve.getTangentAt(u);
-    const colr = i === 0 ? { hex: 0xffffff } : i === N - 1 ? { hex: 0xffd84d } : COLORS[(i - 1) % 6], g = new THREE.Group();
-    g.position.copy(p); g.rotation.order = 'YXZ'; g.rotation.y = Math.atan2(tan.x, tan.z); g.rotation.x = -Math.asin(clamp(tan.y, -.6, .6));
-    const base = new THREE.Mesh(baseGeo, baseMat); base.position.y = -.1; g.add(base);
-    const tile = new THREE.Mesh(tileGeo, toon(colr.hex, { clearcoat: 1, clearcoatRoughness: .08 })); tile.position.y = .1; g.add(tile);
-    const shine = new THREE.Mesh(innerGeo, toon(new THREE.Color(colr.hex).lerp(new THREE.Color(0xffffff), .45), { clearcoat: 1 })); shine.position.y = .5; g.add(shine);
-    const gl = glowSprite(colr.hex, 6.5, .22); gl.position.y = .5; g.add(gl);
-    scene.add(g);
-    W.tiles.push({ i, pos: p.clone().add(new THREE.Vector3(0, .5, 0)), tan, u, color: i === 0 || i === N - 1 ? null : colr, group: g, bob: rand(0, 6) });
-  }
+  W.tiles = buildTiles(scene, curve, { base: 0xf4fbff, glow: [6.5, .22] });
 
   // ---------------------------------------------------------------- dolphin rides: shortcut arcs of bubbles
-  const used = new Set([0, N - 1, ...FRIEND_TILES, ...PEARL_TILES]);
-  W.shortcuts = [];
-  for (let k = 0; k < 2; k++) {
-    let best = null;
-    for (let a = 4; a < N - 14; a++) {
-      if (used.has(a) || W.shortcuts.some((s) => Math.abs(s.from - a) < 12)) continue;
-      for (let b = a + 8; b <= Math.min(N - 3, a + 15); b++) {
-        if (used.has(b)) continue;
-        const d = W.tiles[a].pos.distanceTo(W.tiles[b].pos), score = d / (b - a);
-        if (d < 40 && (!best || score < best.score)) best = { from: a, to: b, score };
-      }
-    }
-    if (best) { W.shortcuts.push(best); used.add(best.from); used.add(best.to); }
-  }
+  W.shortcuts = findShortcuts(W.tiles, [...FRIEND_TILES, ...PEARL_TILES]);
   W.shortcuts.forEach((s) => {
     const a = W.tiles[s.from].pos.clone(), b = W.tiles[s.to].pos.clone(), ctrl = a.clone().lerp(b, .5); ctrl.y += 9 + a.distanceTo(b) * .2;
     s.arc = new THREE.QuadraticBezierCurve3(a, ctrl, b);
@@ -163,21 +116,16 @@ export function buildOcean(scene) {
 
   // ---------------------------------------------------------------- hearts to collect
   const hgeo = heartGeo(.85, .3), hmat = new THREE.MeshStandardMaterial({ color: 0xff5fa4, emissive: 0xff3a8c, emissiveIntensity: 1.1, roughness: .35 });
-  for (let i = 3; i < N - 2; i += 3) {
-    if (FRIEND_TILES.includes(i) || PEARL_TILES.includes(i) || W.shortcuts.some((s) => s.from === i || s.to === i)) continue;
+  for (const i of pickupTiles([...FRIEND_TILES, ...PEARL_TILES], W.shortcuts)) {
     const m = new THREE.Mesh(hgeo, hmat); m.position.copy(W.tiles[i].pos).add(new THREE.Vector3(0, 3.6, 0)); m.userData.noShadow = true;
-    m.add(glowSprite(0xff9ed8, 3.6, .55)); scene.add(m); W.hearts.push({ mesh: m, tile: i, taken: false, y0: m.position.y });
+    m.add(glowSprite(0xff9ed8, 3.6, .55)); scene.add(m); W.pickups.push({ mesh: m, tile: i, taken: false, y0: m.position.y });
   }
 
   // ---------------------------------------------------------------- the reef: instanced kelp, grass, coral, rocks
-  const inst = (geo, mat, n, fn, shadow = true) => {
-    const m = new THREE.InstancedMesh(geo, mat, n), o = new THREE.Object3D(), c = new THREE.Color();
-    for (let i = 0; i < n; i++) { o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1); c.set(0xffffff); fn(i, o, c); o.updateMatrix(); m.setMatrixAt(i, o.matrix); m.setColorAt(i, c); }
-    m.castShadow = shadow; m.receiveShadow = true; m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; scene.add(m); return m;
-  };
+  const inst = instancer(scene);
   const friendXZ = FRIEND_TILES.map((i) => { const t = W.tiles[i], sd = i % 2 ? 1 : -1; return new THREE.Vector3(t.pos.x + t.tan.z * sd * 7, 0, t.pos.z - t.tan.x * sd * 7); });
   const clear = (x, z, minPath) => pathDist(x, z) > minPath && Math.hypot(x - palaceXZ.x, z - palaceXZ.z) > 24 && !friendXZ.some((p) => Math.hypot(p.x - x, p.z - z) < 6);
-  const spots = (n, minPath, area = [-110, 80, -125, 80]) => { const out = []; let tries = 0; while (out.length < n && tries++ < n * 60) { const x = rand(area[0], area[1]), z = rand(area[2], area[3]); if (clear(x, z, minPath)) out.push([x, z]); } return out; };
+  const spots = spotFinder(clear);
   const CORAL = [0xff7fb5, 0xff9f6a, 0xb07cff, 0xffd84d, 0xff6a8a, 0x7be0d0, 0xff8fe0];
 
   // kelp forest: crossed ribbons that sway in the current
@@ -328,8 +276,8 @@ export function buildOcean(scene) {
 
   W.update = (dt, t) => {
     TIME.value = t;
-    W.tiles.forEach((tt) => { tt.group.position.y += Math.sin(t * 1.3 + tt.bob) * .004; });
-    W.hearts.forEach((s) => { if (!s.taken) { s.mesh.rotation.y = t * 1.6 + s.tile; s.mesh.position.y = s.y0 + Math.sin(t * 2 + s.tile) * .35; } });
+    W.tiles.forEach((tt) => { tt.group.position.y = tt.y0 + Math.sin(t * 1.3 + tt.bob) * .2; });     // (set, not +=: it drifted)
+    W.pickups.forEach((s) => { if (!s.taken) { s.mesh.rotation.y = t * 1.6 + s.tile; s.mesh.position.y = s.y0 + Math.sin(t * 2 + s.tile) * .35; } });
     W.animated.forEach((f) => f(t));
     W.dolphins.forEach((o, i) => { const a = t * o.sp + o.ph, r = o.R; const x = o.cx + Math.cos(a) * r, z = o.cz + Math.sin(a) * r, y = o.cy + Math.sin(t * .6 + i) * 4; const dir = Math.sign(o.sp); o.d.root.position.set(x, y, z); o.d.root.rotation.y = Math.atan2(-Math.sin(a) * dir, Math.cos(a) * dir); o.d.root.rotation.x = Math.cos(t * .6 + i) * .18; o.d.update(t, 1); });
     W.jellies.forEach((j) => { const u = j.userData; const p = .8 + Math.sin(t * 2 + u.ph) * .2; u.dome.scale.set(1 / Math.sqrt(p), p, 1 / Math.sqrt(p)); j.position.y = u.baseY + Math.sin(t * .6 + u.ph) * 1.5 + Math.sin(t * 2 + u.ph) * .25; u.tents.forEach((tg, k) => { tg.rotation.z = Math.sin(t * 1.6 + k + u.ph) * .25; tg.rotation.x = Math.cos(t * 1.4 + k * 1.3) * .25; }); });
