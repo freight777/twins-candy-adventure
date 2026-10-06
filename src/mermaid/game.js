@@ -4,7 +4,10 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { skyEnv } from '../env.js';
 import { ease, clamp, rand, pick, RAINBOW, stripedGeo, setCaustic } from '../util.js';
-import { playMusic, sfx, voice, playScore, stopScore } from '../audio.js';
+import { playMusic, sfx, voice, playScore, stopScore, clipAt, preloadVoice } from '../audio.js';
+import { PIC } from '../learn/words.js';
+import { levelOf } from '../learn/profile.js';
+import { unitForLevel } from '../learn/code.js';
 import { emojiSprite } from '../util.js';
 import { ask } from '../engine/quiz.js';
 import { makeReadingQuestion } from '../learn/reading.js';
@@ -12,7 +15,7 @@ import { settings as learn, award } from '../learn/profile.js';
 import { createBoardGame } from '../board/deck.js';
 import { buildOcean, FRIEND_TILES } from './ocean.js';
 import { createMermaid, createSeahorse, createDolphin, heartGeo, LOOKS } from './mermaid.js';
-import { ANTHEM } from './anthem.js';
+import { ANTHEM, singWords } from './anthem.js';
 
 const HOVER = 2.3;                                   // swimming height above the path line
 const SCALE = 1.15;
@@ -60,10 +63,10 @@ const G = createBoardGame({
     },
     ride: dolphinRide,
     finale,
-    cheer() { playScore(ANTHEM); },
+    cheer: anthem,
     reset() {
       S.pearls = 0; document.querySelectorAll('#pearls i').forEach((e) => e.classList.remove('got')); W.pearls.forEach((p) => (p.pearl.visible = true));
-      stopScore(); S.giftOn = false; (S.giftKinds || []).forEach((k) => G.scene.remove(k.m)); S.giftKinds = []; S.gifts = [];
+      if (S.song) S.song.stop(); S.song = null; karaoke(null); stopScore(); S.giftOn = false; (S.giftKinds || []).forEach((k) => G.scene.remove(k.m)); S.giftKinds = []; S.gifts = [];
       S.pets.forEach((p) => G.scene.remove(p.root)); S.pets = []; playMusic('ocean');
     },
     resetTwin() {
@@ -156,6 +159,24 @@ async function kindness(f) {
   sparkleAt(to, f.burst, 60, 6); sfx.tada(); G.hop(f.u, .55, 1.5);
   await ui.bubble(`${G.cfg.hero.emoji} ${n.emoji} ${f.emoji}`, `Esmae gave ${f.name} ${n.what}!`, 'hero', true, { priority: 2, minMs: 1600 });
   await ui.bubble(`${f.emoji} \u{1F496}`, "Thank you, Esmae! You're so kind!", f.voice, true, { priority: 2, minMs: 1300 });
+}
+
+// ---------------------------------------------------------------- the anthem, and a read-along: each bar lights up a word she can read
+function anthem() {
+  const words = singWords(unitForLevel(levelOf('esmae', 'reading')));
+  preloadVoice([...new Set(words)].map((w) => `w_${w}`));
+  S.song = playScore(ANTHEM, {
+    onBar: (b, when) => { karaoke(words[b]); clipAt(`w_${words[b]}`, when + .02); },
+    onEnd: () => { karaoke(null); S.song = null; playMusic('ocean', { fadeIn: 3 }); },          // back into the sea music, no silence
+  });
+}
+function karaoke(word) {
+  let el = document.getElementById('karaoke');
+  if (!el) { el = document.createElement('div'); el.id = 'karaoke'; el.innerHTML = '<span class="kp"></span><span class="kw readable"></span>'; document.getElementById('ui').appendChild(el); }
+  el.classList.toggle('hidden', !word || !!S.house);
+  if (!word) return;
+  el.querySelector('.kp').textContent = PIC[word] || ''; el.querySelector('.kw').textContent = word;
+  el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
 }
 
 // ---------------------------------------------------------------- the Mermaid Palace: Lucy, the King and Queen, a lifetime of gifts

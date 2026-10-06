@@ -243,19 +243,19 @@ function tone(freq, dur = 0.3, { type = 'sine', vol = 0.25, slide = 0, delay = 0
   o.start(t0); o.stop(t0 + attack + dur + 0.05);
 }
 
+/** two seconds of white noise, made once; every drum hit plays a random slice of it */
+let noiseBuf = null;
 function noise(dur = 0.4, { vol = 0.3, from = 1500, to = 1500, q = 0.8, type = 'bandpass', delay = 0, out } = {}) {
   if (!ctx) return;
   const t0 = ctx.currentTime + delay;
-  const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  const src = ctx.createBufferSource(); src.buffer = buf;
+  if (!noiseBuf) { noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  const src = ctx.createBufferSource(); src.buffer = noiseBuf;
   const f = ctx.createBiquadFilter(); f.type = type; f.Q.value = q;
   f.frequency.setValueAtTime(from, t0); f.frequency.exponentialRampToValueAtTime(to, t0 + dur);
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + dur * 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   src.connect(f); f.connect(g); g.connect(out || master);
-  src.start(t0);
+  src.start(t0, Math.random() * Math.max(0, 2 - dur), Math.min(dur, 2));
 }
 
 export const sfx = {
@@ -332,10 +332,12 @@ const SONGS = {
 };
 let cur = null, timer = null, nextT = 0, step = 0, phrase = [], phraseOld = [], lastIdx = 3;
 
-export function playMusic(name) {
+/** opts.fadeIn: seconds to bring the music up from silence (a cross-fade out of the anthem) */
+export function playMusic(name, { fadeIn = 0 } = {}) {
   stopMusic();
   if (!ctx || !SONGS[name]) return;
   cur = SONGS[name]; nextT = ctx.currentTime + 0.15; step = 0; lastIdx = 3; phrase = []; phraseOld = [];
+  if (fadeIn && musicBus) { const g = musicBus.gain; g.cancelScheduledValues(ctx.currentTime); g.setValueAtTime(0.0001, ctx.currentTime); g.linearRampToValueAtTime(musicLevel, ctx.currentTime + fadeIn); }
   timer = setInterval(schedule, 100);
 }
 export function stopMusic() { if (timer) clearInterval(timer); timer = null; cur = null; }
@@ -383,25 +385,52 @@ function schedule() {
 // ================= a fixed score (the mermaid finale anthem), scheduled up front through its own volume bus =================
 let scoreBus = null;
 export function stopScore() { if (scoreBus && ctx) { scoreBus.gain.setTargetAtTime(0, ctx.currentTime, 0.25); } scoreBus = null; }
-/** score = { bpm, bars: [{ chord: [rootMidi, quality], mel: [8 midi notes or null] }] }. Returns its length in seconds. */
-export function playScore(score) {
+/** one bar of a score, starting at absolute audio time t */
+function scoreBar({ chord: [root, qual], mel }, b, t, eighth, out) {
+  const t0 = t - ctx.currentTime;
+  qual.forEach((n) => { tone(mtof(root + 12 + n), eighth * 8.6, { type: 'triangle', vol: .075, attack: .3, delay: t0, out, wet: .5 }); tone(mtof(root + 12 + n) * 1.004, eighth * 8.6, { type: 'sine', vol: .05, attack: .4, delay: t0, out, wet: .5 }); });
+  for (let s = 0; s < 8; s++) {
+    const d = t0 + s * eighth;
+    if (s === 0 || s === 4) tone(mtof(root), eighth * 3.4, { type: 'sine', vol: .5, delay: d, out, wet: .05 });
+    if (s === 0 || s === 4) tone(130, .16, { slide: .3, vol: .5, delay: d, out, wet: 0 });
+    if (s === 2 || s === 6) noise(.12, { vol: .12, from: 2400, to: 1800, q: .6, delay: d, out });
+    if (s % 2) noise(.05, { vol: .06, from: 7000, to: 9000, type: 'highpass', q: .5, delay: d, out });
+    const m = mel[s];
+    if (m != null) { lead('bell', m, eighth * 1.7, d, .24); tone(mtof(m - 12), eighth * 1.2, { type: 'triangle', vol: .08, delay: d, out, wet: .3 }); }
+    if (b >= 4 && s % 2 === 0) tone(mtof(root + 36 + qual[(s / 2) % qual.length]), eighth * .8, { type: 'sine', vol: .06, delay: d, out, wet: .5 });   // sparkly arpeggio in the second half
+  }
+}
+/**
+ * score = { bpm, bars: [{ chord: [rootMidi, quality], mel: [8 midi notes or null] }] }, played a bar at a time from a
+ * 100 ms tick. opts: { loop, onBar(index, audioTime) (called as each bar starts), onEnd() }. Returns { stop(), length }.
+ */
+export function playScore(score, { loop = false, onBar = null, onEnd = null } = {}) {
   stopMusic(); stopScore();
-  if (!ctx) return 0;
-  scoreBus = ctx.createGain(); scoreBus.gain.value = Math.max(0.5, musicLevel * 1.5); scoreBus.connect(master);
-  const eighth = 60 / score.bpm / 2; let t = 0.15;
-  score.bars.forEach(({ chord: [root, qual], mel }, b) => {
-    qual.forEach((n) => { tone(mtof(root + 12 + n), eighth * 8.6, { type: 'triangle', vol: .075, attack: .3, delay: t, out: scoreBus, wet: .5 }); tone(mtof(root + 12 + n) * 1.004, eighth * 8.6, { type: 'sine', vol: .05, attack: .4, delay: t, out: scoreBus, wet: .5 }); });
-    for (let s = 0; s < 8; s++) {
-      const d = t + s * eighth;
-      if (s === 0 || s === 4) tone(mtof(root), eighth * 3.4, { type: 'sine', vol: .5, delay: d, out: scoreBus, wet: .05 });
-      if (s === 0 || s === 4) tone(130, .16, { slide: .3, vol: .5, delay: d, out: scoreBus, wet: 0 });
-      if (s === 2 || s === 6) noise(.12, { vol: .12, from: 2400, to: 1800, q: .6, delay: d, out: scoreBus });
-      if (s % 2) noise(.05, { vol: .06, from: 7000, to: 9000, type: 'highpass', q: .5, delay: d, out: scoreBus });
-      const m = mel[s];
-      if (m != null) { lead('bell', m, eighth * 1.7, d, .24); tone(mtof(m - 12), eighth * 1.2, { type: 'triangle', vol: .08, delay: d, out: scoreBus, wet: .3 }); }
-      if (b >= 4 && s % 2 === 0) tone(mtof(root + 36 + qual[(s / 2) % qual.length]), eighth * .8, { type: 'sine', vol: .06, delay: d, out: scoreBus, wet: .5 });   // sparkly arpeggio in the second half
+  if (!ctx) { if (onEnd) setTimeout(onEnd, 0); return { stop() {}, length: 0 }; }
+  const bus = scoreBus = ctx.createGain(); bus.gain.value = Math.max(0.5, musicLevel * 1.5); bus.connect(master);
+  const eighth = 60 / score.bpm / 2, barLen = eighth * 8, live = () => scoreBus === bus;
+  let b = 0, at = ctx.currentTime + 0.15, iv = 0;
+  const tick = () => {
+    if (!live()) { clearInterval(iv); return; }
+    if (at < ctx.currentTime - 0.3) at = ctx.currentTime + 0.1;          // back from the background: skip ahead, don't burst
+    while (at < ctx.currentTime + 0.5) {
+      if (b >= score.bars.length) {
+        if (!loop) { clearInterval(iv); setTimeout(() => live() && onEnd && onEnd(), Math.max(0, (at - ctx.currentTime) * 1000)); return; }
+        b = 0;
+      }
+      scoreBar(score.bars[b], b, at, eighth, bus);
+      if (onBar) { const i = b, when = at; setTimeout(() => live() && onBar(i, when), Math.max(0, (when - ctx.currentTime) * 1000)); }
+      at += barLen; b++;
     }
-    t += eighth * 8;
+  };
+  iv = setInterval(tick, 100); tick();
+  return { length: score.bars.length * barLen, stop() { clearInterval(iv); if (live()) stopScore(); } };
+}
+/** play a recorded voice clip at an exact audio time (a word landing on the beat); missing clips are skipped */
+export function clipAt(id, when) {
+  if (!ctx || !voicesOn || muted) return;
+  clipBuffer(id).then((buf) => {
+    if (!buf || !ctx) return;
+    const s = ctx.createBufferSource(); s.buffer = buf; s.connect(analyser); s.start(Math.max(ctx.currentTime, when));
   });
-  return t;
 }
