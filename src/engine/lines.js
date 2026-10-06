@@ -53,7 +53,7 @@ P('find_the_word', 'Find the word'); P('find_the_letter', 'Find the letter'); P(
 P('starts_with', 'starts with'); P('say_it_with_me', 'Say it with me!');
 P('how_many', 'How many?'); P('how_many_tap_each', 'How many? Tap each one to count!'); P('which_has_more', 'Which has more?'); P('which_has_fewer', 'Which has fewer?');
 P('is_more', 'is more!'); P('is_fewer', 'is fewer!'); P('story_has', 'The princess has'); P('story_brings', 'and the cook brings'); P('story_eats', 'She eats');
-P('how_many_now', 'How many now?'); P('how_many_left', 'How many are left?'); P('plus', 'plus'); P('take_away', 'take away'); P('is', 'is'); P('and', 'and'); P('make', 'make');
+P('here_are', 'Here are'); P('more', 'more.'); P('how_many_now', 'How many now?'); P('how_many_left', 'How many are left?'); P('plus', 'plus'); P('take_away', 'take away'); P('is', 'is'); P('and', 'and'); P('make', 'make');
 P('and_how_many_more_make_ten', 'and how many more make ten?'); P('and_how_many', 'and how many?'); P('ten_and', 'Ten and'); P('which_is_farther', 'Which one went farther?');
 P('yes_great', 'Yes! Great job!', 'counter'); P('you_got_it', 'You got it!', 'counter'); P('thats_it', "That's it!", 'counter'); P('hmm_try_again', 'Hmm, try again!', 'counter');
 P('tap_the_one_that', 'Tap the one that is bouncing!', 'counter'); P('lets_count', "Let's count together!", 'counter'); P('well_done', 'Well done!', 'counter'); P('wow', 'Wow!', 'counter');
