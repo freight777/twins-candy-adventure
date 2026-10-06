@@ -304,7 +304,7 @@ export function createBoardGame(cfg) {
     stopSpeech();
     $('#mini .mp').textContent = ''; const mf = $('#mini .mf'); mf.innerHTML = ''; delete mf.dataset.goal;
     S.house = H.create(key, {
-      env: scene.environment, say, voice, sfx, who: cfg.reader, level: (strand) => levelOf(cfg.reader, strand),
+      env: scene.environment, say, voice, sfx, who: cfg.reader, hero: HERO.voice, level: (strand) => levelOf(cfg.reader, strand),
       addStars: (n) => { if (!S.housesDone.has(key)) { S.housesDone.add(key); addStars(n); } },
       status: (txt) => { $('#mini .mp').textContent = txt; },
       count: showCount,

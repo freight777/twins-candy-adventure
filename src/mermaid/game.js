@@ -16,6 +16,7 @@ import { createBoardGame } from '../board/deck.js';
 import { buildOcean, FRIEND_TILES } from './ocean.js';
 import { createMermaid, createSeahorse, heartGeo, LOOKS } from './mermaid.js';
 import { ANTHEM, singWords } from './anthem.js';
+import { createHouse, HOUSES } from './houses.js';
 
 const HOVER = 2.3;                                   // swimming height above the path line
 const SCALE = 1.15;
@@ -45,6 +46,7 @@ const G = createBoardGame({
   meet: { side: 4.2, ahead: 1.2, dur: 1.5, hop: .55, up: [1.4, 1.5] }, parade: { side: 2, bob: .3 },
   cam: { back: 9.5, side: 3.6, up: 6.8, ahead: 3, lookUp: .2, ride: 5, bob: .4, floor: 2.5, greet: { back: 6, side: 10, up: 5.5, lookUp: 0 } },
   party: { center: () => W.terrace, r: 14, y: [4, 16], colors: RAINBOW.concat([0xffffff, 0xff9ed8]) },
+  houses: { keys: ['sparkle', 'rainbow', 'kitty', 'lucy'], info: HOUSES, create: createHouse, lockedTwin: 'Meet Lucy at the palace first!' },
   build,
   hooks: {
     ready() {
@@ -193,7 +195,7 @@ async function finale() {
   S.twinSpeed = 1.3; lucy.lookToward(ld.x - la.x, ld.z - la.z, 1);
   await anim(1.6, (k) => { lucy.root.position.lerpVectors(la, ld, k); lucy.lookToward(f.x, f.z, .1); }); S.twinSpeed = 0;
   sparkleAt(G.above(lucy, 1.4), [0xff9ed8, 0xffffff, 0xff5fa4], 80, 7); sfx.tada(); sfx.giggle();
-  G.markMet(3); G.addStars(5);
+  G.markMet(3); G.addStars(5); S.twinMet = true;                              // (Lucy's house opens)
   await G.hop(lucy, .55, 1.5); await G.hop(hero, .55, 1.5); await lucySaid; await sleep(.4);
   // the king and queen
   await ui.bubble('\u{1F451}', 'Welcome to the Mermaid Palace, Esmae and Lucy! Thank you for spreading so much love.', 'king', true, { priority: 2, minMs: 3000 }); await sleep(.4);

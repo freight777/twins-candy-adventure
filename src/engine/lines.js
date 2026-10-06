@@ -98,7 +98,9 @@ story('queen', 'Your kindness sparkles like magic! We have a gift for you!', 'Yo
 story('hero', "Let's go on a mermaid adventure, Esmae!", 'A dolphin ride!', 'A shiny pearl!', 'The Mermaid Palace! We made it!', 'Esmae!', 'Lucy!', 'The King!', 'The Queen!',
   'Wait for Esmae to stop first!', 'Pick a card first!', 'Meet Lucy at the palace first!',
   ...['Sparkle', 'Rainbow', 'Kitty'].flatMap((n) => [`${n} joins the adventure!`, `${n}!`, `Meet ${n} on the path first!`]),
-  'Esmae gave Sparkle her hair clip!', 'Esmae gave Rainbow her pretty shell!', 'Esmae gave Kitty her toy fish!');
+  'Esmae gave Sparkle her hair clip!', 'Esmae gave Rainbow her pretty shell!', 'Esmae gave Kitty her toy fish!', 'You did it! Great job!',
+  "Welcome to Sparkle's Shell Salon! Tap the hair clips to put them in her hair!", "Welcome to Rainbow's Coral Band! Tap every color to play music!",
+  "Welcome to Kitty's Fish Cafe! Give each fish one treat!", "Welcome to Lucy's Bubble Room! Pop the bubbles!");
 story('lucy', "Esmae! It's me, Lucy! We're twins!");
 story('sparkle', 'Oh no! I lost my hair clip! Can you help me find it?', "Thank you, Esmae! You're so kind!");
 story('rainbow', 'Oh no! I lost my pretty shell! Can you help me find it?', "Thank you, Esmae! You're so kind!");
