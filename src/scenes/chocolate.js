@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
-import { sfx, playMusic } from '../audio.js';
+import { sfx, playMusic, voice } from '../audio.js';
+import { levelOf, recordItem, recordSkill } from '../learn/profile.js';
+import { renderShow } from '../learn/frame.js';
+import { storyAdd } from '../learn/math.js';
+import { ask } from '../engine/quiz.js';
 import { model } from '../assets.js';
 import { makeCandy, CANDY_KINDS } from '../candies.js';
 
@@ -220,7 +224,7 @@ export class ChocolateScene extends BaseScene {
       else { const [mname, memoji, mh] = FOOD.find((f) => f[0] === pickIt.slice(2)) || FOOD[0]; item = model(`food/${mname}`, { size: mh * 0.7 / 1.35 }); ename = mname; eemoji = memoji; }
       if (!item) { item = make(); ename = name; eemoji = emoji; }
       g.add(item); g.scale.setScalar(1.35); item.userData.bake = true;
-      g.userData = { name: ename, emoji: eemoji, eaten: false, idx: i, home: new THREE.Vector3(x, 0, z), item };
+      g.userData = { name: ename, kind: ename, emoji: eemoji, eaten: false, idx: i, home: new THREE.Vector3(x, 0, z), item };
       this.scene.add(g); this.edibles.push(g);
       this.addInteractive(g, () => this.tapEdible(g), 1.5, [0, 1.1, 0]);
     });
@@ -255,6 +259,45 @@ export class ChocolateScene extends BaseScene {
     this.camera.position.set(0, 8.5, 22); this.look = new THREE.Vector3(0, 1.2, 6);
     G.ui.bubble('\u{1F43B} \u{1F36C} \u{1F36D}', 'Tap candy to eat it!');
     this.tm.after(5, () => G.ui.hideBubble());
+    this.tm.after(5.5, () => this.startMission(0));
+  }
+  exit() { const m = document.getElementById('mission'); if (m) m.classList.add('hidden'); }
+
+  // ===================================================================== counting missions (IM/ADM "counting collections")
+  /** The Cat asks for a number of candies sized by the child's math level; a ten-frame fills one cell per candy eaten and the
+   *  voice counts along. Level 4+: two collections, then "how many altogether?". The START pad works the whole time. */
+  startMission(k) {
+    if (this.starting || this.disposed) return;
+    const who = this.game.party.active, lvl = levelOf(who, 'math'), R = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+    const goal = lvl <= 1 ? R(3, 5) : lvl <= 3 ? R(5, 10) : R(2, 5);
+    const el = document.getElementById('mission'); el.classList.remove('hidden', 'done');
+    this.mission = { who, lvl, k, goal, count: 0, done: false, show: renderShow(el, { frame: goal <= 5 ? 5 : 10, dots: 0 }) };
+    this.game.ui.bubble('\u{1F431} \u{1F36C}', '', 'cat', false);
+    voice(['cat_can_you_eat', `cat_n_${goal}`, 'cat_candies'], { priority: 2 }).then(() => this.tm.after(1.5, () => this.mission && !this.mission.done && this.game.ui.hideBubble()));
+  }
+  onEat() {
+    const m = this.mission; if (!m || m.done) return;
+    const c = m.show.cells[m.count]; if (c) { c.classList.add('dot'); }
+    m.count++; voice(`n_${m.count}`, { priority: 1 });
+    if (m.count >= m.goal) this.missionDone(m);
+  }
+  async missionDone(m) {
+    m.done = true; const el = document.getElementById('mission'); el.classList.add('done');
+    recordItem(m.who, `count:${m.goal}`, true, true); recordSkill(m.who, 'math', true, true);
+    const P = this.game.party, hp = P.leader.root.position.clone().add(new THREE.Vector3(0, 2.6, 0));
+    sfx.tada(); this.fx.burst(hp, { count: 70, colors: RAINBOW.concat(CANDY), speed: 7, gravity: -4, life: 1.8, size: 1 });
+    this.game.ui.bubble('\u{1F431} \u{1F389}', '', 'cat', false);
+    await this.alive(voice([`cat_n_${m.goal}`, 'cat_you_did_it'], { priority: 2 }));
+    await this.wait(1.2); el.classList.add('hidden'); this.game.ui.hideBubble();
+    if (m.k === 0) {
+      if (m.lvl >= 4) { this.firstGoal = m.goal; await this.wait(1.5); this.startMission(1); }
+      else this.tm.after(8, () => this.startMission(1));
+    } else if (m.lvl >= 4 && this.firstGoal) {
+      // two real collections -> an addition question about exactly those candies
+      this.starting = true; this.game.party.target = null; this.game.ui.eat(false);
+      await this.alive(ask(storyAdd(this.firstGoal, m.goal, { icon: '\u{1F36C}', iconAlt: '\u{1F36D}' }), m.who, { icon: '\u{1F36C}', iconAlt: '\u{1F36D}' }));
+      this.starting = false;
+    }
   }
 
   // ===================================================================== taps
@@ -291,7 +334,7 @@ export class ChocolateScene extends BaseScene {
       L.fx.squash = 1 + Math.sin(k * Math.PI * 6) * .12;
     }, { ease: ease.linear, done: () => {
       L.fx.squash = 1; e.visible = false;
-      this.eaten++; G.ui.setStars(this.eaten); G.eaten = (G.eaten || 0) + 1;
+      this.eaten++; G.ui.setStars(this.eaten); G.eaten = (G.eaten || 0) + 1; this.onEat();
       const hp = L.root.position.clone().add(new THREE.Vector3(0, 2.4, 0));
       this.fx.burst(hp, { count: 14, colors: [0xff6f91, 0xff9fcb], speed: 2.5, gravity: 1.5, life: 1.5, size: .9 });
       if (this.eaten % 5 === 0) { sfx.tada(); this.fx.burst(hp, { count: 60, colors: RAINBOW.concat(CANDY), speed: 7, gravity: -4, life: 1.8, size: 1 }); G.ui.bubble('\u{1F36C}\u{1F389}', 'Yum yum!'); this.tm.after(2.5, () => G.ui.hideBubble()); }

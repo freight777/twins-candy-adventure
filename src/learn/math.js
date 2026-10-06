@@ -87,4 +87,10 @@ export function makeMathQuestion(who, { kinds = null } = {}) {
   if (lvl < 2) delete q.equation;
   return q;
 }
+/** an addition question about two amounts the child just collected (used after the meadow's two missions) */
+export function storyAdd(a, b, { icon, iconAlt } = {}) {
+  const sum = a + b, within = Math.max(10, sum);
+  return { id: `add:${sum}`, strand: 'math', kind: 'add', a, b, show: { objects: [a, b] }, prompt: { voice: ['here_are', `n_${a}`, 'and', `n_${b}`, 'more', 'how_many_now'], say: `Here are ${a}, and ${b} more. How many now?` },
+    equation: `${a} + ${b} = ?`, choices: numChoices(sum, 1, within, [Math.max(a, b), sum - 1]), answerVoice: [`n_${a}`, 'plus', `n_${b}`, 'is', `n_${sum}`], answerSay: `${a} plus ${b} is ${sum}.`, scaffold: { kind: 'count-on', a, b }, icon, iconAlt };
+}
 export const MATH_KINDS = { subitizeQ, countQ, compareQ, addStoryQ, subStoryQ, make10Q, breakQ, teenQ, fluentQ };

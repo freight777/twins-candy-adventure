@@ -35,6 +35,10 @@ html, body {
 
 /* ---------- hud ---------- */
 #hud { position: absolute; inset: 0; }
+/* the meadow's counting mission: a ten-frame that fills one cell per candy eaten */
+#mission { position: absolute; left: max(14px, env(safe-area-inset-left)); top: calc(max(14px, env(safe-area-inset-top)) + clamp(64px, 9vw, 96px) + 16px); background: rgba(255,255,255,.88); border-radius: 22px; padding: 8px 10px; box-shadow: 0 5px 0 rgba(0,0,0,.12); pointer-events: none; min-height: 0; }
+#mission .cell { width: clamp(28px, 4.4vw, 44px); }
+#mission.done { animation: bob .5s ease-in-out 3; }
 #swap { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); display: flex; gap: 14px; }
 #swap .portrait { width: clamp(64px, 9vw, 96px); height: clamp(64px, 9vw, 96px); border-width: 5px; }
 #stars { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); background: rgba(255,255,255,.9);
