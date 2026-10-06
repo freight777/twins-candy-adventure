@@ -60,6 +60,7 @@ P('tap_the_one_that', 'Tap the one that is bouncing!', 'counter'); P('lets_count
 P('hold_to_go_home', 'Hold the house to go home!');
 for (let i = 1; i <= 10; i++) add(`cat_n_${i}`, NUM[i], 'cat');
 P('cat_can_you_eat', 'Can you eat', 'cat'); P('cat_candies', 'candies?', 'cat'); P('cat_you_did_it', 'You did it!', 'cat');
+P('catch_the', 'Catch the'); P('things', 'things!');
 P('you_caught', 'You caught'); P('stars_in_tunnel', 'stars in the tunnel!'); P('yum_count_done', 'Yummy! All for you!', 'queen'); P('sparkle_dice', 'Sparkle dice! Roll three or more!');
 
 // ---------------------------------------------------------------- the story lines, exactly as the games pass them to say()/bubble()

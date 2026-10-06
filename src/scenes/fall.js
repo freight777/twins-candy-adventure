@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, rand, pick, clamp, lerp, ease, glowSprite, stripedGeo, vertexToon, RAINBOW, CANDY } from '../util.js';
-import { sfx, playMusic } from '../audio.js';
+import { toon, mk, rand, pick, clamp, lerp, ease, glowSprite, emojiSprite, emojiTex, stripedGeo, vertexToon, RAINBOW, CANDY } from '../util.js';
+import { sfx, playMusic, voice } from '../audio.js';
+import { levelOf, recordItem } from '../learn/profile.js';
+import { taughtThrough, unitForLevel } from '../learn/code.js';
+import { PIC } from '../learn/words.js';
+import { wordsThrough, withPic, onset, sameSound } from '../learn/reading.js';
 
 const sph = (r, w = 14, h = 10) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -86,9 +90,18 @@ export class FallScene extends BaseScene {
       this.respawn(o, true);
       this.items.push(o); g.add(o);
     }
+    // sound bubbles: pictures to catch when their word starts with the sound the voice asks for
+    this.bubbles = [];
+    const shell = toon(0xcff4ff, { transparent: true, opacity: .32, depthWrite: false });
+    for (let i = 0; i < 6; i++) {
+      const b = new THREE.Group(), pic = emojiSprite('\u2B50', 1.15);
+      b.add(new THREE.Mesh(new THREE.SphereGeometry(.78, 20, 14), shell), pic, glowSprite(0xbfefff, 2.2, .35));
+      b.userData = { bubble: true, pic, word: null, bounce: 0, vx: 0 };
+      b.visible = false; this.bubbles.push(b); g.add(b);
+    }
     // collectable stars
     this.coins = [];
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 5; i++) {
       const s = new THREE.Group();
       s.add(new THREE.Mesh(new THREE.OctahedronGeometry(.45, 0), new THREE.MeshBasicMaterial({ color: 0xffe14d })), glowSprite(0xffd84d, 2.4));
       s.userData.coin = true;
@@ -139,6 +152,7 @@ export class FallScene extends BaseScene {
       this.hintShown = true;
       this.game.ui.hint('👆');
       this.hintTime = 4;
+      this.tm.after(2.2, () => this.newTarget());
     } else this.game.ui.hud(false);
   }
 
@@ -193,8 +207,9 @@ export class FallScene extends BaseScene {
       o.rotation.x += o.userData.spin.x * dt * 2; o.rotation.y += o.userData.spin.y * dt * 2; o.rotation.z += o.userData.spin.z * dt * 2;
       if (this.dir > 0 ? o.position.z > 6 : o.position.z < -TUNNEL_LEN) this.respawn(o);
     }
+    this.updateBubbles(dt, t);
     for (const c of this.coins) {
-      if (this.dir < 0) { c.visible = false; break; }
+      if (this.dir < 0) { c.visible = false; continue; }
       c.position.z += SPEED * dt; c.rotation.y += dt * 3;
       if (c.position.z > 6) { c.position.set(rand(-2.6, 2.6), rand(-1.8, 1.8), -TUNNEL_LEN + rand(-10, 0)); }
       if (Math.abs(c.position.z + 4.2) < 1.4) {
@@ -216,6 +231,53 @@ export class FallScene extends BaseScene {
       this.leaving = true;
       sfx.magic();
       G.goto(this.next, { flash: '#fff6c8' });
+    }
+  }
+
+  // ===================================================================== the sound game
+  /** pick the next sound to listen for (only sounds the child's CKLA unit has taught, with at least two pictures) */
+  newTarget() {
+    if (this.dir < 0 || this.disposed) return;
+    const who = this.game.party.active, unit = unitForLevel(levelOf(who, 'reading'));
+    this.pool = withPic(wordsThrough(unit));
+    const taught = taughtThrough(unit), options = [...new Set(this.pool.map(onset))].filter((s) => taught.includes(s) && this.pool.filter((w) => onset(w) === s).length >= 2 && s !== this.target);
+    if (!options.length || this.pool.length < 4) return;
+    this.target = pick(options); this.caught = 0; this.who = who;
+    this.bubbles.forEach((b, i) => this.fillBubble(b, true, i));
+    voice(['catch_the', `snd_${this.target}`, 'things'], { priority: 2 });
+  }
+  /** half the bubbles carry a word with the target sound, half a word with a different first sound */
+  fillBubble(b, first = false, i = 0) {
+    const hit = this.target && Math.random() < .5, list = this.target ? this.pool.filter((w) => (hit ? onset(w) === this.target : !sameSound(onset(w), this.target))) : this.pool;
+    const w = pick(list.length ? list : this.pool);
+    b.userData.word = w; b.userData.bounce = 0; b.userData.vx = 0;
+    b.userData.pic.material.map = emojiTex(PIC[w]); b.userData.pic.material.needsUpdate = true;
+    b.position.set(rand(-2.4, 2.4), rand(-1.6, 1.6), first ? -40 - i * 22 : -TUNNEL_LEN + rand(-10, 0));
+    b.scale.setScalar(1); b.visible = true;
+  }
+  updateBubbles(dt, t) {
+    if (!this.pool) return;
+    const P = this.game.party;
+    for (const b of this.bubbles) {
+      const u = b.userData;
+      b.position.z += SPEED * .8 * dt; b.position.x += u.vx * dt; u.vx *= 1 - dt * 3;
+      b.position.y += Math.sin(t * 2 + b.id) * dt * .3;
+      if (u.bounce > 0) { u.bounce -= dt; b.scale.setScalar(1 + Math.sin(u.bounce * 30) * .15 * u.bounce); }
+      if (b.position.z > 6) { this.fillBubble(b); continue; }
+      if (!this.target || Math.abs(b.position.z + 4.2) > 1.3 || u.bounce > 0) continue;   // (between targets the bubbles just float by)
+      for (const tw of P.both()) {
+        const tp = tw.root.position;
+        if (Math.hypot(b.position.x - tp.x, b.position.y - (tp.y + 1)) > 1.4) continue;
+        if (onset(u.word) === this.target) {                       // the right sound: pop!
+          this.caught++; sfx.collect(this.caught); voice(`w_${u.word}`, { priority: 1 });
+          this.fx.burst(b.position, { count: 26, colors: [0xffffff, 0xbfefff, 0xffe14d, 0xff9fcb], speed: 5, gravity: 0, life: .9, size: .9 });
+          this.fillBubble(b);
+          if (this.caught >= 4) { recordItem(this.who, `snd:${this.target}`, true, true); sfx.tada(); this.tm.after(1.2, () => this.newTarget()); this.target = null; }
+        } else {                                                   // a different sound: it just bounces away, no penalty
+          u.bounce = .5; u.vx = (b.position.x > tp.x ? 1 : -1) * 6; sfx.soft();
+        }
+        break;
+      }
     }
   }
 

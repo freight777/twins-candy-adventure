@@ -223,6 +223,20 @@ export function starTex() {
   keep.add(_star); return _star;
 }
 
+/** an emoji as a camera-facing picture (one shared texture per emoji) */
+const _emoji = new Map();
+export function emojiTex(ch) {
+  if (!_emoji.has(ch)) {
+    const t = canvasTex(128, 128, (g, w, h) => { g.font = '100px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, w / 2, h / 2 + 8); });
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; keep.add(t); _emoji.set(ch, t);
+  }
+  return _emoji.get(ch);
+}
+export function emojiSprite(ch, size = 2.4) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTex(ch), transparent: true, depthWrite: false }));
+  s.scale.set(size, size, 1);
+  return s;
+}
 export function glowSprite(color = 0xffffff, size = 3, opacity = 1) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
   s.scale.set(size, size, 1);
