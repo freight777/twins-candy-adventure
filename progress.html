@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="A&amp;E Games" />
+  <meta name="theme-color" content="#7fd8ff" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon-ae.png" />
+  <link rel="icon" type="image/png" href="./icon-ae-192.png" />
+  <title>Grown-ups: progress</title>
+</head>
+<body>
+  <main>
+    <header><a class="back" href="./">&#8592; Games</a><h1>How the kids are doing</h1></header>
+    <p class="note">Everything here stays on this iPad. Nothing is sent anywhere.</p>
+    <section id="kids"></section>
+    <section class="panel">
+      <h2>Settings</h2>
+      <div id="settings" class="rows"></div>
+    </section>
+    <section class="panel">
+      <h2>Hear the letter sounds</h2>
+      <p class="note">These are the sounds the games play (CKLA order). Tap one to hear it.</p>
+      <div id="sounds" class="sounds"></div>
+    </section>
+    <section class="panel">
+      <h2>iPad tips</h2>
+      <ul class="tips">
+        <li>Lock the screen in landscape: swipe down from the top-right corner and tap the rotation lock.</li>
+        <li>Keep a child inside one game: Settings &rarr; Accessibility &rarr; Guided Access, then triple-click the top button in the game.</li>
+        <li>Grown-up buttons in the games (the house, this page, the candy menu corner) open only when held for a moment, so mashing can't open them.</li>
+      </ul>
+    </section>
+  </main>
+  <script type="module" src="/src/progress.js"></script>
+</body>
+</html>
