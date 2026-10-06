@@ -147,7 +147,7 @@ export const LOOKS = {
   lucy:    { hair: [0xff8fc8, 0xff6fb5, 0xffa8d8], clip: { color: 0xff5fa4 }, tail: [0x5ae8b0, 0x4a9af0], fin: 0x7ae0ff, shell: 0xffd1e8, iris: 0x3a7ac8 },
   kitty:   { hair: [0xff4d5a, 0xe8283a, 0xff6a6a], clip: { color: 0xff7ec0 }, tail: [0xff9a6a, 0xffd84d], fin: 0xffb04a, shell: 0xffe0a8, iris: 0x2a8a5a },
   sparkle: { hair: [0xffa8e8, 0xff8fd8, 0xffc0f0], clip: { color: 0xff6fd0, sparkle: true }, tail: [0xffb0f0, 0xffe27a], fin: 0xffd0f8, shell: 0xffe0f8, iris: 0xc03aa8, glitter: true },
-  rainbow: { hair: RAINBOW, rainbowHair: true, clip: { rainbow: true }, tail: [0x5bc0ff, 0xb07cff], fin: 0x6be37d, shell: 0xfff0a0, iris: 0x2a6ae0 },
+  rainbow: { hair: RAINBOW, clip: { rainbow: true }, tail: [0x5bc0ff, 0xb07cff], fin: 0x6be37d, shell: 0xfff0a0, iris: 0x2a6ae0 },
   king:    { hair: [0xe8e8f4, 0xcfd0e8], clip: { color: 0xffd24d }, tail: [0x2ab8c8, 0x2a6ae0], fin: 0x4ad8c8, shell: 0xffd24d, iris: 0x2a4aa8, male: true, beard: true, crown: 'king', trident: true },
   queen:   { hair: [0xb07cff, 0x9a5cf0, 0xc9a8ff], clip: { color: 0xffd24d }, tail: [0xb07cff, 0xff7ab8], fin: 0xff9ed8, shell: 0xffd24d, iris: 0x7a3aa8, crown: 'queen' },
 };
@@ -162,7 +162,7 @@ export function createSeahorse(color = 0xffb04a) {
   [-1, 1].forEach((s) => g.add(mk(sph(.06, 8, 6), 0x1a0d2a, [s * .16, 1.44, .28])));
   const fin = mk(sph(.3, 10, 8), toon(0xffe27a, { transparent: true, opacity: .8 }), [0, .9, -.3], [.1, 1, .6]); g.add(fin);
   setStyle(prev);
-  return { root: g, update(t) { parts.forEach((p) => { p.position.x = Math.sin(t * 2 - p.userData.i * .4) * .03 * p.userData.i; }); fin.rotation.y = Math.sin(t * 9) * .5; g.position.y += 0; } };
+  return { root: g, update(t) { parts.forEach((p) => { p.position.x = Math.sin(t * 2 - p.userData.i * .4) * .03 * p.userData.i; }); fin.rotation.y = Math.sin(t * 9) * .5; } };
 }
 
 /** a dolphin (for the shortcut rides and the open water) */

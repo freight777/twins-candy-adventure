@@ -34,7 +34,7 @@ const part = (geo, pos = [0, 0, 0], rot = [0, 0, 0], scl = [1, 1, 1]) => { const
 
 export function buildOcean(scene) {
   setStyle('candy');
-  const W = { tiles: [], animated: [], pickups: [], bubbleSets: [], jellies: [], fish: null, dolphins: [] };
+  const W = { tiles: [], animated: [], pickups: [], jellies: [], fish: null, dolphins: [], cam: null };
 
   // ---------------------------------------------------------------- seabed + the path (which floats above it)
   const ends = new THREE.CatmullRomCurve3(controlPoints(), false, 'catmullrom', .5);
@@ -225,16 +225,37 @@ export function buildOcean(scene) {
     const d = createDolphin(1.5 + rand(0, .4)), t0 = W.tiles[Math.floor(rand(8, N - 6))].pos, o = { d, cx: t0.x + rand(-25, 25), cz: t0.z + rand(-25, 25), cy: t0.y + rand(8, 18), R: rand(22, 40), sp: rand(.08, .14) * (i % 2 ? 1 : -1), ph: rand(0, 6) };
     scene.add(d.root); W.dolphins.push(o);
   }
+  // jellyfish: a dome, a glowing core, and nine tentacles merged into one mesh that sways in the vertex shader (4 draws each)
   const jm = [[0xff7ab8, 0xffb8e0], [0xb07cff, 0xd8c0ff], [0x4ad8e8, 0xa8f0ff], [0xffd84d, 0xfff0a0]];
+  const domeG = new THREE.SphereGeometry(1.4, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), coreG = new THREE.SphereGeometry(.8, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+  const tentG = mergeGeometries(Array.from({ length: 9 }, (_, k) => {
+    const aa = (k / 9) * Math.PI * 2, len = 2.8 + (k % 3) * .6, c = cyl(.05, .02, len, 6).translate(Math.cos(aa) * 1.1, -len / 2, Math.sin(aa) * 1.1);
+    c.setAttribute('aK', new THREE.BufferAttribute(new Float32Array(c.attributes.position.count).fill(k), 1)); return c;
+  }));
+  const tentMat = (color, ph) => {
+    const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .7 });
+    m.onBeforeCompile = (sh) => {
+      sh.uniforms.time = TIME; sh.uniforms.ph = { value: ph };
+      sh.vertexShader = 'uniform float time, ph;\nattribute float aK;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        float hang = max(-position.y, 0.);
+        transformed.x += sin(time * 1.6 + aK + ph) * .25 * hang;
+        transformed.z += cos(time * 1.4 + aK * 1.3) * .25 * hang;`);
+    };
+    m.customProgramCacheKey = () => 'jellyTentacles';
+    return m;
+  };
   for (let i = 0; i < 20; i++) {
-    const [a, b] = pick(jm), j = new THREE.Group(), tp = W.tiles[Math.floor(rand(2, N - 2))], ang = rand(0, 6.28), dist = rand(7, 22);
-    const dome = mk(new THREE.SphereGeometry(1.4, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: a, emissive: a, emissiveIntensity: .75, transparent: true, opacity: .62, roughness: .2 }), [0, 0, 0]);
-    const inner = mk(new THREE.SphereGeometry(.8, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(b).multiplyScalar(1.5), transparent: true, opacity: .8 }), [0, .05, 0]);
-    j.add(dome, inner);
-    const tents = []; for (let k = 0; k < 9; k++) { const aa = (k / 9) * Math.PI * 2, tg = new THREE.Group(); tg.position.set(Math.cos(aa) * 1.1, 0, Math.sin(aa) * 1.1); const tt = mk(cyl(.05, .02, 2.8 + (k % 3) * .6, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(b).multiplyScalar(1.3), transparent: true, opacity: .7 }), [0, -1.5, 0]); tg.add(tt); j.add(tg); tents.push(tg); }
-    j.add(glowSprite(b, 6, .35));
-    const s = rand(.8, 1.8); j.scale.setScalar(s); j.userData = { dome, tents, ph: rand(0, 6), baseY: tp.pos.y + rand(-1, 9), s }; j.position.set(tp.pos.x + Math.cos(ang) * dist, j.userData.baseY, tp.pos.z + Math.sin(ang) * dist); scene.add(j); W.jellies.push(j);
+    const [a, b] = pick(jm), j = new THREE.Group(), tp = W.tiles[Math.floor(rand(2, N - 2))], ang = rand(0, 6.28), dist = rand(9, 24), ph = rand(0, 6);
+    const dome = new THREE.Mesh(domeG, new THREE.MeshStandardMaterial({ color: a, emissive: a, emissiveIntensity: .75, transparent: true, opacity: .62, roughness: .2 }));
+    const core = new THREE.Mesh(coreG, new THREE.MeshBasicMaterial({ color: new THREE.Color(b).multiplyScalar(1.5), transparent: true, opacity: .8 })); core.position.y = .05;
+    const tents = new THREE.Mesh(tentG, tentMat(new THREE.Color(b).multiplyScalar(1.3), ph)), glow = glowSprite(b, 6, .35);
+    j.add(dome, core, tents, glow);
+    const s = rand(.8, 1.8); j.scale.setScalar(s);
+    j.userData = { dome, fade: [[dome.material, .62], [core.material, .8], [tents.material, .7], [glow.material, .35]], ph, baseY: tp.pos.y + rand(-1, 9), s, f: 1 };
+    j.position.set(tp.pos.x + Math.cos(ang) * dist, j.userData.baseY, tp.pos.z + Math.sin(ang) * dist); scene.add(j); W.jellies.push(j);
   }
+  // the dolphin you ride on a shortcut: made once, shown only while riding
+  W.rideDolphin = createDolphin(1.9); W.rideDolphin.root.visible = false; scene.add(W.rideDolphin.root);
 
   // ---------------------------------------------------------------- bubbles, plankton, light rays
   function bubbleTex() { return canvasTex(64, 64, (g, w, h) => { g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 4; g.beginPath(); g.arc(32, 32, 26, 0, 7); g.stroke(); g.fillStyle = 'rgba(200,240,255,.18)'; g.fill(); g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(23, 22, 6, 0, 7); g.fill(); }); }
@@ -305,7 +326,6 @@ export function buildOcean(scene) {
     W.thrones = [throne(-1), throne(1)];
     W.kingSpot = W.thrones[0].position.clone().add(new THREE.Vector3(0, 2.2, 0)); W.queenSpot = W.thrones[1].position.clone().add(new THREE.Vector3(0, 2.2, 0));
   }
-  W.endSpot = endP.clone().add(new THREE.Vector3(endT.x * 7, 1.8, endT.z * 7));
   W.endT = endT;
 
   W.update = (dt, t) => {
@@ -314,7 +334,13 @@ export function buildOcean(scene) {
     W.pickups.forEach((s) => { if (!s.taken) { s.mesh.rotation.y = t * 1.6 + s.tile; s.mesh.position.y = s.y0 + Math.sin(t * 2 + s.tile) * .35; } });
     W.animated.forEach((f) => f(t));
     W.dolphins.forEach((o, i) => { const a = t * o.sp + o.ph, r = o.R; const x = o.cx + Math.cos(a) * r, z = o.cz + Math.sin(a) * r, y = o.cy + Math.sin(t * .6 + i) * 4; const dir = Math.sign(o.sp); o.d.root.position.set(x, y, z); o.d.root.rotation.y = Math.atan2(-Math.sin(a) * dir, Math.cos(a) * dir); o.d.root.rotation.x = Math.cos(t * .6 + i) * .18; o.d.update(t, 1); });
-    W.jellies.forEach((j) => { const u = j.userData; const p = .8 + Math.sin(t * 2 + u.ph) * .2; u.dome.scale.set(1 / Math.sqrt(p), p, 1 / Math.sqrt(p)); j.position.y = u.baseY + Math.sin(t * .6 + u.ph) * 1.5 + Math.sin(t * 2 + u.ph) * .25; u.tents.forEach((tg, k) => { tg.rotation.z = Math.sin(t * 1.6 + k + u.ph) * .25; tg.rotation.x = Math.cos(t * 1.4 + k * 1.3) * .25; }); });
+    W.jellies.forEach((j) => {
+      const u = j.userData, p = .8 + Math.sin(t * 2 + u.ph) * .2; u.dome.scale.set(1 / Math.sqrt(p), p, 1 / Math.sqrt(p));
+      j.position.y = u.baseY + Math.sin(t * .6 + u.ph) * 1.5 + Math.sin(t * 2 + u.ph) * .25;
+      // a jelly between the camera and the mermaid fades to a ghost instead of filling the screen
+      const f = W.cam ? clamp((W.cam.position.distanceTo(j.position) - 3 * u.s) / (5 * u.s), .12, 1) : 1;
+      if (Math.abs(f - u.f) > .01) { u.f = f; u.fade.forEach(([m, o]) => (m.opacity = o * f)); }
+    });
     W.rays.forEach((m) => { m.material.opacity = .13 + Math.sin(t * .5 + m.userData.ph) * .06; m.position.x = m.userData.x0 + Math.sin(t * .1 + m.userData.ph) * 5; });
     if (W.palaceGlow) W.palaceGlow.material.opacity = .3 + Math.sin(t * 2) * .1;
   };

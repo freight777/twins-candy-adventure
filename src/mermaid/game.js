@@ -14,7 +14,7 @@ import { makeReadingQuestion } from '../learn/reading.js';
 import { settings as learn, award } from '../learn/profile.js';
 import { createBoardGame } from '../board/deck.js';
 import { buildOcean, FRIEND_TILES } from './ocean.js';
-import { createMermaid, createSeahorse, createDolphin, heartGeo, LOOKS } from './mermaid.js';
+import { createMermaid, createSeahorse, heartGeo, LOOKS } from './mermaid.js';
 import { ANTHEM, singWords } from './anthem.js';
 
 const HOVER = 2.3;                                   // swimming height above the path line
@@ -66,8 +66,8 @@ const G = createBoardGame({
     cheer: anthem,
     reset() {
       S.pearls = 0; document.querySelectorAll('#pearls i').forEach((e) => e.classList.remove('got')); W.pearls.forEach((p) => (p.pearl.visible = true));
-      if (S.song) S.song.stop(); S.song = null; karaoke(null); stopScore(); S.giftOn = false; (S.giftKinds || []).forEach((k) => G.scene.remove(k.m)); S.giftKinds = []; S.gifts = [];
-      S.pets.forEach((p) => G.scene.remove(p.root)); S.pets = []; playMusic('ocean');
+      if (S.song) S.song.stop(); S.song = null; karaoke(null); stopScore(); S.giftOn = false; S.giftKinds.forEach((k) => (k.m.visible = false)); S.gifts = [];
+      S.pets.forEach((p) => (p.root.visible = false)); playMusic('ocean');
     },
     resetTwin() {
       lucy.root.position.copy(W.terrace).add(new THREE.Vector3(W.endT.x * 3, 2.8, W.endT.z * 3)).addScaledVector(G.side(W.endT), 6);
@@ -86,7 +86,7 @@ const G = createBoardGame({
   },
 });
 const { ui, S, sleep, anim, sparkleAt } = G;
-Object.assign(S, { gifts: [], pets: [], pearls: 0 });
+Object.assign(S, { gifts: [], giftKinds: [], pets: [], pearls: 0 });
 
 async function build() {
   await new Promise((r) => setTimeout(r, 30));
@@ -97,7 +97,7 @@ async function build() {
   scene.fog = new THREE.FogExp2(0x2a9fd0, 0.0105);
   scene.add(new THREE.HemisphereLight(0xcff8ff, 0x2a6aa0, 1.0));
   G.addSun(0xe8fff8, 1.6, [14, 40, 10], 36);
-  G.linearize();
+  G.linearize(); W.cam = G.camera;
   const mermaid = (look, s = SCALE) => { const m = createMermaid(look); m.root.scale.setScalar(s); scene.add(m.root); return m; };
   hero = G.hero = mermaid(LOOKS.esmae);
   G.friends = FRIENDS.map((f, i) => {
@@ -114,7 +114,7 @@ async function build() {
 
 // ---------------------------------------------------------------- the squares' surprises
 async function dolphinRide(sc) {
-  const dolphin = createDolphin(1.9); G.scene.add(dolphin.root);
+  const dolphin = W.rideDolphin; dolphin.root.visible = true;
   await G.ride(sc, 2.6, (p, t) => {
     dolphin.root.position.copy(p); dolphin.root.position.y -= .2; dolphin.root.rotation.set(-Math.asin(clamp(t.y, -.8, .8)), Math.atan2(t.x, t.z), 0, 'YXZ'); dolphin.update(S.time, 1.8);
     hero.root.position.copy(p); hero.root.position.y += 1.5; hero.lookToward(t.x, t.z, 0.3); hero.root.rotation.x = -Math.asin(clamp(t.y, -.7, .7)) * 0.7;
@@ -124,7 +124,7 @@ async function dolphinRide(sc) {
   sparkleAt(G.above(hero, 1), RAINBOW, 50, 6);
   const end = dolphin.root.position.clone(), fwd = new THREE.Vector3(Math.sin(dolphin.root.rotation.y), .6, Math.cos(dolphin.root.rotation.y));
   await anim(1.4, (k) => { dolphin.root.position.copy(end).addScaledVector(fwd, k * 22); dolphin.update(S.time, 1.8); }, ease.in);
-  G.scene.remove(dolphin.root);
+  dolphin.root.visible = false;
 }
 async function treat(pr) {
   ui.bubble('\u{1F9AA} \u{1F90D}', 'A shiny pearl!', 'hero'); sfx.yum();
@@ -203,7 +203,15 @@ async function finale() {
   [king, queen].forEach((m) => sparkleAt(G.above(m, 3), [0xffd84d, 0xffffff, 0xff9ed8], 60, 7));
   await gift; await sleep(2.2);
 }
+/** the royal gifts and seahorse pets: built the first time, shown again (re-scattered) on every replay */
 function makeGifts() {
+  if (!S.giftKinds.length) buildGifts();
+  const c = new THREE.Color(), tc = W.terrace, items = [];
+  S.giftKinds.forEach((k) => { k.m.visible = true; for (let i = 0; i < k.n; i++) { c.set(k.cols[i % k.cols.length]); k.m.setColorAt(i, c); items.push({ k, i, a: rand(0, 6.28), r: rand(5, 14), h: rand(1, 11), sp: rand(.2, .5) * (Math.random() < .5 ? -1 : 1), s: rand(.8, 1.3), at: rand(0, 3.5), ph: rand(0, 6) }); } if (k.m.instanceColor) k.m.instanceColor.needsUpdate = true; });
+  S.gifts = items; S.giftT = 0; S.giftOn = true; S.giftCenter = tc.clone().addScaledVector(W.endT, 1);
+  S.pets.forEach((p, i) => { p.root.visible = true; p.root.position.copy(tc).add(upBy(3)); p.a = (i / 6) * 6.28; });
+}
+function buildGifts() {
   const mk1 = (geo, n, mat) => { const m = new THREE.InstancedMesh(geo, mat, n); m.frustumCulled = false; m.castShadow = false; G.scene.add(m); return m; };
   const std = (o = {}) => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .4, metalness: .1, ...o });
   const lolly = mergeGeometries([new THREE.SphereGeometry(.55, 14, 10).scale(1, 1, .25).translate(0, .9, 0), new THREE.CylinderGeometry(.06, .06, 1.4, 6).translate(0, .1, 0)]);
@@ -214,10 +222,8 @@ function makeGifts() {
     { m: mk1(stripedGeo(new THREE.SphereGeometry(.7, 16, 12), RAINBOW), 14, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .4 })), n: 14, cols: [0xffffff] },   // beach balls
     { m: mk1(bear, 12, std({ roughness: .7 })), n: 12, cols: [0xffc8a0, 0xffe0f0, 0xd8c0ff, 0xc0f0ff] },                                              // teddy toys
   ];
-  const c = new THREE.Color(), tc = W.terrace, items = [];
-  kinds.forEach((k) => { for (let i = 0; i < k.n; i++) { c.set(k.cols[i % k.cols.length]); k.m.setColorAt(i, c); items.push({ k, i, a: rand(0, 6.28), r: rand(5, 14), h: rand(1, 11), sp: rand(.2, .5) * (Math.random() < .5 ? -1 : 1), s: rand(.8, 1.3), at: rand(0, 3.5), ph: rand(0, 6) }); } if (k.m.instanceColor) k.m.instanceColor.needsUpdate = true; });
-  S.gifts = items; S.giftKinds = kinds; S.giftT = 0; S.giftOn = true; S.giftCenter = tc.clone().addScaledVector(W.endT, 1);
-  for (let i = 0; i < 6; i++) { const p = createSeahorse(pick([0xffb04a, 0xff7ab8, 0x7be0d0, 0xb07cff, 0xffd84d])); p.root.scale.setScalar(1.1); p.root.position.copy(tc).add(upBy(3)); p.a = (i / 6) * 6.28; G.scene.add(p.root); S.pets.push(p); }
+  S.giftKinds = kinds;
+  for (let i = 0; i < 6; i++) { const p = createSeahorse(pick([0xffb04a, 0xff7ab8, 0x7be0d0, 0xb07cff, 0xffd84d])); p.root.scale.setScalar(1.1); G.scene.add(p.root); S.pets.push(p); }
 }
 const gdum = new THREE.Object3D();
 function updateGifts(dt, t) {
