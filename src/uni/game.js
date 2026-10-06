@@ -6,6 +6,9 @@ import { skyEnv } from '../env.js';
 import { preloadModels, onProgress, model } from '../assets.js';
 import { ease, lerp, clamp, rand, RAINBOW } from '../util.js';
 import { say, sfx } from '../audio.js';
+import { ask } from '../engine/quiz.js';
+import { makeReadingQuestion } from '../learn/reading.js';
+import { settings as learn } from '../learn/profile.js';
 import { createBoardGame } from '../board/deck.js';
 import { N } from '../board/path.js';
 import { buildWorld, FRIEND_TILES } from './world.js';
@@ -25,7 +28,7 @@ let W, uni, twin, kingU, queenU;
 
 const G = createBoardGame({
   hero: { name: 'Uni', voice: 'uni', emoji: '\u{1F984}' }, friends: FRIENDS, twin: { name: 'Uni', emoji: '\u{1F984}', css: '#d8a8ff' },
-  deckIcon: '&#129412;', banner: 'You did it, Uni!', music: 'forest', debugName: 'uniGame',
+  deckIcon: '&#129412;', banner: 'You did it, Uni!', music: 'forest', debugName: 'uniGame', reader: 'adalyn',
   pipeline: { exposure: 0.82, bloom: { strength: 0.12, radius: 0.5, threshold: 1.0 }, grade: { sat: 1.14, con: 1.05 } },
   lift: 0.82, walk: true,
   intro: ['\u{1F984} ✨ \u{1F308}', "Let's go on an adventure, Uni!", 3.4],
@@ -39,6 +42,13 @@ const G = createBoardGame({
     trail: (p, t) => G.fx.burst(_q.set(p.x - t.x * 1.4, p.y + 1.1 + Math.random() * .7, p.z - t.z * 1.4), { count: 1, colors: RAINBOW, speed: .6, gravity: -.4, life: 1, size: .8 }),
     wake: (p) => G.fx.burst(_q.set(p.x, p.y + .3, p.z), { count: 1, colors: [0xffffff, 0xffe9a0], speed: .4, gravity: -.2, life: .8, size: .6 }),
     stop: async (i) => { const ice = W.iceProps.find((p) => p.tile === i); if (ice) await iceCream(ice); },
+    // each friend asks Adalyn one reading question before joining (errorless: it always ends on a right answer)
+    async onFriend(f) {
+      if (!learn.on) return;
+      ui.hideBubble();
+      const r = await ask(makeReadingQuestion('adalyn'), 'adalyn');
+      if (r.correct && r.first) { G.addStars(2); sparkleAt(G.above(f.u, 2.6), [0xffe14d, 0xffffff, 0xff9ecb], 50, 6); sfx.sparkle(); }
+    },
     ride: rainbowSlide,
     finale,
     cheer() { sfx.fanfare(); say('You did it, Uni! You made it to the castle!', 'uni'); },

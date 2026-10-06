@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { toon, mk, glowSprite, setStyle, canvasTex, Timers, Fx, ease, rand, pick, clamp, lerp, RAINBOW } from '../util.js';
+import { ask } from '../engine/quiz.js';
+import { storyAdd } from '../learn/math.js';
 import { createUnicorn, LOOKS } from './unicorn.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
@@ -18,10 +20,11 @@ export const HOUSES = {
   rainbow: { title: "Rainbow's Music House", goal: 6, how: 'Tap every color to play music!', unit: '\u{1F308}' },
   cloud:   { title: "Cloud's Fluffy Hideout", goal: 6, how: 'Tap the glowing cloud to hop up!', unit: '☁️' },
   rain:    { title: "Rain's Garden Room", goal: 5, how: 'Tap a flower pot to water it!', unit: '\u{1F338}' },
-  uni:     { title: "Uni's Ice Cream Parlor", goal: 1, how: 'Tap the flavors to build an ice cream!', unit: '\u{1F366}' },
+  uni:     { title: "Uni's Ice Cream Parlor", goal: 3, how: 'Tap the flavors to build an ice cream!', unit: '\u{1F366}' },
 };
 
-/** A small themed house you can visit: its own little 3D room with a quick mini-game. api: { env, say, sfx, addStars, progress(text) } */
+/** A small themed house you can visit: its own little 3D room with a quick mini-game.
+ *  api: { env, say, voice, sfx, who, level(strand), addStars, status(text), count(fill, goal, opts) } */
 export function createHouse(key, api) {
   setStyle('candy');
   const info = HOUSES[key];
@@ -67,10 +70,12 @@ export function createHouse(key, api) {
   const host = createUnicorn(LOOKS[key === 'uni' ? 'twin' : key]); host.root.scale.setScalar(1.15); host.root.position.set(4.2, 0, 3.2); host.root.rotation.y = -.5; scene.add(host.root);
   H.uni = uni; H.host = host;
 
-  const progress = () => api.progress(`${info.unit} ${Math.min(H.count, info.goal)} / ${info.goal}`);
+  const goal = () => H.goal ?? info.goal;
+  /** the panel's frame fills one cell per thing done, and the voice counts along */
+  const progress = (speak = true) => api.count(Math.min(H.count, goal()), goal(), { speak: speak && !H.done, colors: H.colors });
   const celebrate = async () => {
     if (H.done) return; H.done = true;
-    api.sfx.fanfare(); api.say('You did it! Great job!', 'uni'); api.progress('\u{1F389} You did it!'); api.addStars(3);
+    api.sfx.fanfare(); api.say('You did it! Great job!', 'uni'); api.status('\u{1F389}'); api.addStars(3);
     for (let i = 0; i < 6; i++) { fx.burst(new THREE.Vector3(rand(-6, 6), rand(3, 8), rand(-3, 3)), { count: 50, colors: RAINBOW.concat([0xffffff]), speed: 6, gravity: -2, life: 1.6, size: 1 }); api.sfx.pop(); await sleep(.35); }
     [uni, host].forEach((u) => anim(.6, (k) => { u.lift = Math.sin(k * Math.PI) * 1.6; }, ease.linear));
   };
@@ -92,7 +97,7 @@ export function createHouse(key, api) {
       const s = new THREE.Mesh(sg, i % 3 ? smat : new THREE.MeshStandardMaterial({ color: 0xff7ab8, emissive: 0xff4d9a, emissiveIntensity: 1.5, roughness: .35 })); s.add(glowSprite(0xffe680, 3.2, .5)); place(s); scene.add(s); stars.push(s);
       tapOn(s, async () => {
         if (!s.visible) return; s.visible = false; H.count++; progress(); api.sfx.collect(H.count); fx.burst(s.position.clone(), { count: 24, colors: [0xffe14d, 0xffffff, 0xff9ed8], speed: 4, gravity: -2, life: 1, size: .9 });
-        if (H.count >= info.goal) celebrate(); await sleep(1.2); if (!H.done || true) place(s);
+        if (H.count >= info.goal) celebrate(); await sleep(1.2); place(s);
       }, 1.4);
     }
     H.extra.push({ update: (t) => stars.forEach((s) => { if (s.visible) { s.rotation.y = t * 1.3 + s.userData.ph; s.position.y = s.userData.y0 + Math.sin(t * 1.8 + s.userData.ph) * .5; } }) });
@@ -152,7 +157,7 @@ export function createHouse(key, api) {
       const flower = new THREE.Group(); flower.position.y = 3.2; flower.scale.setScalar(.35); g.add(flower);
       for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; flower.add(mk(sph(.55, 12, 8), toon(petalCols[i]), [Math.cos(a) * .95, Math.sin(a) * .95, 0], [1, 1.4, .5]).rotateZ(a - Math.PI / 2)); }
       flower.add(mk(sph(.55, 14, 10), 0xffe14d, [0, 0, .2]));
-      const droop = g; g.userData.bloom = 0; pots.push({ g, flower, grown: false });
+      pots.push({ g, flower, grown: false });
       tapOn(g, async () => {
         const p = pots[i]; if (p.grown || H.busy) return; H.busy = true;
         const a = cloud.position.clone(), b = new THREE.Vector3(g.position.x, 6.4, g.position.z + .5);
@@ -171,25 +176,49 @@ export function createHouse(key, api) {
     scene.add(mk(new THREE.BoxGeometry(16, 2.4, 3), toon(0xffffff), [0, 1.2, -4]), mk(new THREE.BoxGeometry(16.4, .3, 3.4), 0xff9ecb, [0, 2.5, -4]));
     for (let i = 0; i < 7; i++) scene.add(mk(new THREE.ConeGeometry(.9, 1.2, 14).rotateX(Math.PI), pick([0xff9ecb, 0xffd84d, 0x9ff0c8]), [-9 + i * 3, 9, -8]));   // bunting
     const flav = [[0xff9ecb, 'strawberry'], [0xfff0c8, 'vanilla'], [0x8b5a3a, 'chocolate'], [0x9ff0c8, 'mint'], [0xffd84d, 'lemon'], [0xc9a8ff, 'grape']];
+    // the order: 3, 4 or 5 scoops by her math level; at level 3+ a recipe (two strawberry and three lemon), then "how many?"
+    const lvl = api.level ? api.level('math') : 0, recipe = lvl >= 3 ? [[0, 2], [4, 3]] : null;
+    H.goal = recipe ? 5 : lvl >= 2 ? 5 : lvl >= 1 ? 4 : 3;
+    const cellColor = H.colors = recipe ? recipe.flatMap(([f, n]) => Array(n).fill('#' + new THREE.Color(flav[f][0]).getHexString())) : null;
     const cone = new THREE.Group(); cone.position.set(0, 2.7, -4); scene.add(cone);
     cone.add(mk(new THREE.ConeGeometry(.9, 2.4, 16).rotateX(Math.PI), toon(0xe8b86a), [0, .9, 0]));
-    const scoops = []; let eating = false;
-    flav.forEach(([c, name], i) => {
+    const scoops = [], filled = []; let eating = false, ready = false;
+    const tell = () => api.voice(recipe ? ['ice_make', 'n_2', 'ice_strawberry', 'and', 'n_3', 'ice_lemon'] : ['ice_make', `n_${H.goal}`, 'ice_scoops'], { priority: 1 });
+    const glows = [];
+    flav.forEach(([c], i) => {
       const tub = new THREE.Group(); tub.position.set((i - 2.5) * 2.5, 2.6, -3.4); scene.add(tub);
       tub.add(mk(cyl(.85, .7, .9, 20), toon(0xffffff), [0, .45, 0]), mk(sph(.8, 16, 10), toon(c), [0, .95, 0], [1, .55, 1]));
-      tapOn(tub, () => {
-        if (eating || scoops.length >= 4) return; const s = mk(sph(.78, 18, 12), toon(c), [0, 2.2 + scoops.length * 1.05, 0]); cone.add(s); scoops.push(s); s.scale.setScalar(.2);
-        timers.tween(.4, (e) => s.scale.setScalar(.2 + .8 * e), { ease: ease.outBack }); api.sfx.pop(); api.say(name, 'uni'); fx.burst(cone.position.clone().add(new THREE.Vector3(0, 3 + scoops.length, 0)), { count: 16, colors: [c, 0xffffff], speed: 3, gravity: -2, life: .9, size: .8 });
-        if (scoops.length === 4) { cherry.visible = true; cherry.position.y = 2.2 + 4 * 1.05 - .1; api.progress('Tap the ice cream to eat it! \u{1F60B}'); }
+      if (recipe && recipe.some(([f]) => f === i)) { const gl = glowSprite(c, 4.2, .6); gl.position.set(0, 1.2, 0); tub.add(gl); glows.push(gl); }
+      tapOn(tub, async () => {
+        if (eating) return;
+        if (scoops.length >= H.goal) { api.sfx.soft(); hop(host); return; }
+        let cell = scoops.length;
+        if (recipe) {                                     // only a flavour the recipe still needs; anything else just wobbles
+          const at = recipe.findIndex(([f]) => f === i), start = recipe.slice(0, Math.max(0, at)).reduce((a, [, n]) => a + n, 0);
+          cell = at < 0 ? -1 : [...Array(recipe[at][1]).keys()].map((k) => start + k).find((k) => !filled[k]) ?? -1;
+          if (cell < 0) { api.sfx.soft(); tub.position.y = 2.9; timers.tween(.3, (e) => { tub.position.y = 2.9 - .3 * e; }); return; }
+        }
+        const s = mk(sph(.74, 18, 12), toon(c), [0, 2.1 + scoops.length * .98, 0]); cone.add(s); scoops.push(s); s.scale.setScalar(.2); filled[cell] = true;
+        timers.tween(.4, (e) => s.scale.setScalar(.2 + .8 * e), { ease: ease.outBack }); api.sfx.pop(); fx.burst(cone.position.clone().add(new THREE.Vector3(0, 3 + scoops.length, 0)), { count: 16, colors: [c, 0xffffff], speed: 3, gravity: -2, life: .9, size: .8 });
+        H.count = scoops.length; api.count(recipe ? filled : scoops.length, H.goal, { colors: cellColor });
+        if (scoops.length === H.goal) {
+          cherry.visible = true; cherry.position.y = 2.1 + H.goal * .98 - .1; api.sfx.sparkle(); hop(host);
+          if (recipe) { await sleep(1); await ask(storyAdd(2, 3, { icon: '\u{1F353}', iconAlt: '\u{1F34B}' }), api.who, { icon: '\u{1F353}', iconAlt: '\u{1F34B}' }); }
+          ready = true; api.status('\u{1F366} \u{1F449} \u{1F60B}'); api.voice('ice_eat', { priority: 1 });
+        }
       }, 1.4);
     });
     const cherry = mk(sph(.35, 12, 8), 0xe8334a, [0, 6, 0]); cherry.visible = false; cone.add(cherry);
     tapOn(cone, async () => {
-      if (eating || scoops.length < 2) return; eating = true; cherry.visible = false;
+      if (eating || H.done) return;
+      if (!ready) { api.sfx.soft(); tell(); return; }
+      eating = true; cherry.visible = false;
       uni.lookToward(cone.position.x - uni.root.position.x, cone.position.z - uni.root.position.z, 1);
       while (scoops.length) { const s = scoops.pop(); api.sfx.crunch(); fx.burst(cone.position.clone().add(new THREE.Vector3(0, 3, 0)), { count: 14, colors: [0xffffff, 0xffb8d8], speed: 3, gravity: -3, life: .8 }); cone.remove(s); await sleep(.5); }
-      api.sfx.yum(); await hop(uni); H.count = 1; progress(); celebrate(); eating = false;
+      api.sfx.yum(); await hop(uni); celebrate(); eating = false;
     }, 2.6);
+    H.extra.push({ update: (t) => glows.forEach((g, k) => (g.material.opacity = .45 + Math.sin(t * 4 + k) * .2)) });
+    timers.after(2.6, tell);
     host.root.position.set(5.5, 0, 3); uni.root.position.set(-5.5, 0, 3);
   }
 
@@ -209,6 +238,6 @@ export function createHouse(key, api) {
   H.resize = (a) => { camera.aspect = a; camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(76 / 2)) / a)), 42, 82); camera.updateProjectionMatrix(); };
   H.dispose = () => scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
   setStyle('toon');
-  progress();
+  progress(false);
   return H;
 }

@@ -8,21 +8,29 @@ import { loading } from '../engine/loading.js';
 import { homeGate } from '../engine/gate.js';
 import { createPipeline } from '../engine/pipeline.js';
 import { Q } from '../engine/quality.js';
+import '../engine/quiz.css';
 import { Timers, Fx, ease, lerp, clamp, rand, linearizeFrag, RAINBOW } from '../util.js';
-import { unlock, playMusic, say, sayAsync, sfx, stopSpeech } from '../audio.js';
+import { unlock, playMusic, say, sayAsync, voice, sfx, stopSpeech } from '../audio.js';
+import { storyId } from '../engine/lines.js';
+import { renderShow } from '../learn/frame.js';
+import { levelOf, startSession } from '../learn/profile.js';
+import { taughtThrough, trickyThrough, unitForLevel } from '../learn/code.js';
 import { COLORS, N } from './path.js';
 
 const $ = (s) => document.querySelector(s);
 export const fovFor = (aspect) => clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(76 / 2)) / aspect)), 42, 82);
 
-/** the overlay both games show over the 3D view: speech bubble, deck, drawn card, house title, banner */
+/** a colour word's first sound, when it is one the child has been taught (orange starts with "or", which CKLA teaches later) */
+const FIRST = { red: 'r', purple: 'p', yellow: 'y', blue: 'b', green: 'g' };
+/** the overlay both games show over the 3D view: speech bubble, deck, two cards to pick from, drawn card, house panel, banner */
 function mountUI({ deckIcon, banner }) {
   $('#ui').insertAdjacentHTML('beforeend', `
     <div id="bubble" class="hidden"><div class="emoji"></div><div class="caption"></div></div>
     <div id="chip" class="hidden"></div>
     <button id="deck" class="hidden" aria-label="Draw a card"><span class="d-card c3"></span><span class="d-card c2"></span><span class="d-card c1"><i>${deckIcon}</i><b>Draw!</b></span></button>
+    <div id="pick" class="hidden"><button class="pc" type="button" aria-label="This card"><span><i>${deckIcon}</i></span></button><button class="pc" type="button" aria-label="This card"><span><i>${deckIcon}</i></span></button></div>
     <div id="card" class="hidden"><div class="card-face"></div></div>
-    <div id="mini" class="hidden"><div class="mt"></div><div class="mp"></div></div>
+    <div id="mini" class="hidden"><div class="mt"></div><div class="mp"></div><div class="mf"></div></div>
     <button id="leave" class="hidden">&#8592; Back to the adventure</button>
     <div id="hint" class="hidden">&#128070;</div>
     <div id="banner" class="hidden"><span class="confetti l">&#127881;</span><div class="b-text">${banner}</div><span class="confetti r">&#127881;</span></div>
@@ -31,12 +39,13 @@ function mountUI({ deckIcon, banner }) {
 
 /**
  * cfg: hero { name, voice, emoji }, friends [{ name, emoji, css }] + twin { name, emoji, css } (the top bar), deckIcon, banner,
- * music, debugName, pipeline (createPipeline options), lift (hero height above the path line), walk (keep feet on the ground),
+ * music, debugName, reader (whose learning profile: 'adalyn' | 'esmae'), pipeline (createPipeline options), lift (hero height above the path line), walk (keep feet on the ground),
  * intro [emoji, line, seconds], slide [emoji, line] (shortcut bubble), pickupColors, joinColors, sparkle { gravity, life },
  * tapUp, party { center(), r, y: [lo, hi], colors }, leg { perStep, min }, meet { side, ahead, dur, hop, up: [friend, hero] },
  * parade { side, bob }, cam { back, side, up, ahead, lookUp, ride, bob, floor, greet { back, side, up, lookUp } },
  * houses { keys, info, create, lockedTwin } (optional), build(G) (async: world, lights, cast).
- * hooks: ready, trail(p, t), wake(p), stop(i), ride(sc), onFriend(f), finale, cheer, reset, resetTwin, update(dt, t),
+ * hooks: ready, trail(p, t), wake(p), stop(i), ride(sc), onFriend(f) (after the hello, before joining: the learning moment),
+ *        finale, cheer, reset, resetTwin, update(dt, t),
  *        camera(mode, desired, look, t) -> true when the game framed the shot itself, puff(p, n).
  */
 export function createBoardGame(cfg) {
@@ -100,7 +109,18 @@ export function createBoardGame(cfg) {
 
   // ---------------------------------------------------------------- cards and turns
   const sq = (c, cls = '') => `<div class="sq ${cls}" style="background:${c.css}"></div>`;
-  const cname = (card, cls = 'cname') => `<div class="${cls}" style="color:${card.c.css}">${card.double ? 'Double ' : ''}${card.c.name}</div>`;
+  const unit = () => unitForLevel(cfg.reader ? levelOf(cfg.reader, 'reading') : 0);
+  const cname = (card, cls = 'cname') => {
+    const w = card.c.name, tricky = !!cfg.reader && trickyThrough(unit()).includes(w);       // blue, yellow: CKLA Unit 5 Tricky Words
+    return `<div class="${cls}${tricky ? ' readable lit' : ''}" style="color:${card.c.css}">${card.double ? 'Double ' : ''}${w}</div>`;
+  };
+  /** "rrr... red!": at reading level 1+ the card says its first sound before the word (only sounds her unit has taught) */
+  function cardLine(card) {
+    const c = card.c.name, line = storyId('counter', `${card.double ? 'Double ' : ''}${c}!`), s = FIRST[c];
+    const lvl = cfg.reader ? levelOf(cfg.reader, 'reading') : 0;
+    const ids = !card.double && lvl >= 1 && s && taughtThrough(unit()).includes(s) ? [`snd_${s}`, line] : [line];
+    return voice(ids, { priority: 2, gap: .3, fallback: `${card.double ? 'Double ' : ''}${c}!` });
+  }
   function drawCard() {
     if (S.forceCard) { const c = S.forceCard; S.forceCard = null; return c; }
     return { c: COLORS[Math.floor(Math.random() * 6)], double: Math.random() < 0.25 };
@@ -118,14 +138,30 @@ export function createBoardGame(cfg) {
       b.onclick = () => { b.classList.add('hidden'); ui.show('#hint', false); S.waiting = false; res(); };
     });
   }
+  /** two face-down cards: she chooses one (the outcome is just as random, but now it is HER card) */
+  function pickCard() {
+    return new Promise((res) => {
+      const el = $('#pick'), cards = el.querySelectorAll('.pc');
+      cards.forEach((b) => b.classList.remove('chosen', 'gone'));
+      el.classList.remove('hidden'); S.picking = true; S.hint = 0;
+      voice('pick_a_card', { priority: 1 });
+      el.onclick = (e) => {
+        const b = e.target.closest('.pc'); if (!b || !S.picking) return;
+        S.picking = false; ui.show('#hint', false); sfx.pop();
+        cards.forEach((x) => x.classList.add(x === b ? 'chosen' : 'gone'));
+        sleep(.28).then(() => { el.classList.add('hidden'); res(); });
+      };
+    });
+  }
   async function takeTurn() {
     await waitDraw();
     sfx.pop();
+    await pickCard();
     const card = S.card = drawCard();
     const faceEl = $('.card-face'); faceEl.innerHTML = (card.double ? sq(card.c) + sq(card.c) : sq(card.c)) + cname(card);
     ui.show('#card'); faceEl.style.animation = 'none'; void faceEl.offsetWidth; faceEl.style.animation = '';
-    sfx.chime(); say(`${card.double ? 'Double ' : ''}${card.c.name}!`, 'counter');
-    await sleep(cfg.cardTime || 1.7);
+    sfx.chime();
+    await Promise.all([cardLine(card), sleep(cfg.cardTime || 1.7)]);           // the card stays up until it has been said
     ui.show('#card', false);
     $('#chip').innerHTML = (card.double ? sq(card.c, 'sm') + sq(card.c, 'sm') : sq(card.c, 'sm')) + cname(card, 'cn'); ui.show('#chip');
     await runTo(targetFor(card, S.idx));
@@ -134,6 +170,7 @@ export function createBoardGame(cfg) {
   }
   async function play() {
     S.mode = 'follow'; ui.show('#title', false); ui.show('#hud');
+    if (cfg.reader) startSession(cfg.reader);
     const [emoji, line, secs] = cfg.intro;
     ui.bubble(emoji, line); sfx.chime(); await sleep(secs); ui.hideBubble();
     while (S.idx < N - 1) await takeTurn();
@@ -247,19 +284,34 @@ export function createBoardGame(cfg) {
     if (!H || S.house || !G.W || S.mode === 'boot' || S.mode === 'title') return;
     const f = i < G.friends.length ? G.friends[i] : null, met = f ? f.met : S.twinMet;
     if (!met) { ui.bubble('\u{1F512}', f ? `Meet ${f.name} on the path first!` : H.lockedTwin, HERO.voice); timers.after(2.6, () => ui.hideBubble()); return; }
-    if (!(S.waiting || S.celebrate)) { ui.bubble('⏳', `Wait for ${HERO.name} to stop first!`, HERO.voice); timers.after(2, () => ui.hideBubble()); return; }
+    if (S.picking) { ui.bubble('\u{1F0CF}', 'Pick a card first!', HERO.voice); timers.after(2, () => ui.hideBubble()); return; }
+    if (!(S.waiting || S.celebrate)) { ui.bubble('\u23F3', `Wait for ${HERO.name} to stop first!`, HERO.voice); timers.after(2, () => ui.hideBubble()); return; }
     const key = H.keys[i], info = H.info[key];
     S.houseWas = { deck: !$('#deck').classList.contains('hidden'), banner: !$('#banner').classList.contains('hidden'), again: !$('#again').classList.contains('hidden') };
     ['#deck', '#banner', '#again', '#hint', '#bubble', '#chip', '#card'].forEach((x) => ui.show(x, false));
     stopSpeech();
+    $('#mini .mp').textContent = ''; const mf = $('#mini .mf'); mf.innerHTML = ''; delete mf.dataset.goal;
     S.house = H.create(key, {
-      env: scene.environment, say, sfx,
+      env: scene.environment, say, voice, sfx, who: cfg.reader, level: (strand) => levelOf(cfg.reader, strand),
       addStars: (n) => { if (!S.housesDone.has(key)) { S.housesDone.add(key); addStars(n); } },
-      progress: (txt) => { $('#mini .mp').textContent = txt; },
+      status: (txt) => { $('#mini .mp').textContent = txt; },
+      count: showCount,
     });
     S.house.resize(innerWidth / innerHeight);
     $('#mini .mt').textContent = info.title; ui.show('#mini'); ui.show('#leave');
     say(`Welcome to ${info.title}! ${info.how}`, HERO.voice);
+  }
+  /** the house panel's ten-frame (a five-frame for goals up to 5): fill = how many, or which cells (array of booleans);
+   *  colors = a colour per cell (a recipe); the voice says the new number */
+  function showCount(fill, goal, { colors = null, speak = true } = {}) {
+    const box = $('#mini .mf');
+    if (+box.dataset.goal !== goal) { renderShow(box, { frame: goal <= 5 ? 5 : 10, dots: 0 }); box.classList.add('mf'); box.dataset.goal = goal; }
+    const on = (i) => (Array.isArray(fill) ? !!fill[i] : i < fill), n = Array.isArray(fill) ? fill.filter(Boolean).length : fill;
+    box.querySelectorAll('.cell').forEach((c, i) => {
+      c.classList.toggle('off', i >= goal); c.classList.toggle('dot', on(i));
+      if (colors && colors[i]) { c.style.borderColor = colors[i]; c.style.setProperty('--dot', colors[i]); } else { c.style.borderColor = ''; c.style.removeProperty('--dot'); }
+    });
+    if (speak && n > 0) voice(`n_${n}`, { priority: 1, tag: 'count' });
   }
   function leave() {
     if (!S.house) return;
@@ -306,8 +358,11 @@ export function createBoardGame(cfg) {
       const want = Q.shadow > 0; if (S.sun.castShadow !== want) S.sun.castShadow = want;
       if (want && S.sun.shadow.mapSize.x !== Q.shadow) { S.sun.shadow.mapSize.set(Q.shadow, Q.shadow); S.sun.shadow.map && S.sun.shadow.map.dispose(); S.sun.shadow.map = null; }
     }
-    // a bouncing finger over the deck if nobody taps it for a while
-    if (S.waiting) { S.hint += dt; if (S.hint > 9) { const h = $('#hint'), d = $('#deck').getBoundingClientRect(); h.classList.remove('hidden'); h.style.left = (d.left + d.width / 2) + 'px'; h.style.top = (d.top - 70) + 'px'; } }
+    // a bouncing finger over the deck (or the cards to pick from) if nobody taps for a while
+    if (S.waiting || S.picking) {
+      S.hint += dt;
+      if (S.hint > (S.picking ? 6 : 9)) { const h = $('#hint'), d = $(S.picking ? '#pick .pc' : '#deck').getBoundingClientRect(); h.classList.remove('hidden'); h.style.left = (d.left + d.width / 2) + 'px'; h.style.top = (d.top - 70) + 'px'; }
+    }
     updateCamera(dt, t);
   }
 

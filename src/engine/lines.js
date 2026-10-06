@@ -61,6 +61,9 @@ P('hold_to_go_home', 'Hold the house to go home!');
 for (let i = 1; i <= 10; i++) add(`cat_n_${i}`, NUM[i], 'cat');
 P('cat_can_you_eat', 'Can you eat', 'cat'); P('cat_candies', 'candies?', 'cat'); P('cat_you_did_it', 'You did it!', 'cat');
 P('catch_the', 'Catch the'); P('things', 'things!');
+P('pick_a_card', 'Pick a card!', 'counter');
+P('ice_make', "Let's make an ice cream with", 'uni'); P('ice_scoops', 'scoops!', 'uni'); P('ice_strawberry', 'strawberry', 'uni'); P('ice_lemon', 'lemon scoops!', 'uni');
+P('ice_eat', 'Tap the ice cream to eat it!', 'uni');
 P('you_caught', 'You caught'); P('stars_in_tunnel', 'stars in the tunnel!'); P('yum_count_done', 'Yummy! All for you!', 'queen'); P('sparkle_dice', 'Sparkle dice! Roll three or more!');
 
 // ---------------------------------------------------------------- the story lines, exactly as the games pass them to say()/bubble()
@@ -76,7 +79,7 @@ story('king', 'Congratulations Adalyn and Esmae!', 'Time to go home!');
 story('queen', 'Your candy is on its way to your house!', 'Wake up, sleepyheads!', 'Look! Candy, presents and toys are here!');
 // Uni's Blast Awesome Adventures
 story('uni', "Let's go on an adventure, Uni!", 'Rainbow slide!', 'Yummy ice cream!', 'The Rainbow Castle! We made it!', 'Whoa! Another unicorn named Uni!', "Hi! I'm Uni too! We have the same name!",
-  'You did it, Uni! You made it to the castle!', 'Meet your twin at the castle first!', 'Wait for Uni to stop first!', 'You did it! Great job!', 'Uni!',
+  'You did it, Uni! You made it to the castle!', 'Meet your twin at the castle first!', 'Wait for Uni to stop first!', 'You did it! Great job!', 'Uni!', 'Pick a card first!',
   'strawberry', 'vanilla', 'chocolate', 'mint', 'lemon', 'grape',
   ...['Sparkle', 'Rainbow', 'Cloud', 'Rain'].flatMap((n) => [`${n} joins the adventure!`, `Meet ${n} on the path first!`, `${n}!`]),
   "Welcome to Sparkle's Sparkle Studio! Tap the sparkle stars!", "Welcome to Rainbow's Music House! Tap every color to play music!", "Welcome to Cloud's Fluffy Hideout! Tap the glowing cloud to hop up!",

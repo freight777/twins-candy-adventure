@@ -83,6 +83,10 @@ const queue = []; let current = null, speechPaused = false;
 export function enqueueSpeech(job) {
   return new Promise((resolve) => {
     job.resolve = resolve; job.at = performance.now(); job.priority ??= 1;
+    if (job.tag) {                                   // a newer line with the same tag replaces the old one (counting along fast taps)
+      for (let i = queue.length - 1; i >= 0; i--) if (queue[i].tag === job.tag) queue.splice(i, 1)[0].resolve(false);
+      if (current && current.tag === job.tag) endJob(current, false, true);
+    }
     if (job.priority === 0 && (current || queue.length)) { resolve(false); return; }
     if (job.priority === 2) {
       for (let i = queue.length - 1; i >= 0; i--) if (queue[i].priority < 2) queue.splice(i, 1)[0].resolve(false);
@@ -182,15 +186,16 @@ function meter() {
 }
 /**
  * Play one clip or several back to back (['which_starts_with', 'snd_m']) as ONE line in the speech queue.
- * opts: { who, priority, minMs, gap (s between clips), fallback (text for the device voice if a clip is missing) }
+ * opts: { who, priority, minMs, gap (s between clips), fallback (text for the device voice if a clip is missing),
+ *         tag (a newer line with the same tag cuts this one: counting along) }
  */
-export function voice(ids, { who = null, priority = 1, minMs = 0, gap = 0.08, fallback = null } = {}) {
+export function voice(ids, { who = null, priority = 1, minMs = 0, gap = 0.08, fallback = null, tag = null } = {}) {
   const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
   const speaker = who || LINES[list[0]]?.who || 'narrator';
   const text = cleanText(fallback ?? list.map((id) => LINES[id]?.text ?? id.replace(/_/g, ' ')).join(' '));
-  if (!voicesOn || muted || !list.length) return enqueueSpeech({ who: speaker, priority, minMs, est: 0, play: (done) => { done(); return null; } });
+  if (!voicesOn || muted || !list.length) return enqueueSpeech({ who: speaker, priority, minMs, tag, est: 0, play: (done) => { done(); return null; } });
   return enqueueSpeech({
-    who: speaker, priority, minMs, est: 20000,
+    who: speaker, priority, minMs, tag, est: 20000,
     play(done, started) {
       let stopped = false, stopTts = null, guard = 0; const srcs = [];
       Promise.all(list.map(clipBuffer)).then((bufs) => {
