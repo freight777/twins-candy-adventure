@@ -4,7 +4,11 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { skyEnv } from '../env.js';
 import { ease, clamp, rand, pick, RAINBOW, stripedGeo, setCaustic } from '../util.js';
-import { playMusic, sfx, playScore, stopScore } from '../audio.js';
+import { playMusic, sfx, voice, playScore, stopScore } from '../audio.js';
+import { emojiSprite } from '../util.js';
+import { ask } from '../engine/quiz.js';
+import { makeReadingQuestion } from '../learn/reading.js';
+import { settings as learn, award } from '../learn/profile.js';
 import { createBoardGame } from '../board/deck.js';
 import { buildOcean, FRIEND_TILES } from './ocean.js';
 import { createMermaid, createSeahorse, createDolphin, heartGeo, LOOKS } from './mermaid.js';
@@ -13,9 +17,12 @@ import { ANTHEM } from './anthem.js';
 const HOVER = 2.3;                                   // swimming height above the path line
 const SCALE = 1.15;
 const FRIENDS = [
-  { key: 'sparkle', name: 'Sparkle', emoji: '✨', css: '#ff7ab8', voice: 'sparkle', line: "Hi Esmae! I'm Sparkle! Let's shine together!", burst: [0xffd0f0, 0xff7ab8, 0xffffff] },
-  { key: 'rainbow', name: 'Rainbow', emoji: '\u{1F308}', css: '#5bc0ff', voice: 'rainbow', line: "Hello Esmae! I'm Rainbow! I love every color!", burst: RAINBOW },
-  { key: 'kitty', name: 'Kitty', emoji: '\u{1F431}', css: '#ff6a6a', voice: 'cat', line: "Hi Esmae! I'm Kitty! Let's swim and play!", burst: [0xff6a6a, 0xffb0b0, 0xffffff] },
+  { key: 'sparkle', name: 'Sparkle', emoji: '✨', css: '#ff7ab8', voice: 'sparkle', line: "Hi Esmae! I'm Sparkle! Let's shine together!", burst: [0xffd0f0, 0xff7ab8, 0xffffff],
+    need: { emoji: '\u{1F380}', what: 'her hair clip', lost: 'Oh no! I lost my hair clip! Can you help me find it?' } },
+  { key: 'rainbow', name: 'Rainbow', emoji: '\u{1F308}', css: '#5bc0ff', voice: 'rainbow', line: "Hello Esmae! I'm Rainbow! I love every color!", burst: RAINBOW,
+    need: { emoji: '\u{1F41A}', what: 'her pretty shell', lost: 'Oh no! I lost my pretty shell! Can you help me find it?' } },
+  { key: 'kitty', name: 'Kitty', emoji: '\u{1F431}', css: '#ff6a6a', voice: 'cat', line: "Hi Esmae! I'm Kitty! Let's swim and play!", burst: [0xff6a6a, 0xffb0b0, 0xffffff],
+    need: { emoji: '\u{1F41F}', what: 'her toy fish', lost: 'Oh no! I lost my toy fish! Can you help me find it?' } },
 ];
 const upBy = (y) => new THREE.Vector3(0, y, 0);
 const _q = new THREE.Vector3(), _r = new THREE.Vector3();
@@ -23,8 +30,8 @@ let W, hero, lucy, king, queen;
 const bubblesAt = (p, count = 6) => G.fx.burst(p, { count, colors: [0xffffff, 0xcff6ff, 0xa8e8ff], speed: .9, gravity: 2.4, life: 2, size: .9 });
 
 const G = createBoardGame({
-  hero: { name: 'Esmae', voice: 'uni', emoji: '\u{1F9DC}‍♀️' }, friends: FRIENDS, twin: { name: 'Lucy', emoji: '\u{1F496}', css: '#ff9ed8' },
-  deckIcon: '&#128026;', banner: 'You did it, Esmae!', music: 'ocean', debugName: 'mermaidGame',
+  hero: { name: 'Esmae', voice: 'hero', emoji: '\u{1F9DC}‍♀️' }, friends: FRIENDS, twin: { name: 'Lucy', emoji: '\u{1F496}', css: '#ff9ed8' },
+  deckIcon: '&#128026;', banner: 'You did it, Esmae!', music: 'ocean', debugName: 'mermaidGame', reader: 'esmae', scoreFrame: '\u{1F496}',
   pipeline: { exposure: 0.85, bloom: { strength: 0.22, radius: 0.6, threshold: 0.95 }, grade: { sat: 1.12, con: 1.05 }, shadows: false },
   shadows: false,                                                              // hard sun shadows under the sea looked wrong (and cost the most)
   lift: HOVER, cardTime: 1.8, leg: { perStep: .34, min: .7 },
@@ -45,10 +52,17 @@ const G = createBoardGame({
     trail: (p, t) => { if (Math.random() < .6) bubblesAt(_q.set(p.x - t.x * 1.6, p.y - .4 + Math.random(), p.z - t.z * 1.6), 1); },
     wake: (p, dt) => { if (Math.random() < dt * 25) bubblesAt(_q.copy(p).add(_r.set(rand(-.5, .5), rand(-1.5, .5), rand(-.5, .5))), 1); },
     stop: async (i) => { const pearl = W.pearls.find((p) => p.tile === i); if (pearl) await treat(pearl); },
+    onFriend: kindness,
+    // hearts are counted out loud up to ten; every full ten-frame is "a full frame of love"
+    onScore(n, added, before) {
+      if (Math.floor(n / 10) > Math.floor(before / 10)) { voice('full_frame_love', { priority: 1 }); award('esmae', 'frame-of-love'); return; }
+      if (added === 1 && n <= 10) voice(`n_${n}`, { priority: 1, tag: 'count' });
+    },
     ride: dolphinRide,
     finale,
     cheer() { playScore(ANTHEM); },
     reset() {
+      S.pearls = 0; document.querySelectorAll('#pearls i').forEach((e) => e.classList.remove('got')); W.pearls.forEach((p) => (p.pearl.visible = true));
       stopScore(); S.giftOn = false; (S.giftKinds || []).forEach((k) => G.scene.remove(k.m)); S.giftKinds = []; S.gifts = [];
       S.pets.forEach((p) => G.scene.remove(p.root)); S.pets = []; playMusic('ocean');
     },
@@ -69,7 +83,7 @@ const G = createBoardGame({
   },
 });
 const { ui, S, sleep, anim, sparkleAt } = G;
-Object.assign(S, { gifts: [], pets: [] });
+Object.assign(S, { gifts: [], pets: [], pearls: 0 });
 
 async function build() {
   await new Promise((r) => setTimeout(r, 30));
@@ -110,16 +124,43 @@ async function dolphinRide(sc) {
   G.scene.remove(dolphin.root);
 }
 async function treat(pr) {
-  ui.bubble('\u{1F9AA} \u{1F90D}', 'A shiny pearl!', 'uni'); sfx.yum();
+  ui.bubble('\u{1F9AA} \u{1F90D}', 'A shiny pearl!', 'hero'); sfx.yum();
   pr.group.userData.open = true; G.face(hero, pr.spot);
   await anim(.5, (k) => { hero.lift = Math.sin(k * Math.PI) * 1.2; }, ease.linear); hero.lift = 0;
   sparkleAt(pr.spot.clone().add(upBy(2.6)), [0xffffff, 0xffd8f0, 0xfff0a0], 50, 5); sfx.sparkle(); bubblesAt(pr.spot.clone().add(upBy(1.6)), 14);
-  G.addStars(3); await sleep(1.8); ui.hideBubble(); pr.group.userData.open = false;
+  await flyPearl(pr);
+  G.addStars(3); await sleep(1.2); ui.hideBubble(); pr.group.userData.open = false;
+}
+/** the pearl leaves the clam and lands in the pearl tray at the top of the screen: kids expect to GET things */
+function flyPearl(pr) {
+  const slot = document.querySelectorAll('#pearls i')[S.pearls || 0]; if (!slot) return Promise.resolve();
+  const v = pr.pearl.getWorldPosition(new THREE.Vector3()).project(G.camera), r = slot.getBoundingClientRect();
+  const x0 = (v.x + 1) / 2 * innerWidth, y0 = (1 - v.y) / 2 * innerHeight, x1 = r.left + r.width / 2, y1 = r.top + r.height / 2;
+  const el = document.createElement('div'); el.className = 'fly-pearl'; document.body.appendChild(el); pr.pearl.visible = false;
+  const a = el.animate([{ transform: `translate(${x0}px, ${y0}px) scale(1.7)` }, { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 60}px) scale(1.4)`, offset: .45 }, { transform: `translate(${x1}px, ${y1}px) scale(.9)` }], { duration: 950, easing: 'ease-in-out', fill: 'forwards' });
+  return new Promise((res) => { a.onfinish = () => { el.remove(); slot.classList.add('got'); S.pearls = (S.pearls || 0) + 1; sfx.collect(S.pearls); res(); }; });
+}
+
+// ---------------------------------------------------------------- kindness: each friend has lost something, and finding it IS the reading question
+async function kindness(f) {
+  const n = f.need;
+  await ui.bubble(`${f.emoji} ${n.emoji} \u2753`, n.lost, f.voice, true, { priority: 2, minMs: 1600 });
+  if (learn.on) { ui.hideBubble(); await ask(makeReadingQuestion('esmae'), 'esmae'); }
+  // there it is, half buried in the sand right here! up it pops, and Esmae swims it over to her friend
+  const item = emojiSprite(n.emoji, 1.8), hp = hero.root.position, start = hp.clone().addScaledVector(G.pathTan(S.u), 1.6), mid = hp.clone().add(upBy(2.4)), to = f.u.root.position.clone().add(upBy(1.6));
+  start.y -= 2; item.position.copy(start); G.scene.add(item); sfx.magic(); bubblesAt(start.clone(), 16);
+  await anim(.7, (k) => item.position.lerpVectors(start, mid, k), ease.outBack);
+  sparkleAt(mid, [0xffffff, 0xffe0f0, 0xfff0a0], 30, 4); await sleep(.35);
+  await anim(.85, (k) => { item.position.lerpVectors(mid, to, k); item.position.y += Math.sin(k * Math.PI) * 1.2; });
+  G.scene.remove(item); item.material.dispose();
+  sparkleAt(to, f.burst, 60, 6); sfx.tada(); G.hop(f.u, .55, 1.5);
+  await ui.bubble(`${G.cfg.hero.emoji} ${n.emoji} ${f.emoji}`, `Esmae gave ${f.name} ${n.what}!`, 'hero', true, { priority: 2, minMs: 1600 });
+  await ui.bubble(`${f.emoji} \u{1F496}`, "Thank you, Esmae! You're so kind!", f.voice, true, { priority: 2, minMs: 1300 });
 }
 
 // ---------------------------------------------------------------- the Mermaid Palace: Lucy, the King and Queen, a lifetime of gifts
 async function finale() {
-  ui.bubble('\u{1F3F0} \u{1F451}', 'The Mermaid Palace! We made it!', 'uni'); sfx.fanfare();
+  ui.bubble('\u{1F3F0} \u{1F451}', 'The Mermaid Palace! We made it!', 'hero'); sfx.fanfare();
   const tc = W.terrace, f = W.endT, sd = G.side(f);
   const a = hero.root.position.clone(), dest = tc.clone().addScaledVector(f, -3).add(upBy(HOVER + .3));
   S.speed = 1.2;
@@ -127,14 +168,14 @@ async function finale() {
   hero.lookToward(f.x, f.z, 1);
   // Lucy, her twin
   const la = lucy.root.position.clone(), ld = dest.clone().addScaledVector(sd, 3.8).add(upBy(.1));
-  const lucySaid = ui.bubble('\u{1F9DC}‍♀️\u{1F9DC}‍♀️', "Esmae! It's me, Lucy! We're twins!", 'sparkle', true, { priority: 2, minMs: 2000 });
+  const lucySaid = ui.bubble('\u{1F9DC}‍♀️\u{1F9DC}‍♀️', "Esmae! It's me, Lucy! We're twins!", 'lucy', true, { priority: 2, minMs: 2000 });
   S.twinSpeed = 1.3; lucy.lookToward(ld.x - la.x, ld.z - la.z, 1);
   await anim(1.6, (k) => { lucy.root.position.lerpVectors(la, ld, k); lucy.lookToward(f.x, f.z, .1); }); S.twinSpeed = 0;
   sparkleAt(G.above(lucy, 1.4), [0xff9ed8, 0xffffff, 0xff5fa4], 80, 7); sfx.tada(); sfx.giggle();
   G.markMet(3); G.addStars(5);
   await G.hop(lucy, .55, 1.5); await G.hop(hero, .55, 1.5); await lucySaid; await sleep(.4);
   // the king and queen
-  await ui.bubble('\u{1F451}', 'Welcome to the Mermaid Palace, Esmae! Thank you for spreading so much love.', 'king', true, { priority: 2, minMs: 3000 }); await sleep(.4);
+  await ui.bubble('\u{1F451}', 'Welcome to the Mermaid Palace, Esmae and Lucy! Thank you for spreading so much love.', 'king', true, { priority: 2, minMs: 3000 }); await sleep(.4);
   await ui.bubble('\u{1F451}', 'You and your friends are so kind. We have gifts for you!', 'queen', true, { priority: 2, minMs: 2500 }); await sleep(.3);
   const gift = ui.bubble('\u{1F381} \u{1F496}', 'A lifetime supply of hair clips, toys, mermaid pets, and candy!', 'king', true, { priority: 2, minMs: 2500 });
   makeGifts(); sfx.magic(); sfx.fanfare();

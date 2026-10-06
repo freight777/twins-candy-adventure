@@ -16,3 +16,9 @@
   --btn: linear-gradient(#ff8fc8, #e8509a);
   --btn-shadow: #a0306a;
 }
+/* the pearl tray under the hearts: three slots that fill as pearls fly in from the clams */
+#pearls { position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + clamp(64px, 9vw, 84px)); right: max(16px, env(safe-area-inset-right)); display: flex; gap: 6px; padding: 5px 9px; border-radius: 20px; background: rgba(255,255,255,.6); }
+#pearls i { width: clamp(20px, 3vw, 28px); aspect-ratio: 1; border-radius: 50%; border: 2px dashed rgba(10,122,168,.35); }
+#pearls i.got { border: 0; background: radial-gradient(circle at 35% 30%, #fff, #ffe6f6 45%, #d9bfe8); box-shadow: 0 0 10px #fff, 0 2px 0 rgba(0,0,0,.12); animation: aeq-pop .4s; }
+.fly-pearl { position: fixed; left: 0; top: 0; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; z-index: 40; pointer-events: none;
+  background: radial-gradient(circle at 35% 30%, #fff, #ffe6f6 45%, #d9bfe8); box-shadow: 0 0 18px 6px rgba(255,255,255,.85); }

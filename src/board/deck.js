@@ -43,9 +43,9 @@ function mountUI({ deckIcon, banner }) {
  * intro [emoji, line, seconds], slide [emoji, line] (shortcut bubble), pickupColors, joinColors, sparkle { gravity, life },
  * tapUp, party { center(), r, y: [lo, hi], colors }, leg { perStep, min }, meet { side, ahead, dur, hop, up: [friend, hero] },
  * parade { side, bob }, cam { back, side, up, ahead, lookUp, ride, bob, floor, greet { back, side, up, lookUp } },
- * houses { keys, info, create, lockedTwin } (optional), build(G) (async: world, lights, cast).
+ * houses { keys, info, create, lockedTwin } (optional), scoreFrame (an icon: show the score as a ten-frame of it), build(G).
  * hooks: ready, trail(p, t), wake(p), stop(i), ride(sc), onFriend(f) (after the hello, before joining: the learning moment),
- *        finale, cheer, reset, resetTwin, update(dt, t),
+ *        finale, cheer, reset, resetTwin, update(dt, t), onScore(total, added, before),
  *        camera(mode, desired, look, t) -> true when the game framed the shot itself, puff(p, n).
  */
 export function createBoardGame(cfg) {
@@ -76,7 +76,16 @@ export function createBoardGame(cfg) {
       return said;
     },
     hideBubble() { $('#bubble').classList.add('hidden'); },
-    score(n) { $('#starcount').textContent = n; },
+    /** the score: a number, or (cfg.scoreFrame) a ten-frame of icons plus one token per full frame of ten */
+    score(n) {
+      $('#starcount').textContent = n;
+      if (!cfg.scoreFrame) return;
+      const box = $('#stars'), T = box.querySelector('.tens'), tens = Math.floor(n / 10), ones = n % 10;
+      while (T.children.length < tens) T.appendChild(document.createElement('i'));
+      while (T.children.length > tens) T.lastChild.remove();
+      let k = 0;
+      box.querySelectorAll('.sf i').forEach((c, i) => { const on = i < ones; if (on && !c.classList.contains('on')) c.style.animationDelay = `${k++ * 90}ms`; c.classList.toggle('on', on); });
+    },
     show(sel, on = true) { $(sel).classList.toggle('hidden', !on); },
   };
   const G = { cfg, S, gfx, renderer: gfx.renderer, scene, camera, camTarget, timers, fx, sleep, anim, ui, W: null, hero: null, friends: [], twin: null, taps: [] };
@@ -96,7 +105,10 @@ export function createBoardGame(cfg) {
   const face = (c, p) => c.lookToward(p.x - c.root.position.x, p.z - c.root.position.z, 1);
   const markMet = (i) => { const b = document.querySelectorAll('.fr')[i]; if (b) b.classList.add('met'); };
   function placeHero(u) { const p = pathPos(u), t = pathTan(u); G.hero.root.position.copy(p); G.hero.root.rotation.set(0, Math.atan2(t.x, t.z), 0); S.u = u; }
-  function addStars(n) { S.stars += n; ui.score(S.stars); $('#stars').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], 300); }
+  function addStars(n) {
+    const before = S.stars; S.stars += n; ui.score(S.stars); $('#stars').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], 300);
+    if (hooks.onScore) hooks.onScore(S.stars, n, before);
+  }
   /** the sun follows the hero so the shadow map covers what the camera sees */
   function addSun(color, intensity, pos, half) {
     const sun = new THREE.DirectionalLight(color, intensity); sun.position.set(...pos); scene.add(sun, sun.target);
@@ -400,6 +412,7 @@ export function createBoardGame(cfg) {
     G.hero.root.rotation.order = 'YXZ'; placeHero(0); resetCast();
     G.taps = [{ u: G.hero, n: HERO.name }, ...G.friends.map((f) => ({ u: f.u, n: f.name })), ...G.taps];
     if (hooks.ready) hooks.ready();
+    if (cfg.scoreFrame) { const st = $('#stars'); st.classList.add('framed'); st.innerHTML = `<span class="tens"></span><span class="sf">${`<i>${cfg.scoreFrame}</i>`.repeat(10)}</span><span id="starcount" hidden>0</span>`; }
     const tag = cfg.houses ? 'button' : 'div';
     $('#friends').innerHTML = [...cfg.friends, cfg.twin].map((f, i) => `<${tag} class="fr" data-i="${i}" style="--c:${f.css}" title="${f.name}${cfg.houses ? "'s house" : ''}">${f.emoji}</${tag}>`).join('');
     if (cfg.houses) document.querySelectorAll('.fr').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); unlock(); visit(+b.dataset.i); }));

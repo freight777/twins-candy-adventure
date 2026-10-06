@@ -66,6 +66,8 @@ const PROFILES = {
   mom:      { pitch: 1.05, rate: 0.95, prefer: ['Karen', 'Moira', ...FEMALE] },
   dad:      { pitch: 0.85, rate: 0.95, prefer: MALE },
   announcer: { pitch: 0.95, rate: 1.0, prefer: MALE },
+  hero:     { pitch: 1.45, rate: 1.02, prefer: FEMALE },
+  lucy:     { pitch: 1.6,  rate: 1.06, prefer: ['Samantha', ...FEMALE] },
 };
 function pickVoice(prefer) {
   const en = voiceList.filter((v) => /^en/i.test(v.lang));

@@ -10,6 +10,7 @@ export const VOICES = {
   narrator: ['af_heart', .95], counter: ['af_heart', 1], cat: ['af_nicole', .95], queen: ['af_bella', .92], king: ['bm_george', .88],
   uni: ['af_kore', 1], sparkle: ['af_aoede', 1.02], rainbow: ['af_sarah', 1], cloud: ['af_nova', .9], rain: ['bf_isabella', .95],
   princess: ['af_aoede', .95], mom: ['bf_emma', .95], dad: ['am_michael', .95], announcer: ['am_michael', 1],
+  hero: ['af_kore', 1], lucy: ['af_sky', 1.04],
 };
 /** the same clean-up the speech queue applies (emoji and symbols out) */
 export const cleanText = (t) => String(t ?? '').replace(/[^\p{L}\p{N}\s.,!?'-]/gu, ' ').replace(/\s+/g, ' ').trim();
@@ -62,6 +63,7 @@ for (let i = 1; i <= 10; i++) add(`cat_n_${i}`, NUM[i], 'cat');
 P('cat_can_you_eat', 'Can you eat', 'cat'); P('cat_candies', 'candies?', 'cat'); P('cat_you_did_it', 'You did it!', 'cat');
 P('catch_the', 'Catch the'); P('things', 'things!');
 P('pick_a_card', 'Pick a card!', 'counter');
+P('full_frame_love', 'Ten hearts! A full frame of love!', 'hero');
 P('ice_make', "Let's make an ice cream with", 'uni'); P('ice_scoops', 'scoops!', 'uni'); P('ice_strawberry', 'strawberry', 'uni'); P('ice_lemon', 'lemon scoops!', 'uni');
 P('ice_eat', 'Tap the ice cream to eat it!', 'uni');
 P('you_caught', 'You caught'); P('stars_in_tunnel', 'stars in the tunnel!'); P('yum_count_done', 'Yummy! All for you!', 'queen'); P('sparkle_dice', 'Sparkle dice! Roll three or more!');
@@ -84,17 +86,23 @@ story('uni', "Let's go on an adventure, Uni!", 'Rainbow slide!', 'Yummy ice crea
   ...['Sparkle', 'Rainbow', 'Cloud', 'Rain'].flatMap((n) => [`${n} joins the adventure!`, `Meet ${n} on the path first!`, `${n}!`]),
   "Welcome to Sparkle's Sparkle Studio! Tap the sparkle stars!", "Welcome to Rainbow's Music House! Tap every color to play music!", "Welcome to Cloud's Fluffy Hideout! Tap the glowing cloud to hop up!",
   "Welcome to Rain's Garden Room! Tap a flower pot to water it!", "Welcome to Uni's Ice Cream Parlor! Tap the flavors to build an ice cream!");
-story('sparkle', "Hi Uni! I'm Sparkle! Let's sparkle together!", "Hi Esmae! I'm Sparkle! Let's shine together!", "Esmae! It's me, Lucy! We're twins!");
+story('sparkle', "Hi Uni! I'm Sparkle! Let's sparkle together!", "Hi Esmae! I'm Sparkle! Let's shine together!");
 story('rainbow', "Hello Uni! I'm Rainbow! I love all the colors!", "Hello Esmae! I'm Rainbow! I love every color!");
 story('cloud', "Hi Uni! I'm Cloud. I'm soft and fluffy!");
 story('rain', "Hi Uni! I'm Rain. Splish splash!");
 story('cat', "Hi Esmae! I'm Kitty! Let's swim and play!");
-story('king', 'Welcome, brave Uni! You made it to the Rainbow Castle!', 'A lifetime supply of Uni treats!', 'Welcome to the Mermaid Palace, Esmae! Thank you for spreading so much love.',
+story('king', 'Welcome, brave Uni! You made it to the Rainbow Castle!', 'A lifetime supply of Uni treats!', 'Welcome to the Mermaid Palace, Esmae and Lucy! Thank you for spreading so much love.',
   'A lifetime supply of hair clips, toys, mermaid pets, and candy!');
 story('queen', 'Your kindness sparkles like magic! We have a gift for you!', 'You and your friends are so kind. We have gifts for you!');
 // Mermaid Love Adventure
-story('uni', "Let's go on a mermaid adventure, Esmae!", 'A dolphin ride!', 'A shiny pearl!', 'The Mermaid Palace! We made it!', 'Esmae!', 'Lucy!', 'The King!', 'The Queen!',
-  ...['Sparkle', 'Rainbow', 'Kitty'].map((n) => `${n} joins the adventure!`), 'Kitty!');
+story('hero', "Let's go on a mermaid adventure, Esmae!", 'A dolphin ride!', 'A shiny pearl!', 'The Mermaid Palace! We made it!', 'Esmae!', 'Lucy!', 'The King!', 'The Queen!',
+  'Wait for Esmae to stop first!', 'Pick a card first!', 'Meet Lucy at the palace first!',
+  ...['Sparkle', 'Rainbow', 'Kitty'].flatMap((n) => [`${n} joins the adventure!`, `${n}!`, `Meet ${n} on the path first!`]),
+  'Esmae gave Sparkle her hair clip!', 'Esmae gave Rainbow her pretty shell!', 'Esmae gave Kitty her toy fish!');
+story('lucy', "Esmae! It's me, Lucy! We're twins!");
+story('sparkle', 'Oh no! I lost my hair clip! Can you help me find it?', "Thank you, Esmae! You're so kind!");
+story('rainbow', 'Oh no! I lost my pretty shell! Can you help me find it?', "Thank you, Esmae! You're so kind!");
+story('cat', 'Oh no! I lost my toy fish! Can you help me find it?', "Thank you, Esmae! You're so kind!");
 // Uni & Mermaid cards: "Red!" / "Double red!"
 ['red', 'purple', 'yellow', 'blue', 'orange', 'green'].forEach((c) => story('counter', `${c}!`, `Double ${c}!`));
 // Tony's Home Run Derby
