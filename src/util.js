@@ -248,45 +248,55 @@ export function stripedGeo(geo, colors, count = colors.length) {
 export const vertexToon = () => toon(0xffffff, { vertexColors: true });
 
 // ---------- sparkle particles ----------
+/** the sparkle material: three's PointsMaterial (fog, size attenuation, colour space all as before) with a per-particle size */
+function sparkleMaterial() {
+  const m = new THREE.PointsMaterial({ size: 1, map: starTex(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  m.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aSize;').replace('gl_PointSize = size;', 'gl_PointSize = size * aSize;');
+  };
+  m.customProgramCacheKey = () => 'fx-sparkle';
+  return m;
+}
+const _fxc = new THREE.Color(), WHITE = [0xffffff];
+/** A ring buffer of sparkles. Every particle keeps its own size, colour, life and gravity. */
 export class Fx {
   constructor(scene, max = 600) {
     this.max = max; this.i = 0;
-    this.pos = new Float32Array(max * 3); this.col = new Float32Array(max * 3); this.base = new Float32Array(max * 3);
+    this.pos = new Float32Array(max * 3); this.col = new Float32Array(max * 3); this.base = new Float32Array(max * 3); this.size = new Float32Array(max);
     this.vel = new Float32Array(max * 3); this.life = new Float32Array(max); this.maxLife = new Float32Array(max).fill(1); this.grav = new Float32Array(max);
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
-    this.points = new THREE.Points(geo, new THREE.PointsMaterial({
-      size: .55, map: starTex(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
+    const geo = new THREE.BufferGeometry(), dyn = (a, n) => new THREE.BufferAttribute(a, n).setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('position', dyn(this.pos, 3)); geo.setAttribute('color', dyn(this.col, 3)); geo.setAttribute('aSize', dyn(this.size, 1));
+    this.points = new THREE.Points(geo, sparkleMaterial());
     this.points.frustumCulled = false;
     this.points.renderOrder = 10;
     scene.add(this.points);
     this.pos.fill(9999);
   }
-  burst(p, { count = 30, colors = [0xffffff], speed = 4, gravity = -6, life = 1, size, up = 0, spread = 0.1 } = {}) {
-    const c = new THREE.Color();
+  /** p: where (any {x,y,z}; it is copied, so scratch vectors are fine). size is per burst and stays with those particles. */
+  burst(p, { count = 30, colors = WHITE, speed = 4, gravity = -6, life = 1, size = .55, up = 0, spread = 0.1 } = {}) {
+    const { pos, vel, base } = this;
     for (let n = 0; n < count; n++) {
-      const i = this.i++ % this.max;
-      const th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1), sp = speed * (0.35 + Math.random() * 0.65);
-      this.pos.set([p.x + (Math.random() - .5) * spread, p.y + (Math.random() - .5) * spread, p.z + (Math.random() - .5) * spread], i * 3);
-      this.vel.set([Math.sin(ph) * Math.cos(th) * sp, Math.sin(ph) * Math.sin(th) * sp + up, Math.cos(ph) * sp], i * 3);
-      c.set(colors[Math.floor(Math.random() * colors.length)]);
-      this.base.set([c.r, c.g, c.b], i * 3);
+      const i = this.i++ % this.max, i3 = i * 3;
+      const th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1), sp = speed * (0.35 + Math.random() * 0.65), sph = Math.sin(ph);
+      pos[i3] = p.x + (Math.random() - .5) * spread; pos[i3 + 1] = p.y + (Math.random() - .5) * spread; pos[i3 + 2] = p.z + (Math.random() - .5) * spread;
+      vel[i3] = sph * Math.cos(th) * sp; vel[i3 + 1] = sph * Math.sin(th) * sp + up; vel[i3 + 2] = Math.cos(ph) * sp;
+      _fxc.set(colors[Math.floor(Math.random() * colors.length)]);
+      base[i3] = _fxc.r; base[i3 + 1] = _fxc.g; base[i3 + 2] = _fxc.b;
       this.maxLife[i] = this.life[i] = life * (0.7 + Math.random() * 0.6);
-      this.grav[i] = gravity;
+      this.grav[i] = gravity; this.size[i] = size;
     }
-    if (size) this.points.material.size = size;
+    this.points.geometry.attributes.aSize.needsUpdate = true;
   }
   update(dt) {
     const { pos, vel, col, base, life, maxLife, grav } = this;
     for (let i = 0; i < this.max; i++) {
-      if (life[i] <= 0) { if (col[i * 3] !== 0 || col[i * 3 + 1] !== 0 || col[i * 3 + 2] !== 0) col.fill(0, i * 3, i * 3 + 3); continue; }
+      const i3 = i * 3;
+      if (life[i] <= 0) { if (col[i3] !== 0 || col[i3 + 1] !== 0 || col[i3 + 2] !== 0) { col[i3] = col[i3 + 1] = col[i3 + 2] = 0; } continue; }
       life[i] -= dt;
-      vel[i * 3 + 1] += grav[i] * dt;
-      pos[i * 3] += vel[i * 3] * dt; pos[i * 3 + 1] += vel[i * 3 + 1] * dt; pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
+      vel[i3 + 1] += grav[i] * dt;
+      pos[i3] += vel[i3] * dt; pos[i3 + 1] += vel[i3 + 1] * dt; pos[i3 + 2] += vel[i3 + 2] * dt;
       const k = Math.max(life[i] / maxLife[i], 0);
-      col[i * 3] = base[i * 3] * k; col[i * 3 + 1] = base[i * 3 + 1] * k; col[i * 3 + 2] = base[i * 3 + 2] * k;
+      col[i3] = base[i3] * k; col[i3 + 1] = base[i3 + 1] * k; col[i3 + 2] = base[i3 + 2] * k;
     }
     this.points.geometry.attributes.position.needsUpdate = true;
     this.points.geometry.attributes.color.needsUpdate = true;

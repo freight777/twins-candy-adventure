@@ -428,5 +428,5 @@ gfx.start((dt) => {
   else { update(dt); gfx.setScene(scene, camera); }
 });
 $('#play').addEventListener('click', () => { unlock(); playMusic('forest'); play(); });
-window.uniGame = { S, scene, camera, step: (dt = 1 / 60) => update(dt), get friends() { return friends; }, visit, leave, get W() { return W; }, tp: (i) => { S.idx = i; placeUni(i / (N - 1)); }, force: (name, double = false) => { S.forceCard = { c: COLORS.find((c) => c.name === name), double }; } };
+window.uniGame = { S, scene, camera, step: (dt = 1 / 60) => W && update(dt), get friends() { return friends; }, visit, leave, get W() { return W; }, tp: (i) => { S.idx = i; placeUni(i / (N - 1)); }, force: (name, double = false) => { S.forceCard = { c: COLORS.find((c) => c.name === name), double }; } };
 boot().catch((e) => { console.error(e); loading.fail(); });

@@ -43,6 +43,7 @@ export class WakeScene extends BeachScene {
     super(game);
     this.phase = 'wake';
     this.woke = false;
+    this.setFxMax(1500);                                              // confetti + the candy shower overflowed the 600-sparkle pool
     if (this.duneG) this.duneG.visible = false;                       // no sand hills in front of the sleeping girls
     this.camera.position.set(-9, 4.2, 15.5);
     this.jackRegion = 'wake';                                         // Jackson runs back and forth in front of the towels
