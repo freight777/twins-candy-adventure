@@ -42,3 +42,6 @@ button#home { border: 0; padding: 0; margin: 0; font-family: inherit; line-heigh
 .stk-toast.fly .stk-card { transition: transform .8s cubic-bezier(.6,0,.8,.4), opacity .8s; transform: translate(42vw, -42vh) scale(.15) rotate(30deg); opacity: 0; }
 @keyframes stk-in { from { transform: scale(.1) rotate(-30deg); opacity: 0; } }
 @keyframes stk-wiggle { 25% { transform: rotate(-10deg) scale(1.08); } 75% { transform: rotate(10deg) scale(1.08); } }
+
+/* Fluent Emoji pictures in place of the system emoji (engine/fluent.js) */
+img.fe { display: inline-block; width: 1.18em; height: 1.18em; vertical-align: -.22em; object-fit: contain; pointer-events: none; -webkit-user-drag: none; }

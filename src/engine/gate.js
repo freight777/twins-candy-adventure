@@ -2,6 +2,8 @@
 import './shell.css';
 import { say } from '../audio.js';
 import { applyBedtime } from './bedtime.js';
+import { fluentPage } from './fluent.js';
+fluentPage();                                                                  // the same emoji pictures on every iPad
 
 /** every game is landscape: held upright, the screen shows an iPad turning on its side (CSS shows it in portrait only) */
 function turnPicture() {

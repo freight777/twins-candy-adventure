@@ -3,6 +3,9 @@
 // Nothing to read; it is where a child sees what she has learned without ever seeing a score.
 import './engine/fonts.css';
 import './stickers.css';
+import './engine/shell.css';
+import { fluentPage } from './engine/fluent.js';
+fluentPage();
 import { kid } from './learn/profile.js';
 import { stickersFor } from './learn/stickers.js';
 import { unlock, voice, sfx } from './audio.js';

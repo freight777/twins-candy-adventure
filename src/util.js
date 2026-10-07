@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { fluentURL } from './engine/fluent.js';
 
 // ---------- toon material (soft cartoon shading shared by everything) ----------
 const gradientMap = new THREE.DataTexture(new Uint8Array([90, 160, 220, 255]), 4, 1, THREE.RedFormat);
@@ -285,6 +286,8 @@ export function emojiTex(ch) {
   if (!_emoji.has(ch)) {
     const t = canvasTex(128, 128, (g, w, h) => { g.font = '100px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, w / 2, h / 2 + 8); });
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; keep.add(t); _emoji.set(ch, t);
+    const url = fluentURL(ch);                                                   // the Fluent picture, drawn over the font glyph once it loads
+    if (url) { const img = new Image(); img.onload = () => { const g = t.image.getContext('2d'); g.clearRect(0, 0, 128, 128); g.drawImage(img, 6, 6, 116, 116); t.needsUpdate = true; }; img.src = url; }
   }
   return _emoji.get(ch);
 }
