@@ -29,6 +29,8 @@
 .aeq-choice.right, .group.pickable.right { background: linear-gradient(#c8ffd0, #5be37d); box-shadow: 0 7px 0 #2fa84d, 0 0 26px 8px rgba(91, 227, 125, .8); animation: aeq-bounce .45s ease-in-out 2; }
 .aeq-choice.dim, .group.pickable.dim { opacity: .3; transform: scale(.9); filter: grayscale(.6); }
 .aeq-choice.fade, .group.pickable.fade { opacity: .25; }
+.aeq-flash { position: fixed; inset: 0; z-index: 44; pointer-events: none; background: radial-gradient(circle at 50% 45%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%); opacity: 0; animation: aeq-flash .45s ease-out forwards; }
+@keyframes aeq-flash { 0% { opacity: 0; } 15% { opacity: .28; } 100% { opacity: 0; } }
 .aeq-confetti { position: fixed; left: 50%; bottom: 30vh; width: 0; height: 0; pointer-events: none; z-index: 46; }
 .aeq-confetti span { position: absolute; font-size: clamp(26px, 4vw, 44px); animation: aeq-fly 1.5s cubic-bezier(.2, .7, .4, 1) forwards; }
 @keyframes aeq-in { from { transform: translateY(40px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }

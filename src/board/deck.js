@@ -12,6 +12,7 @@ import '../engine/quiz.css';
 import { Timers, Fx, ease, lerp, clamp, rand, linearizeFrag, RAINBOW } from '../util.js';
 import { unlock, playMusic, say, sayAsync, voice, sfx, stopSpeech, level, currentSpeaker } from '../audio.js';
 import { storyId } from '../engine/lines.js';
+import { fovPunch } from '../engine/quiz.js';
 import { renderShow } from '../learn/frame.js';
 import { levelOf, startSession } from '../learn/profile.js';
 import { taughtThrough, trickyThrough, unitForLevel } from '../learn/code.js';
@@ -339,6 +340,7 @@ export function createBoardGame(cfg) {
     const w = S.houseWas || {}; if (w.deck && S.waiting) ui.show('#deck'); if (w.banner) ui.show('#banner'); if (w.again) ui.show('#again');
   }
   $('#leave').addEventListener('click', leave);
+  addEventListener('ae:tada', () => fovPunch(S.house ? S.house.camera : camera));
 
   // ---------------------------------------------------------------- per frame
   /** the usual shot: behind and above the hero, looking a little ahead (sd: sideways offset) */

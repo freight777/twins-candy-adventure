@@ -76,6 +76,7 @@ export function quiz(q, { who = 'adalyn', icon, iconAlt } = {}) {
         done = true; clearTimeout(idleT);
         el.classList.add('right'); els.forEach((e) => e !== el && e.classList.add('fade'));
         sfx.chime(); confetti(misses === 0 && !helped ? 22 : 8);
+        if (misses === 0 && !helped) tada();
         const first = misses === 0;
         await voice(first && !helped ? 'yes_great' : misses ? 'thats_it' : 'you_got_it', { priority: 2 });   // celebrate in proportion
         if (q.answerVoice || q.answerSay) await voice(q.answerVoice || [], { priority: 2, fallback: q.answerSay });
@@ -127,6 +128,21 @@ async function scaffold(s, shown, tiles) {
   }
 }
 
+/** first try: a 150 ms soft white flash, and the games punch their camera (they listen for 'ae:tada') */
+function tada() {
+  const f = document.createElement('div'); f.className = 'aeq-flash'; document.body.appendChild(f); setTimeout(() => f.remove(), 450);
+  window.dispatchEvent(new Event('ae:tada'));
+}
+/** the camera's field of view dips and springs back (a "punch"); uses the browser clock, restores the exact value after */
+export function fovPunch(camera, k = .06, ms = 300) {
+  if (!camera || camera.userData.punching) return;
+  camera.userData.punching = true; const base = camera.fov, t0 = performance.now();
+  const step = (now) => {
+    const u = Math.min(1, (now - t0) / ms); camera.fov = base * (1 - k * Math.sin(u * Math.PI)); camera.updateProjectionMatrix();
+    if (u < 1) requestAnimationFrame(step); else { camera.fov = base; camera.updateProjectionMatrix(); camera.userData.punching = false; }
+  };
+  requestAnimationFrame(step);
+}
 /** a little burst of confetti from the card */
 function confetti(n) {
   const box = root.querySelector('.aeq-confetti'), bits = ['\u{1F389}', '⭐', '\u{1F496}', '✨', '\u{1F308}', '\u{1F36C}'];
