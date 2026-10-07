@@ -35,6 +35,7 @@ export default defineConfig({
         globIgnores: ['**/*.bvh'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/\/jackson\//],   // Jackson's game is its own page, not part of the A&E hub
         cleanupOutdatedCaches: true,
         importScripts: ['sw-cleanup.js'],          // removes the caches of the old hand-written service worker
       },
