@@ -35,6 +35,7 @@ export function createUnicorn(spec) {
   head.add(mk(sph(.38), skinL, [0, -.22, .56], [.92, .8, 1.15]));
   head.add(mk(sph(.05, 10, 8), 0x7a3a4a, [-.12, -.17, .97]), mk(sph(.055, 10, 8), 0x7a3a4a, [.12, -.17, .97]));
   const smile = mk(new THREE.TorusGeometry(.11, .014, 6, 18, Math.PI).rotateZ(Math.PI), 0x9a3a55, [0, -.31, .99]); head.add(smile);
+  const mouth = mk(sph(.075, 14, 10), 0x7a2040, [0, -.335, .965], [1.25, .05, .45]); mouth.visible = false; head.add(mouth);     // opens when she talks
   const eyes = [];
   [-1, 1].forEach((s) => {
     const eye = new THREE.Group(); eye.position.set(s * .36, .1, .5); eye.rotation.y = s * .6; eye.scale.setScalar(1.18); head.add(eye); eyes.push(eye);
@@ -151,6 +152,7 @@ export function createUnicorn(spec) {
       });
       mane.forEach((m) => { const b = m.userData.base, k = m.userData.k; m.position.x = b.x + Math.sin(t * 3 + k * .7) * .05 * (1 + speed * 1.5); m.position.z = b.z - speed * .05 * (k % 5) + Math.sin(t * 2.4 + k) * .02; });
       tailParts.forEach((m) => { const b = m.userData.base, i = m.userData.i; m.position.x = b.x + Math.sin(t * 2.6 - i * .55) * .045 * i * (1 + speed); m.position.y = b.y + (speed > .05 ? Math.sin(phase * 2 - i * .4) * .03 * i : 0); });
+      const tk = api.talk || 0; mouth.visible = tk > .04; mouth.scale.y = .05 + tk * .9; smile.position.y = -.31 - tk * .05;   // talking
       blinkT -= dt; if (blinkT <= 0) { blink = .14; blinkT = 2.5 + Math.random() * 3.5; }
       blink = Math.max(0, blink - dt); const e = blink > 0 ? .1 : 1; eyes.forEach((ey) => (ey.scale.y = 1.18 * e));
       hornGlow.material.opacity = .55 + Math.sin(t * 3) * .2;

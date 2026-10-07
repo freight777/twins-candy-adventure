@@ -48,7 +48,8 @@ function buildMermaid(spec) {
   const head = new THREE.Group(); head.position.set(0, 1.98, .02); pitch.add(head);
   head.add(mk(sph(.62), skin, [0, 0, 0], [1, .97, 1]));
   head.add(mk(sph(.07, 10, 8), 0xf0b090, [0, -.11, .62]));
-  head.add(mk(new THREE.TorusGeometry(.12, .015, 6, 18, Math.PI).rotateZ(Math.PI), 0xb03a55, [0, -.29, .56]));
+  const smile = mk(new THREE.TorusGeometry(.12, .015, 6, 18, Math.PI).rotateZ(Math.PI), 0xb03a55, [0, -.29, .56]); head.add(smile);
+  const mouth = mk(sph(.08, 14, 10), 0x7a2040, [0, -.315, .54], [1.2, .05, .45]); mouth.visible = false; head.add(mouth);       // opens when she talks
   const eyes = [];
   [-1, 1].forEach((s) => {
     const eye = new THREE.Group(); eye.position.set(s * .25, .04, .52); eye.rotation.y = s * .4; eye.scale.setScalar(.98); head.add(eye); eyes.push(eye);
@@ -134,6 +135,7 @@ function buildMermaid(spec) {
       arms.forEach((a) => { const s = a.userData.s; a.rotation.z = s * (.5 + Math.sin(t * 1.5 + s) * .15 + run * .35); a.rotation.x = Math.sin(phase * .9 + s) * .25 * (.3 + run) - .2; });
       head.rotation.y = Math.sin(t * .9) * .12 * idle; head.rotation.x = Math.sin(t * 1.2) * .05 - .35 * Math.min(speed, 1);
       strands.forEach((g) => { const { i, off } = g.userData; g.rotation.z = off * .06 + Math.sin(t * 1.5 + i * .9) * (.08 + run * .06); g.rotation.x = -.1 - run * .55 + Math.sin(t * 1.2 + i * 1.7) * .1 + idle * .1; });
+      const tk = api.talk || 0; mouth.visible = tk > .04; mouth.scale.y = .05 + tk * .9; smile.position.y = -.29 - tk * .05;   // talking
       blinkT -= dt; if (blinkT <= 0) { blink = .14; blinkT = 2.5 + Math.random() * 3.5; }
       blink = Math.max(0, blink - dt); eyes.forEach((e) => (e.scale.y = .98 * (blink > 0 ? .1 : 1)));
       if (clipGlow) clipGlow.material.opacity = .45 + Math.sin(t * 4) * .25;

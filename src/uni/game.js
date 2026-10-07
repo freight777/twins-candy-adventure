@@ -106,6 +106,7 @@ async function build() {
   kingU = unicorn(LOOKS.king, 1.45); queenU = unicorn(LOOKS.queen, 1.45);
   [kingU, queenU].forEach((m) => (m.root.visible = false));
   G.taps = [{ u: twin, n: 'Uni' }];
+  twin.speaker = 'uni'; kingU.speaker = 'king'; queenU.speaker = 'queen'; G.talkers = [kingU, queenU];
 }
 
 // ---------------------------------------------------------------- the squares' surprises

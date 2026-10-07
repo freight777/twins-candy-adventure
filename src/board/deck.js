@@ -10,7 +10,7 @@ import { createPipeline } from '../engine/pipeline.js';
 import { Q } from '../engine/quality.js';
 import '../engine/quiz.css';
 import { Timers, Fx, ease, lerp, clamp, rand, linearizeFrag, RAINBOW } from '../util.js';
-import { unlock, playMusic, say, sayAsync, voice, sfx, stopSpeech } from '../audio.js';
+import { unlock, playMusic, say, sayAsync, voice, sfx, stopSpeech, level, currentSpeaker } from '../audio.js';
 import { storyId } from '../engine/lines.js';
 import { renderShow } from '../learn/frame.js';
 import { levelOf, startSession } from '../learn/profile.js';
@@ -88,7 +88,7 @@ export function createBoardGame(cfg) {
     },
     show(sel, on = true) { $(sel).classList.toggle('hidden', !on); },
   };
-  const G = { cfg, S, gfx, renderer: gfx.renderer, scene, camera, camTarget, timers, fx, sleep, anim, ui, W: null, hero: null, friends: [], twin: null, taps: [] };
+  const G = { cfg, S, gfx, renderer: gfx.renderer, scene, camera, camTarget, timers, fx, sleep, anim, ui, W: null, hero: null, friends: [], twin: null, taps: [], talkers: [] };
 
   // ---------------------------------------------------------------- helpers the games use too
   const _p = new THREE.Vector3(), _t = new THREE.Vector3(), _q = new THREE.Vector3(), _r = new THREE.Vector3(), _s = new THREE.Vector3(), _d = new THREE.Vector3(), _l = new THREE.Vector3(), _m = new THREE.Vector3();
@@ -99,7 +99,15 @@ export function createBoardGame(cfg) {
   const above = (c, h) => c.root.position.clone().add(_r.set(0, h, 0));
   const sparkleAt = (p, colors, count = 30, speed = 5) => fx.burst(p, { count, colors, speed, gravity: SP.gravity, life: SP.life, size: 1 });
   const puff = (p, n) => hooks.puff && hooks.puff(p, n);
-  const hop = (c, dur = M.hop, h = 1.3) => anim(dur, (k) => { c.lift = Math.sin(k * Math.PI) * h; }, ease.linear);
+  /** a hop with the twelve principles: a quick dip first, a stretch on the way up, a squash when she lands */
+  const hop = (c, dur = M.hop, h = 1.3) => {
+    const body = c.body || c.pitch;
+    return anim(dur + .1, (k) => {
+      const t = k * (dur + .1), dip = t < .1, u = dip ? 0 : (t - .1) / dur;
+      c.lift = dip ? -Math.sin(t / .1 * Math.PI) * .12 : Math.sin(u * Math.PI) * h;
+      if (body) { const sq = dip ? -Math.sin(t / .1 * Math.PI) * .12 : u < .5 ? Math.sin(u * 2 * Math.PI) * .1 : u > .85 ? -Math.sin((u - .85) / .15 * Math.PI) * .14 : 0; body.scale.set(1 - sq * .5, 1 + sq, 1 - sq * .5); }
+    }, ease.linear).then(() => { if (body) body.scale.set(1, 1, 1); c.lift = 0; });
+  };
   /** move an object from a to b (k = 0..1); walkers never sink into the hills */
   const glide = (o, a, b, k) => { o.position.lerpVectors(a, b, k); if (cfg.walk) o.position.y = Math.max(o.position.y, G.W.heightAt(o.position.x, o.position.z)); };
   const face = (c, p) => c.lookToward(p.x - c.root.position.x, p.z - c.root.position.z, 1);
@@ -372,6 +380,9 @@ export function createBoardGame(cfg) {
     S.time += dt; const t = S.time;
     timers.update(dt); fx.update(dt); G.W.update(dt, t);
     G.hero.update(dt, t, S.speed);
+    // whoever's voice is speaking moves her mouth (the hero, a friend, the twin, the King and Queen)
+    const who = currentSpeaker(), lv = Math.min(1, level.v * 3);
+    for (const c of G.talkers) c.talk = who && c.speaker === who ? lv : 0;
     G.friends.forEach((f) => f.u.update(dt, t, f.speed));
     if (G.twin) G.twin.update(dt, t, S.twinSpeed || 0);
     if (hooks.update) hooks.update(dt, t);
@@ -411,6 +422,8 @@ export function createBoardGame(cfg) {
     await cfg.build(G);
     G.hero.root.rotation.order = 'YXZ'; placeHero(0); resetCast();
     G.taps = [{ u: G.hero, n: HERO.name }, ...G.friends.map((f) => ({ u: f.u, n: f.name })), ...G.taps];
+    G.hero.speaker = HERO.voice; G.friends.forEach((f) => (f.u.speaker = f.voice));
+    G.talkers = [G.hero, ...G.friends.map((f) => f.u), ...(G.twin ? [G.twin] : []), ...(G.talkers || [])];
     if (hooks.ready) hooks.ready();
     if (cfg.scoreFrame) { const st = $('#stars'); st.classList.add('framed'); st.innerHTML = `<span class="tens"></span><span class="sf">${`<i>${cfg.scoreFrame}</i>`.repeat(10)}</span><span id="starcount" hidden>0</span>`; }
     const tag = cfg.houses ? 'button' : 'div';

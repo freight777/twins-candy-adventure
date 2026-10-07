@@ -112,6 +112,7 @@ async function build() {
   king.root.position.copy(W.kingSpot); queen.root.position.copy(W.queenSpot);
   setCaustic(0);
   G.taps = [{ u: lucy, n: 'Lucy' }, { u: king, n: 'The King' }, { u: queen, n: 'The Queen' }];
+  lucy.speaker = 'lucy'; king.speaker = 'king'; queen.speaker = 'queen'; G.talkers = [king, queen];
 }
 
 // ---------------------------------------------------------------- the squares' surprises
