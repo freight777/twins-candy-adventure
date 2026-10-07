@@ -7,7 +7,8 @@ import './quiz.css';
 import { voice, sayAsync, sfx } from '../audio.js';
 import { renderShow } from '../learn/frame.js';
 import { segments } from '../learn/reading.js';
-import { item, settings, recordItem, recordSkill } from '../learn/profile.js';
+import { item, settings, recordItem, recordSkill, kid } from '../learn/profile.js';
+import { earn } from './sticker.js';
 
 let root = null;
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
@@ -160,6 +161,9 @@ function confetti(n) {
 export async function ask(q, who, opts = {}) {
   const r = await quiz(q, { who, ...opts }), clean = r.misses === 0;
   if (q.id) recordItem(who, q.id, clean, clean && (r.fresh || !r.helped));
-  if (!r.fresh || !clean) recordSkill(who, q.strand || 'reading', clean, clean && !r.helped);
+  if (!r.fresh || !clean) {
+    const strand = q.strand || 'reading', before = kid(who)[strand].level, after = recordSkill(who, strand, clean, clean && !r.helped);
+    if (after > before) earn(who, `${strand}-${after}`);                         // a new level: a sticker
+  }
   return r;
 }

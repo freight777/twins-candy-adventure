@@ -12,6 +12,7 @@ import { Timers, Fx, ease, lerp, clamp, rand, linearizeFrag, glowSprite, canvasT
 import { unlock, playMusic, stopMusic, say, sayAsync, voice, sfx, crowdBed } from '../audio.js';
 import { ask } from '../engine/quiz.js';
 import { kid, levelOf, remember, startSession } from '../learn/profile.js';
+import { earn } from '../engine/sticker.js';
 import { buildStadium } from './stadium.js';
 import { createTracer } from './tracer.js';
 import { makeBallMesh } from './props.js';
@@ -285,6 +286,7 @@ async function gameOver() {
   const best = kid('tony').best || 0;
   if (best && S.hr > best) await voice(S.hr === best + 1 ? 'one_more_than_last' : 'new_best', { priority: 2 });
   if (S.hr > best) remember('tony', 'best', S.hr);
+  if (hero) earn('tony', 'derby-hero'); if (best && S.hr > best) earn('tony', 'derby-best');
   show('#bigtext', false);
   $('#final').textContent = S.hr; $('#over h2').textContent = hero ? '\u{1F31F}' : '\u{1F389}';
   $('#boardmini').innerHTML = boardHTML(); document.querySelectorAll('#who button').forEach((b) => { b.disabled = false; b.classList.remove('picked'); });

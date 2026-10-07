@@ -2,10 +2,11 @@
 import './shell.css';
 import { say } from '../audio.js';
 
-// every game is landscape: held upright, the screen shows an iPad turning on its side (CSS shows it in portrait only)
-if (typeof document !== 'undefined' && !document.querySelector('.turn')) {
+/** every game is landscape: held upright, the screen shows an iPad turning on its side (CSS shows it in portrait only) */
+function turnPicture() {
+  if (document.querySelector('.turn')) return;
   const t = document.createElement('div'); t.className = 'turn'; t.setAttribute('aria-hidden', 'true'); t.innerHTML = '<div class="turn-pad"><i></i></div><div class="turn-arrow">&#8635;</div>';
-  (document.body || document.documentElement).appendChild(t);
+  document.body.appendChild(t);
 }
 
 /**
@@ -39,5 +40,6 @@ export function holdGate(el, onOpen, { ms = 2000, onTap = null } = {}) {
 
 /** the 🏠 button in every game: hold it to go back to the games menu; a quick tap says how */
 export function homeGate(id = 'home') {
+  turnPicture();
   holdGate(document.getElementById(id), () => { location.href = './'; }, { ms: 1200, onTap: () => say('Hold the house to go home!', 'narrator', { priority: 0 }) });
 }

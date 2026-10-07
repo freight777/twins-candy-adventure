@@ -11,7 +11,7 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1500,
     // index.html is the games menu; each game is its own page (candy.html, princess.html, ...)
-    rollupOptions: { input: { hub: page('index.html'), candy: page('candy.html'), princess: page('princess.html'), uni: page('uni.html'), mermaid: page('mermaid.html'), derby: page('derby.html'), progress: page('progress.html') } },
+    rollupOptions: { input: { hub: page('index.html'), candy: page('candy.html'), princess: page('princess.html'), uni: page('uni.html'), mermaid: page('mermaid.html'), derby: page('derby.html'), progress: page('progress.html'), stickers: page('stickers.html') } },
   },
   plugins: [
     // Offline: a Workbox service worker precaches every page, script, model, texture, sound and font,

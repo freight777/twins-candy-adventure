@@ -3,6 +3,7 @@ import { BaseScene } from '../scene-base.js';
 import { toon, mk, rand, pick, clamp, lerp, ease, glowSprite, emojiSprite, emojiTex, stripedGeo, vertexToon, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic, voice } from '../audio.js';
 import { levelOf, recordItem } from '../learn/profile.js';
+import { earn } from '../engine/sticker.js';
 import { taughtThrough, unitForLevel } from '../learn/code.js';
 import { PIC } from '../learn/words.js';
 import { wordsThrough, withPic, onset, sameSound } from '../learn/reading.js';
@@ -272,7 +273,7 @@ export class FallScene extends BaseScene {
           this.caught++; sfx.collect(this.caught); voice(`w_${u.word}`, { priority: 1 });
           this.fx.burst(b.position, { count: 26, colors: [0xffffff, 0xbfefff, 0xffe14d, 0xff9fcb], speed: 5, gravity: 0, life: .9, size: .9 });
           this.fillBubble(b);
-          if (this.caught >= 4) { recordItem(this.who, `snd:${this.target}`, true, true); sfx.tada(); this.tm.after(1.2, () => this.newTarget()); this.target = null; }
+          if (this.caught >= 4) { recordItem(this.who, `snd:${this.target}`, true, true); sfx.tada(); earn(this.who, 'sound-catcher'); this.tm.after(1.2, () => this.newTarget()); this.target = null; }
         } else {                                                   // a different sound: it just bounces away, no penalty
           u.bounce = .5; u.vx = (b.position.x > tp.x ? 1 : -1) * 6; sfx.soft();
         }

@@ -11,7 +11,8 @@ import { unitForLevel } from '../learn/code.js';
 import { emojiSprite } from '../util.js';
 import { ask } from '../engine/quiz.js';
 import { makeReadingQuestion } from '../learn/reading.js';
-import { settings as learn, award } from '../learn/profile.js';
+import { settings as learn } from '../learn/profile.js';
+import { earn } from '../engine/sticker.js';
 import { createBoardGame } from '../board/deck.js';
 import { buildOcean, FRIEND_TILES } from './ocean.js';
 import { createMermaid, createSeahorse, heartGeo, LOOKS } from './mermaid.js';
@@ -46,7 +47,7 @@ const G = createBoardGame({
   meet: { side: 4.2, ahead: 1.2, dur: 1.5, hop: .55, up: [1.4, 1.5] }, parade: { side: 2, bob: .3 },
   cam: { back: 9.5, side: 3.6, up: 6.8, ahead: 3, lookUp: .2, ride: 5, bob: .4, floor: 2.5, greet: { back: 6, side: 10, up: 5.5, lookUp: 0 } },
   party: { center: () => W.terrace, r: 14, y: [4, 16], colors: RAINBOW.concat([0xffffff, 0xff9ed8]) },
-  houses: { keys: ['sparkle', 'rainbow', 'kitty', 'lucy'], info: HOUSES, create: createHouse, lockedTwin: 'Meet Lucy at the palace first!' },
+  houses: { keys: ['sparkle', 'rainbow', 'kitty', 'lucy'], info: HOUSES, create: createHouse, lockedTwin: 'Meet Lucy at the palace first!', sticker: 'sea-houses' },
   build,
   hooks: {
     ready() {
@@ -60,14 +61,14 @@ const G = createBoardGame({
     onFriend: kindness,
     // hearts are counted out loud up to ten; every full ten-frame is "a full frame of love"
     onScore(n, added, before) {
-      if (Math.floor(n / 10) > Math.floor(before / 10)) { voice('full_frame_love', { priority: 1 }); award('esmae', 'frame-of-love'); return; }
+      if (Math.floor(n / 10) > Math.floor(before / 10)) { voice('full_frame_love', { priority: 1 }); earn('esmae', 'frame-of-love'); return; }
       if (added === 1 && n <= 10) voice(`n_${n}`, { priority: 1, tag: 'count' });
     },
     ride: dolphinRide,
     finale,
     cheer: anthem,
     reset() {
-      S.pearls = 0; document.querySelectorAll('#pearls i').forEach((e) => e.classList.remove('got')); W.pearls.forEach((p) => (p.pearl.visible = true));
+      S.pearls = 0; S.kind = 0; document.querySelectorAll('#pearls i').forEach((e) => e.classList.remove('got')); W.pearls.forEach((p) => (p.pearl.visible = true));
       if (S.song) S.song.stop(); S.song = null; karaoke(null); stopScore(); S.giftOn = false; S.giftKinds.forEach((k) => (k.m.visible = false)); S.gifts = [];
       S.pets.forEach((p) => (p.root.visible = false)); playMusic('ocean');
     },
@@ -165,6 +166,7 @@ async function kindness(f) {
   sparkleAt(to, f.burst, 60, 6); sfx.tada(); G.hop(f.u, .55, 1.5);
   await ui.bubble(`${G.cfg.hero.emoji} ${n.emoji} ${f.emoji}`, `Esmae gave ${f.name} ${n.what}!`, 'hero', true, { priority: 2, minMs: 1600 });
   await ui.bubble(`${f.emoji} \u{1F496}`, "Thank you, Esmae! You're so kind!", f.voice, true, { priority: 2, minMs: 1300 });
+  S.kind = (S.kind || 0) + 1; if (S.kind >= FRIENDS.length) earn('esmae', 'kind-heart');
 }
 
 // ---------------------------------------------------------------- the anthem, and a read-along: each bar lights up a word she can read
@@ -200,6 +202,7 @@ async function finale() {
   await anim(1.6, (k) => { lucy.root.position.lerpVectors(la, ld, k); lucy.lookToward(f.x, f.z, .1); }); S.twinSpeed = 0;
   sparkleAt(G.above(lucy, 1.4), [0xff9ed8, 0xffffff, 0xff5fa4], 80, 7); sfx.tada(); sfx.giggle();
   G.markMet(3); G.addStars(5); S.twinMet = true;                              // (Lucy's house opens)
+  earn('esmae', 'mermaid-palace');
   await G.hop(lucy, .55, 1.5); await G.hop(hero, .55, 1.5); await lucySaid; await sleep(.4);
   // the king and queen
   await ui.bubble('\u{1F451}', 'Welcome to the Mermaid Palace, Esmae and Lucy! Thank you for spreading so much love.', 'king', true, { priority: 2, minMs: 3000 }); await sleep(.4);

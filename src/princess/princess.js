@@ -8,7 +8,8 @@ import { unlock, sfx, sayAsync, stopSpeech } from '../audio.js';
 import { homeGate } from '../engine/gate.js';
 import { ask } from '../engine/quiz.js';
 import { makeMathQuestion } from '../learn/math.js';
-import { startSession, award } from '../learn/profile.js';
+import { startSession } from '../learn/profile.js';
+import { earn } from '../engine/sticker.js';
 import { STATIONS } from './stations.js';
 homeGate();
 
@@ -123,7 +124,7 @@ function hearts(n = 8, area = [6, 18]) {
 /** ten dishes: every dish she was served comes back on the table at once */
 async function feast() {
   const f = $('#feast'); f.innerHTML = dishes.slice(-GOAL).map((d, i) => `<div style="animation-delay:${i * 120}ms">${d}</div>`).join('');
-  sfx.fanfare(); hearts(24, [5, 90]); princess.classList.add('cheer'); award(WHO, 'royal-feast');
+  sfx.fanfare(); hearts(24, [5, 90]); princess.classList.add('cheer'); earn(WHO, 'royal-feast');
   await say('A royal feast! Ten dishes!'); await wait(600);
   princess.classList.remove('cheer'); $('#again').classList.remove('hidden'); say('Again?', { priority: 1 });
 }

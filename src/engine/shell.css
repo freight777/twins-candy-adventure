@@ -30,3 +30,12 @@
 .gate.holding::after { opacity: 1; animation: gate-fill var(--gate-ms, 2s) linear forwards; }
 @keyframes gate-fill { from { --gate-p: 0%; } to { --gate-p: 100%; } }
 button#home { border: 0; padding: 0; margin: 0; font-family: inherit; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+/* a new sticker (engine/sticker.js): pops up big, then flies off to the corner */
+.stk-toast { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.stk-card { width: min(42vw, 260px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #fff, #fff4fb 60%, #ffd6ee); box-shadow: 0 0 0 10px #fff, 0 0 0 18px #ffc93c, 0 18px 40px rgba(0,0,0,.25), 0 0 80px 30px rgba(255,236,150,.8);
+  display: flex; align-items: center; justify-content: center; animation: stk-in .6s cubic-bezier(.3,1.6,.5,1) both; }
+.stk-card span { font-size: min(24vw, 150px); line-height: 1; animation: stk-wiggle 1.2s ease-in-out .6s 2; }
+.stk-toast.fly .stk-card { transition: transform .8s cubic-bezier(.6,0,.8,.4), opacity .8s; transform: translate(42vw, -42vh) scale(.15) rotate(30deg); opacity: 0; }
+@keyframes stk-in { from { transform: scale(.1) rotate(-30deg); opacity: 0; } }
+@keyframes stk-wiggle { 25% { transform: rotate(-10deg) scale(1.08); } 75% { transform: rotate(10deg) scale(1.08); } }

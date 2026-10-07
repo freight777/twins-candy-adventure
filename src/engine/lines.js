@@ -4,6 +4,7 @@
 // Pure data, no imports: the build tool reads it too.
 import { WORDS } from '../learn/words.js';
 import { UNITS, SOUND_TEXT } from '../learn/code.js';
+import { STICKERS } from '../learn/stickers.js';
 
 /** speaker -> [Kokoro voice, speed]. Different timbres, not just pitches. */
 export const VOICES = {
@@ -63,6 +64,7 @@ for (let i = 1; i <= 10; i++) add(`cat_n_${i}`, NUM[i], 'cat');
 P('cat_can_you_eat', 'Can you eat', 'cat'); P('cat_candies', 'candies?', 'cat'); P('cat_you_did_it', 'You did it!', 'cat');
 P('catch_the', 'Catch the'); P('things', 'things!');
 P('pick_a_card', 'Pick a card!', 'counter');
+P('new_sticker', 'A new sticker!'); STICKERS.forEach((s) => add(`stk_${s.id}`, `${s.name}!`, 'narrator'));
 P('which_cookie_is', 'Which cookie is a'); ['circle', 'triangle', 'square', 'rectangle', 'hexagon'].forEach((s) => add(`shape_${s}`, s, 'counter'));
 P('find_shape_with', 'Find the shape with'); P('sides', 'sides.');
 P('home_runs', 'home runs!', 'announcer'); P('home_run', 'home run!', 'announcer'); P('one_more_than_last', 'One more than last time!', 'announcer'); P('new_best', "That's your best ever!", 'announcer');

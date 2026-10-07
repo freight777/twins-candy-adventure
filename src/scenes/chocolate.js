@@ -3,6 +3,7 @@ import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, makeSky, makeClouds, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic, voice } from '../audio.js';
 import { levelOf, recordItem, recordSkill } from '../learn/profile.js';
+import { earn } from '../engine/sticker.js';
 import { renderShow } from '../learn/frame.js';
 import { storyAdd } from '../learn/math.js';
 import { ask } from '../engine/quiz.js';
@@ -268,7 +269,7 @@ export class ChocolateScene extends BaseScene {
   }
   async missionDone(m) {
     m.done = true; const el = document.getElementById('mission'); el.classList.add('done');
-    recordItem(m.who, `count:${m.goal}`, true, true); recordSkill(m.who, 'math', true, true);
+    recordItem(m.who, `count:${m.goal}`, true, true); recordSkill(m.who, 'math', true, true); earn(m.who, 'candy-counter');
     const P = this.game.party, hp = P.leader.root.position.clone().add(new THREE.Vector3(0, 2.6, 0));
     sfx.tada(); this.fx.burst(hp, { count: 70, colors: RAINBOW.concat(CANDY), speed: 7, gravity: -4, life: 1.8, size: 1 });
     this.game.ui.bubble('\u{1F431} \u{1F389}', '', 'cat', false);

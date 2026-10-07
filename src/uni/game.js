@@ -10,6 +10,7 @@ import { ask } from '../engine/quiz.js';
 import { makeReadingQuestion } from '../learn/reading.js';
 import { settings as learn } from '../learn/profile.js';
 import { createBoardGame } from '../board/deck.js';
+import { earn } from '../engine/sticker.js';
 import { N } from '../board/path.js';
 import { buildWorld, FRIEND_TILES } from './world.js';
 import { createUnicorn, LOOKS } from './unicorn.js';
@@ -41,7 +42,7 @@ const G = createBoardGame({
   slide: ['\u{1F308} \u{1F680}', 'Rainbow slide!'],
   pickupColors: [0xffe14d, 0xffffff, 0xffb347], joinColors: [0xffe14d, 0xffffff, 0xff9ecb],
   party: { center: () => uni.root.position, r: 18, y: [10, 24], colors: RAINBOW.concat([0xffffff]) },
-  houses: { keys: ['sparkle', 'rainbow', 'cloud', 'rain', 'uni'], info: HOUSES, create: createHouse, lockedTwin: 'Meet your twin at the castle first!' },
+  houses: { keys: ['sparkle', 'rainbow', 'cloud', 'rain', 'uni'], info: HOUSES, create: createHouse, lockedTwin: 'Meet your twin at the castle first!', sticker: 'house-party' },
   build,
   hooks: {
     ready() { castleShot(0, G.camera.position, G.camTarget); },
@@ -142,7 +143,7 @@ async function finale() {
   G.markMet(4);
   const said = ui.bubble('\u{1F495}', "Hi! I'm Uni too! We have the same name!", 'uni', true, { priority: 2, minMs: 2000 });
   await G.hop(twin, .55, 1.5); await G.hop(uni, .55, 1.5); await said; await sleep(.4);
-  G.addStars(5); S.twinMet = true;
+  G.addStars(5); S.twinMet = true; earn('adalyn', 'rainbow-castle');
   await royalGift();
 }
 async function royalGift() {

@@ -13,6 +13,7 @@ import { Timers, Fx, ease, lerp, clamp, rand, linearizeFrag, RAINBOW } from '../
 import { unlock, playMusic, say, sayAsync, voice, sfx, stopSpeech, level, currentSpeaker } from '../audio.js';
 import { storyId } from '../engine/lines.js';
 import { fovPunch } from '../engine/quiz.js';
+import { earn } from '../engine/sticker.js';
 import { renderShow } from '../learn/frame.js';
 import { levelOf, startSession } from '../learn/profile.js';
 import { taughtThrough, trickyThrough, unitForLevel } from '../learn/code.js';
@@ -44,7 +45,7 @@ function mountUI({ deckIcon, banner }) {
  * intro [emoji, line, seconds], slide [emoji, line] (shortcut bubble), pickupColors, joinColors, sparkle { gravity, life },
  * tapUp, party { center(), r, y: [lo, hi], colors }, leg { perStep, min }, meet { side, ahead, dur, hop, up: [friend, hero] },
  * parade { side, bob }, cam { back, side, up, ahead, lookUp, ride, bob, floor, greet { back, side, up, lookUp } },
- * houses { keys, info, create, lockedTwin } (optional), scoreFrame (an icon: show the score as a ten-frame of it), build(G).
+ * houses { keys, info, create, lockedTwin, sticker } (optional), scoreFrame (an icon: show the score as a ten-frame of it), build(G).
  * hooks: ready, trail(p, t), wake(p), stop(i), ride(sc), onFriend(f) (after the hello, before joining: the learning moment),
  *        finale, cheer, reset, resetTwin, update(dt, t), onScore(total, added, before),
  *        camera(mode, desired, look, t) -> true when the game framed the shot itself, puff(p, n).
@@ -314,7 +315,10 @@ export function createBoardGame(cfg) {
     $('#mini .mp').textContent = ''; const mf = $('#mini .mf'); mf.innerHTML = ''; delete mf.dataset.goal;
     S.house = H.create(key, {
       env: scene.environment, say, voice, sfx, who: cfg.reader, hero: HERO.voice, level: (strand) => levelOf(cfg.reader, strand),
-      addStars: (n) => { if (!S.housesDone.has(key)) { S.housesDone.add(key); addStars(n); } },
+      addStars: (n) => {
+        if (S.housesDone.has(key)) return; S.housesDone.add(key); addStars(n);
+        if (H.sticker && H.keys.every((k) => S.housesDone.has(k))) earn(cfg.reader, H.sticker);   // every house's game done
+      },
       status: (txt) => { $('#mini .mp').textContent = txt; },
       count: showCount,
     });

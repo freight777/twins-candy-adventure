@@ -3,6 +3,7 @@ import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, candyCaneTex, setStyle, shade, bakeStatic, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic, voice, level, currentSpeaker } from '../audio.js';
 import { makeGift } from '../candies.js';
+import { earn } from '../engine/sticker.js';
 
 const sph = (r, w = 18, h = 12) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 14) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -126,6 +127,7 @@ export class CastleScene extends BaseScene {
     this.stage = 'greet'; this.wave(this.king); this.wave(this.queen); sfx.fanfare(); this.confetti(); P.both().forEach((t) => (t.mode = 'cheer'));
     ui.bubble('\u{1F451}\u{1F389}\u{1F389}', 'Congratulations Adalyn and Esmae!', 'king', false);
     await this.line('Congratulations Adalyn and Esmae!', 'king', { priority: 2, minMs: 2500 }); await this.wait(.4);
+    earn('adalyn', 'castle-crown'); earn('esmae', 'castle-crown');
     // the tunnel stars pay off: the King names how many they caught (counting to 10, incidentally)
     const stars = Math.min(10, this.game.stars || 0);
     if (stars > 0) { ui.bubble('\u2B50'.repeat(Math.min(stars, 5)), '', 'king', false); await this.alive(voice(['you_caught', `n_${stars}`, 'stars_in_tunnel'], { priority: 2 })); await this.wait(.3); }
