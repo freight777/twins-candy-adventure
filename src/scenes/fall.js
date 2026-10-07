@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, rand, pick, clamp, lerp, ease, glowSprite, emojiSprite, emojiTex, stripedGeo, vertexToon, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, rand, pick, clamp, lerp, glowSprite, emojiSprite, emojiTex, stripedGeo, vertexToon, CANDY } from '../util.js';
 import { sfx, playMusic, voice } from '../audio.js';
 import { levelOf, recordItem } from '../learn/profile.js';
 import { earn } from '../engine/sticker.js';

@@ -7,6 +7,7 @@ import { Q, auto as autoTier, chooseTier } from './engine/quality.js';
 import { skyEnv } from './env.js';
 import { settings as learnSettings, saveSettings as saveLearn } from './learning.js';
 import { applyBedtime } from './engine/bedtime.js';
+import { startSession } from './learn/profile.js';
 applyBedtime();
 import { preloadAssets, MODEL_LIST, onProgress } from './assets.js';
 import { Party } from './party.js';
@@ -155,5 +156,5 @@ async function boot() {
 boot().catch((e) => { console.error(e); loading.fail(); });
 
 // wire up the Play button (also unlocks audio, which iPads require)
-ui.onPlay(() => { unlock(); game.stars = 0; game.eaten = 0; game.current.startPlay && game.current.startPlay(); });   // a fresh run: tunnel stars and eaten candy start at zero
+ui.onPlay(() => { unlock(); startSession('adalyn'); startSession('esmae'); game.stars = 0; game.eaten = 0; game.current.startPlay && game.current.startPlay(); });   // a fresh run: tunnel stars and eaten candy start at zero
 export { playMusic, stopMusic };

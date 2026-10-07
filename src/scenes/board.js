@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, stripedGeo, vertexToon, candyCaneTex, swirlTex, setStyle, shade, makeSky, makeClouds, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, candyCaneTex, swirlTex, setStyle, shade, makeSky, makeClouds, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic, sayAsync, voice } from '../audio.js';
 import { model } from '../assets.js';
 import { settings as learnSettings } from '../learn/profile.js';

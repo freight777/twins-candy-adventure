@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
-import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, candyCaneTex, setStyle, shade, bakeStatic, RAINBOW, CANDY } from '../util.js';
+import { toon, mk, outline, rand, pick, ease, glowSprite, canvasTex, candyCaneTex, setStyle, shade, bakeStatic, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic, voice, level, currentSpeaker } from '../audio.js';
 import { makeGift } from '../candies.js';
 import { earn } from '../engine/sticker.js';
