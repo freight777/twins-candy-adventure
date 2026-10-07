@@ -46,6 +46,16 @@ function placeFlames() {      // the wall SVG is 1600 x 640, "xMidYMax slice"
   flames.forEach((f, i) => { const [x, y] = FLAMES[i]; f.style.cssText += `;left:${ox + x * s}px;top:${oy + y * s}px;width:${10 * s}px;height:${18 * s}px`; });
 }
 addEventListener('resize', placeFlames); placeFlames();
+// (an easter egg) the chandeliers can be tapped: they jingle and a friendly bat flies out
+[0, 5].forEach((i) => { const b = document.createElement('button'); b.className = 'chandelier'; b.setAttribute('aria-label', 'chandelier'); b.dataset.i = i; flameBox.appendChild(b); });
+function placeChandeliers() { document.querySelectorAll('.chandelier').forEach((b) => { const f = flames[+b.dataset.i + 2]; b.style.left = f.style.left; b.style.top = f.style.top; }); }
+addEventListener('resize', placeChandeliers); placeChandeliers();
+flameBox.addEventListener('pointerdown', (e) => {
+  if (!e.target.classList.contains('chandelier')) return; e.stopPropagation();
+  sfx.ting(); flames.forEach((f) => f.classList.add('jingle')); setTimeout(() => flames.forEach((f) => f.classList.remove('jingle')), 900);
+  const bat = document.createElement('div'); bat.className = 'bat'; bat.textContent = '\u{1F987}'; bat.style.left = e.target.style.left; bat.style.top = e.target.style.top; document.body.appendChild(bat);
+  setTimeout(() => bat.remove(), 2600); earn(WHO, 'egg-bat');
+});
 
 // the dishes counter: a ten-frame of stars (the counter itself teaches ten)
 $('#stars .sf').innerHTML = '<i>⭐</i>'.repeat(GOAL);
@@ -53,7 +63,7 @@ const showStars = (n) => { let k = 0; document.querySelectorAll('#stars .sf i').
 
 const say = (text, opts = {}) => sayAsync(text, 'princess', { priority: 2, ...opts });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-let served = 0, queue = [], dishes = [], hurry = null;
+let served = 0, queue = [], dishes = [], hurry = null, noodles = 0;
 
 /** the next food, each one once before any repeats */
 function nextFood() {
@@ -70,6 +80,8 @@ async function round() {
   await say(`I'd like ${food.a}, please!`);
   const r = await ask(makeMathQuestion(WHO), WHO, { icon: food.emoji, iconAlt: other.emoji });
   wish.classList.add('hidden');
+  noodles += food.id === 'noodles' ? 1 : 0;
+  if (noodles === 3) { butler.classList.add('dance'); setTimeout(() => butler.classList.remove('dance'), 5200); earn(WHO, 'egg-dance'); }   // (an easter egg: the dancing butler)
   await serve({ html: food.svg(), thanks: `Yummy ${food.name}! Thank you!` }, r.first && !r.helped);
   next();
 }
@@ -129,7 +141,7 @@ async function feast() {
   princess.classList.remove('cheer'); $('#again').classList.remove('hidden'); say('Again?', { priority: 1 });
 }
 $('#again-yes').addEventListener('click', () => {
-  $('#again').classList.add('hidden'); $('#feast').innerHTML = ''; served = 0; dishes = []; showStars(0); round();
+  $('#again').classList.add('hidden'); $('#feast').innerHTML = ''; served = 0; dishes = []; noodles = 0; showStars(0); round();
 });
 
 $('#go').addEventListener('click', () => {

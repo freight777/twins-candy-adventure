@@ -11,6 +11,12 @@ svg { display:block; }
 @keyframes flicker { from { transform:scale(1,1) } to { transform:scale(.85,1.15) } }
 /* the chandelier flames: small elements of their own over the wall, so flickering never repaints the big wall picture */
 #flames { position:absolute; inset:0; pointer-events:none; }
+.chandelier { position:absolute; width:16vmin; height:14vmin; transform:translate(-50%,-40%); border:0; background:none; pointer-events:auto; cursor:pointer; }
+.flame-x.jingle { animation-duration:.12s; }
+.bat { position:fixed; font-size:clamp(40px,7vw,70px); z-index:9; pointer-events:none; animation:batfly 2.6s ease-in forwards; }
+@keyframes batfly { 0% { transform:translate(-50%,-50%) scale(.3); } 20% { transform:translate(-40%,-20%) scale(1) rotate(-10deg); } 50% { transform:translate(10vw,-30%) rotate(10deg); } 100% { transform:translate(60vw,-60vh) rotate(-20deg) scale(.6); opacity:.2; } }
+#butler.dance .b-body { animation:breakdance 1.3s ease-in-out 4 !important; transform-origin:50% 60%; }
+@keyframes breakdance { 0% { transform:rotate(0); } 25% { transform:rotate(-20deg) translateY(-6%); } 50% { transform:rotate(180deg) translateY(4%); } 75% { transform:rotate(340deg) translateY(-6%); } 100% { transform:rotate(360deg); } }
 .flame-x { position:absolute; transform:translate(-50%,-50%); border-radius:50% 50% 50% 50% / 62% 62% 38% 38%; background:radial-gradient(circle at 50% 72%, #fff8d0 0, #ffd04a 45%, #ff9a2a 100%);
   box-shadow:0 0 10px 3px rgba(255,200,58,.5); animation:flick .9s ease-in-out infinite alternate; will-change:transform; }
 .flame-x:nth-child(3n) { animation-duration:1.15s; } .flame-x:nth-child(3n+1) { animation-duration:.8s; }

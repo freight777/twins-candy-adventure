@@ -31,6 +31,9 @@
     #stickerbook:active { transform: translateY(5px); box-shadow: 0 1px 0 #0002; }
     @keyframes book-bob { 50% { transform: translateY(-5px) rotate(-4deg); } }
     .game { position: relative; }
+    #amp { cursor: pointer; display: inline-block; }
+    .parade { position: fixed; bottom: 6vh; left: -20vw; font-size: clamp(56px, 10vw, 110px); z-index: 50; pointer-events: none; animation: parade 4.2s linear forwards; }
+    @keyframes parade { 0% { transform: translateX(0) translateY(0); } 25% { transform: translateX(35vw) translateY(-4vh); } 50% { transform: translateX(70vw) translateY(0); } 75% { transform: translateX(105vw) translateY(-4vh); } 100% { transform: translateX(140vw) translateY(0); } }
     .game .badge { position: absolute; top: 10px; right: 10px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 3px; max-width: 60%; padding: 5px 8px; border-radius: 16px; background: #fffd; box-shadow: 0 3px 0 #0002; }
     .game .badge i { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c0, #ffc83a 60%, #e09a10); }
     #grownups { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 52px; height: 52px; border-radius: 50%; border: 0; background: #ffffffaa; font-size: 26px; box-shadow: 0 3px 0 #0002; cursor: pointer; }
@@ -40,7 +43,7 @@
   <button id="grownups" aria-label="Grown-ups (hold)">&#9881;&#65039;</button>
   <a id="stickerbook" href="./stickers.html" aria-label="Sticker book">&#128210;</a>
   <main>
-    <h1>Adalyn &amp; Esmae's<br>Games</h1>
+    <h1>Adalyn <span id="amp">&amp;</span> Esmae's<br>Games</h1>
     <div class="games">
       <a class="game candy" href="./candy.html">
         <div class="art">&#127852;&#127846;&#127853;</div>

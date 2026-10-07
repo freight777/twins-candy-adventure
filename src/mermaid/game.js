@@ -59,6 +59,18 @@ const G = createBoardGame({
     wake: (p, dt) => { if (Math.random() < dt * 25) bubblesAt(_q.copy(p).add(_r.set(rand(-.5, .5), rand(-1.5, .5), rand(-.5, .5))), 1); },
     stop: async (i) => { const pearl = W.pearls.find((p) => p.tile === i); if (pearl) await treat(pearl); },
     onFriend: kindness,
+    tapWorld(ray) {                                                               // (an easter egg: a crab in a clam)
+      const pr = W.pearls.find((p) => ray.intersectObject(p.group, true).length); if (!pr || pr.crab) return;
+      const c = pr.crab = emojiSprite('\u{1F980}', 1.6); c.position.set(0, 1.2, .6); pr.group.add(c); sfx.giggle(); earn('esmae', 'egg-crab');
+      G.anim(2.4, (k) => { c.position.y = 1.2 + Math.sin(Math.min(1, k * 4) * Math.PI / 2) * 1.6 - (k > .8 ? (k - .8) * 8 : 0); c.material.rotation = Math.sin(k * 30) * .35; }).then(() => { pr.group.remove(c); c.material.dispose(); pr.crab = null; });
+    },
+    onTap(hit) {                                                                   // (an easter egg: the sleepy king)
+      if (hit.u !== king || S.napping) return;
+      S.kingTaps = (S.kingTaps || 0) + 1; if (S.kingTaps < 3) return;
+      S.kingTaps = 0; S.napping = true; earn('esmae', 'egg-nap');
+      const z = emojiSprite('\u{1F4A4}', 2.2); z.position.set(.6, 4.2, 0); king.root.add(z); king.upright = false;
+      G.anim(6, (k) => { z.position.y = 4.2 + Math.sin(k * 12) * .25; z.material.opacity = k > .85 ? (1 - k) / .15 : 1; }).then(() => { king.root.remove(z); z.material.dispose(); king.upright = true; S.napping = false; });
+    },
     // hearts are counted out loud up to ten; every full ten-frame is "a full frame of love"
     onScore(n, added, before) {
       if (Math.floor(n / 10) > Math.floor(before / 10)) { voice('full_frame_love', { priority: 1 }); earn('esmae', 'frame-of-love'); return; }

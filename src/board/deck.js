@@ -47,7 +47,7 @@ function mountUI({ deckIcon, banner }) {
  * parade { side, bob }, cam { back, side, up, ahead, lookUp, ride, bob, floor, greet { back, side, up, lookUp } },
  * houses { keys, info, create, lockedTwin, sticker } (optional), scoreFrame (an icon: show the score as a ten-frame of it), build(G).
  * hooks: ready, trail(p, t), wake(p), stop(i), ride(sc), onFriend(f) (after the hello, before joining: the learning moment),
- *        finale, cheer, reset, resetTwin, update(dt, t), onScore(total, added, before),
+ *        finale, cheer, reset, resetTwin, update(dt, t), onScore(total, added, before), onTap(hit), tapWorld(ray),
  *        camera(mode, desired, look, t) -> true when the game framed the shot itself, puff(p, n).
  */
 export function createBoardGame(cfg) {
@@ -418,7 +418,8 @@ export function createBoardGame(cfg) {
     if (!G.W) return;
     ray.setFromCamera(ndc, camera);
     const hit = G.taps.find((a) => a.u.root.visible && ray.intersectObject(a.u.root, true).length);
-    if (!hit) return;
+    if (!hit) { if (hooks.tapWorld) hooks.tapWorld(ray); return; }
+    if (hooks.onTap) hooks.onTap(hit);
     sfx.giggle(); say(hit.n + '!', HERO.voice, { priority: 0 }); sparkleAt(above(hit.u, cfg.tapUp ?? 2.6), RAINBOW.concat([0xffffff]), 36, 5); puff(hit.u.root.position.clone(), 10);
     hop(hit.u, .5);
   });

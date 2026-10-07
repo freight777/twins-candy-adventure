@@ -6,6 +6,7 @@ import { model } from '../assets.js';
 import { settings as learnSettings } from '../learn/profile.js';
 import { makeReadingQuestion } from '../learn/reading.js';
 import { ask } from '../engine/quiz.js';
+import { earn } from '../engine/sticker.js';
 
 const sph = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -144,7 +145,7 @@ export class BoardScene extends BaseScene {
     outline(this.dice, 1.06);
     this.diceGlow = glowSprite(0xffe680, 6, .5); this.dice.add(this.diceGlow);
     this.scene.add(this.dice);
-    this.addInteractive(this.dice, () => this.pressRoll(), 2.4);
+    this.addInteractive(this.dice, () => { if (this.rollResolve) this.pressRoll(); else this.diceTap(); }, 2.4);
   }
 
   // ===================================================================== flow
@@ -229,6 +230,15 @@ export class BoardScene extends BaseScene {
       this.game.ui.roll(true, () => this.pressRoll());
       this.rollIdle = 0; this.hintShown = false;
     });
+  }
+  /** (an easter egg) extra taps on a rolling dice: on the third it turns into a golden twenty-sided dice for a moment */
+  diceTap() {
+    if (!this.dice.visible || this.d20) return;
+    this.diceTaps = (this.diceTaps || 0) + 1; if (this.diceTaps < 3) return;
+    this.diceTaps = 0; const mats = Array.isArray(this.dice.material) ? this.dice.material : [this.dice.material];
+    const d = this.d20 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.75, 0), toon(0xffd24d, { emissive: 0xffa800, emissiveIntensity: .35, flatShading: true }));
+    this.dice.add(d); mats.forEach((m) => (m.visible = false)); sfx.magic(); earn(this.game.party.active, 'egg-dice');
+    this.tm.after(3.5, () => { this.dice.remove(d); d.geometry.dispose(); mats.forEach((m) => (m.visible = true)); this.d20 = null; });
   }
   pressRoll() {
     if (!this.rollResolve) return;

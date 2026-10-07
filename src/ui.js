@@ -21,6 +21,16 @@ function portraitSVG(who) {
 export const ui = {
   init() {
     document.querySelectorAll('.portrait').forEach((b) => (b.innerHTML = portraitSVG(b.dataset.who)));
+    // (an easter egg) three taps on your own picture: your twin sticks her tongue out at you
+    let taps = 0, at = 0;
+    document.querySelectorAll('.swap').forEach((b) => b.addEventListener('click', () => {
+      if (!b.querySelector('.portrait.active')) { taps = 0; return; }
+      const now = performance.now(); taps = now - at < 1500 ? taps + 1 : 1; at = now;
+      if (taps < 3) return; taps = 0;
+      const other = [...document.querySelectorAll('.swap .portrait')].find((p) => !p.classList.contains('active')); if (!other) return;
+      other.classList.add('tongue'); sfx.giggle(); setTimeout(() => other.classList.remove('tongue'), 3000);
+      import('./engine/sticker.js').then(({ earn }) => earn(b.querySelector('.portrait.active').dataset.who, 'egg-portrait'));
+    }));
   },
   onPick(fn) { document.querySelectorAll('.pick, .swap').forEach((b) => b.addEventListener('click', () => fn(b.dataset.who))); },
   onPlay(fn) { $('#play').addEventListener('click', fn); },

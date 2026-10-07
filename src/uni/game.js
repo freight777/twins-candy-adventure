@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { loading } from '../engine/loading.js';
 import { skyEnv } from '../env.js';
 import { preloadModels, onProgress, model } from '../assets.js';
-import { ease, lerp, clamp, rand, RAINBOW } from '../util.js';
+import { ease, lerp, clamp, rand, glowTex, RAINBOW } from '../util.js';
 import { say, sfx } from '../audio.js';
 import { ask } from '../engine/quiz.js';
 import { makeReadingQuestion } from '../learn/reading.js';
@@ -59,13 +59,21 @@ const G = createBoardGame({
     ride: rainbowSlide,
     finale,
     cheer() { sfx.fanfare(); say('You did it, Uni! You made it to the castle!', 'uni'); },
-    reset() { clearTreats(); [kingU, queenU].forEach((m) => (m.root.visible = false)); G.camera.position.set(0, 20, 0); },
+    reset() {
+      S.ices = 0; if (S.cherry) { S.cherry.parent.remove(S.cherry); S.cherry = null; }
+      clearTreats(); [kingU, queenU].forEach((m) => (m.root.visible = false)); G.camera.position.set(0, 20, 0); },
     resetTwin() {
       twin.root.position.copy(W.endSpot); twin.root.position.y = W.heightAt(W.endSpot.x, W.endSpot.z) + 0.3;
       const e = W.tiles[N - 1]; twin.root.rotation.y = Math.atan2(-e.tan.x, -e.tan.z); twin.root.visible = true;
     },
+    tapWorld(ray) {                                                               // (an easter egg: five lamp posts make it night)
+      const h = ray.intersectObject(W.lampPosts)[0]; if (!h || S.night) return;
+      (S.lamps || (S.lamps = new Set())).add(h.instanceId); sfx.ting();
+      if (S.lamps.size >= 5) nightForest();
+    },
     update(dt, t) {
       kingU.update(dt, t, 0); queenU.update(dt, t, 0); updateTreats(dt, t);
+      if (S.flies) { S.flies.position.copy(uni.root.position); S.flyT.value = t; }
       W.startSign.visible = S.mode !== 'title';                              // (no START under the title text while it is up)
     },
     camera(mode, desired, look, t) {
@@ -110,6 +118,23 @@ async function build() {
   twin.speaker = 'uni'; kingU.speaker = 'king'; queenU.speaker = 'queen'; G.talkers = [kingU, queenU];
 }
 
+/** night falls on the forest for half a minute, with fireflies around Uni */
+function nightForest() {
+  S.night = true; S.lamps = null; sfx.magic(); earn('adalyn', 'egg-lamps');
+  const r = G.renderer, e0 = r.toneMappingExposure, fog = G.scene.fog.color.getHex();
+  G.anim(1.5, (k) => { r.toneMappingExposure = lerp(e0, e0 * .42, k); });
+  G.scene.fog.color.set(0x2a2050);
+  const n = 90, P = new Float32Array(n * 3); for (let i = 0; i < n; i++) P.set([rand(-14, 14), rand(.5, 7), rand(-14, 14)], i * 3);
+  S.flyT = { value: 0 };
+  const mat = new THREE.PointsMaterial({ size: .45, color: 0xfff27a, map: glowTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  mat.onBeforeCompile = (sh) => { sh.uniforms.time = S.flyT; sh.vertexShader = 'uniform float time;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat ph = float(gl_VertexID); transformed += vec3(sin(time*.7+ph), sin(time*1.1+ph*1.7)*.5, cos(time*.6+ph*1.3)) * 1.2;'); };
+  S.flies = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(P, 3)), mat); S.flies.frustumCulled = false; G.scene.add(S.flies);
+  G.timers.after(30, () => {
+    G.anim(1.5, (k) => { r.toneMappingExposure = lerp(e0 * .42, e0, k); }).then(() => { r.toneMappingExposure = e0; });
+    G.scene.fog.color.setHex(fog); G.scene.remove(S.flies); S.flies.geometry.dispose(); mat.dispose(); S.flies = null; S.night = false;
+  });
+}
+
 // ---------------------------------------------------------------- the squares' surprises
 async function rainbowSlide(sc) {
   await G.ride(sc, 2.4, (p, t) => {
@@ -120,6 +145,11 @@ async function rainbowSlide(sc) {
 }
 async function iceCream(ice) {
   ui.bubble('\u{1F366} \u{1F60B}', 'Yummy ice cream!', 'uni'); sfx.yum();
+  S.ices = (S.ices || 0) + 1;
+  if (S.ices === 3 && !S.cherry) {                                               // (an easter egg: a cherry on Uni's horn)
+    const tip = uni.hornGlow.parent; S.cherry = new THREE.Mesh(new THREE.SphereGeometry(.17, 14, 10), new THREE.MeshStandardMaterial({ color: 0xe8334a, roughness: .25 }));
+    S.cherry.position.set(0, 1.45, 0); tip.add(S.cherry); earn('adalyn', 'egg-cherry');
+  }
   G.face(uni, ice.spot);
   await anim(.5, (k) => { uni.lift = Math.sin(k * Math.PI) * 1.2; }, ease.linear); uni.lift = 0;
   for (let k = 0; k < 3; k++) { sfx.crunch(); sparkleAt(ice.holder.position.clone().add(upBy(4.5)), [0xffa8d8, 0xffffff, 0xfff0a0, 0x9ff0c8], 18, 3); ice.holder.scale.setScalar(1 - k * .05); await sleep(.45); }

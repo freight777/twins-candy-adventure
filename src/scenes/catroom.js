@@ -3,6 +3,7 @@ import { BaseScene } from '../scene-base.js';
 import { toon, mk, outline, rand, pick, clamp, lerp, ease, glowSprite, canvasTex, setStyle, shade, RAINBOW, CANDY } from '../util.js';
 import { sfx, playMusic, stopSpeech, level, currentSpeaker } from '../audio.js';
 import { makeCat } from '../cat.js';
+import { earn } from '../engine/sticker.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 14) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -184,6 +185,13 @@ export class CatRoomScene extends BaseScene {
 
   tapCat() {
     sfx.meow(); this.talk = 1.5;
+    const now = this.time || 0; this.catTaps = (now - (this.catTapAt || 0) < 6 ? this.catTaps || 0 : 0) + 1; this.catTapAt = now;
+    if (this.catTaps === 4 && !this.lolly) {                                    // (an easter egg: lollipop tail)
+      const u = this.cat.userData, tip = u.tailBalls[u.tailBalls.length - 1], g = this.lolly = new THREE.Group();
+      g.add(mk(new THREE.SphereGeometry(.42, 20, 14), 0xff6fb5, [0, .5, 0], [1, 1, .45]), mk(new THREE.TorusGeometry(.26, .06, 8, 24), 0xffffff, [0, .5, .17]), mk(new THREE.CylinderGeometry(.04, .04, .6, 8), 0xffffff, [0, .1, 0]));
+      tip.add(g); tip.scale.setScalar(.6); sfx.magic(); earn(this.game.party.active, 'egg-cat-tail');
+      this.tm.after(10, () => { tip.remove(g); tip.scale.setScalar(1); this.lolly = null; this.catTaps = 0; });
+    }
     this.fx.burst(this.cat.position.clone().add(new THREE.Vector3(0, 3, 1)), { count: 14, colors: [0xff6f91, 0xff9fcb], speed: 2.5, gravity: 1.5, life: 1.4, size: .9 });
     this.tm.tween(.7, (k) => { this.cat.rotation.z = Math.sin(k * Math.PI * 4) * .15 * (1 - k); });
   }

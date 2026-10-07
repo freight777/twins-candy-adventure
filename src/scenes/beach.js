@@ -5,6 +5,7 @@ import { Q } from '../engine/quality.js';
 import { createAdult, createToddler } from '../characters.js';
 import { sfx, playMusic } from '../audio.js';
 import { model } from '../assets.js';
+import { earn } from '../engine/sticker.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -540,6 +541,12 @@ export class BeachScene extends BaseScene {
 
   tapSun() {
     this.touch(); sfx.giggle();
+    this.sunTaps = (this.sunTaps || 0) + 1;
+    if (this.sunTaps === 5 && !this.shades) {                                  // (an easter egg: cool sun)
+      const g = this.shades = new THREE.Group(), lens = new THREE.MeshBasicMaterial({ color: 0x1a1030 });
+      for (const s of [-1, 1]) g.add(mk(new THREE.CylinderGeometry(1.6, 1.6, .3, 24).rotateX(Math.PI / 2), lens, [s * 2.4, 1.4, 6.9]));
+      g.add(mk(new THREE.BoxGeometry(1.6, .35, .3), lens, [0, 1.7, 6.9])); this.sun.add(g); sfx.tada(); earn(this.game.party.active, 'egg-sun');
+    }
     this.fx.burst(this.sun.position.clone().add(new THREE.Vector3(0, 0, 20)), { count: 40, colors: [0xffe14d, 0xffffff, 0xff9f4d], speed: 12, gravity: 0, life: 1.4, size: 2 });
     this.tm.tween(.6, (k) => { this.sunEye.scale.y = 1.3 * (1 - Math.sin(k * Math.PI) * .9); this.sun.rotation.z = Math.sin(k * Math.PI * 2) * .2; });
   }

@@ -192,7 +192,7 @@ export function buildWorld(scene) {
   // candy-cane lamp posts with star lanterns along both sides of the path
   const posts = [];
   for (let i = 1; i < N - 1; i += 3) { const t = W.tiles[i], n = new THREE.Vector3(t.tan.z, 0, -t.tan.x); [-1, 1].forEach((s) => { const p = t.pos.clone().add(n.clone().multiplyScalar(s * 3.4)); p.y = heightAt(p.x, p.z); posts.push({ p, yaw: Math.atan2(n.x * s, n.z * s) }); }); }
-  inst(cyl(.14, .16, 3.2, 8), toon(0xffffff, { map: candyCaneTex(4) }), posts.length, (i, o) => { const q = posts[i].p; o.position.set(q.x, q.y + 1.5, q.z); }, true);
+  W.lampPosts = inst(cyl(.14, .16, 3.2, 8), toon(0xffffff, { map: candyCaneTex(4) }), posts.length, (i, o) => { const q = posts[i].p; o.position.set(q.x, q.y + 1.5, q.z); }, true);
   inst(sph(.34, 12, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff0a0).multiplyScalar(1.6) }), posts.length, (i, o) => { const q = posts[i].p; o.position.set(q.x, q.y + 3.4, q.z); }, false);
   posts.forEach((q, i) => { if (i % 3 === 0) { const gl = glowSprite(0xfff0a0, 5, .45); gl.position.copy(q.p).add(new THREE.Vector3(0, 3.4, 0)); scene.add(gl); } });
 

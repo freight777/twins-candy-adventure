@@ -35,6 +35,8 @@ html, body {
 
 /* ---------- hud ---------- */
 #hud { position: absolute; inset: 0; }
+.portrait { position: relative; }
+.portrait.tongue::after { content: '\1F61B'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2.4em; background: rgba(255,255,255,.75); border-radius: 50%; animation: bob .4s ease-in-out 4; }
 /* the meadow's counting mission: a ten-frame that fills one cell per candy eaten */
 #mission { position: absolute; left: max(14px, env(safe-area-inset-left)); top: calc(max(14px, env(safe-area-inset-top)) + clamp(64px, 9vw, 96px) + 16px); background: rgba(255,255,255,.88); border-radius: 22px; padding: 8px 10px; box-shadow: 0 5px 0 rgba(0,0,0,.12); pointer-events: none; min-height: 0; }
 #mission .cell { width: clamp(28px, 4.4vw, 44px); }
