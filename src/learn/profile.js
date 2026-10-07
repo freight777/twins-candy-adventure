@@ -53,6 +53,8 @@ export function levelOf(who, strand) {
   const pinned = strand === 'math' ? settings.mathLevel : settings.level;
   return pinned === 'auto' || pinned == null ? kid(who)[strand].level : Math.max(0, Math.min(MAX[strand], Number(pinned)));
 }
+/** keep one small fact about a child on this device (Derby: her best number of home runs) */
+export function remember(who, key, value) { kid(who)[key] = value; save(); }
 export function award(who, sticker) { const k = kid(who); if (k.stickers.includes(sticker)) return false; k.stickers.push(sticker); save(); return true; }
 export function startSession(who) { const k = kid(who); k.sessions++; k.lastPlayed = Date.now(); save(); }
 export function resetKid(who) { data[who] = blank(); save(); }

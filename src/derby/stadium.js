@@ -144,7 +144,7 @@ export function buildStadium(scene, T = {}) {
   [-1, 1].forEach((s) => { const l = new THREE.Mesh(new THREE.PlaneGeometry(.35, poleR).rotateX(-Math.PI / 2), chalk); l.position.set(s * poleR * .3536, .06, -poleR * .3536); l.rotation.y = -s * Math.PI / 4; scene.add(l); });
   [-1, 1].forEach((s) => { const cx = s * 3.2, w = 3.3, d = 6.2, t = .14; [[0, -d / 2, w, t], [0, d / 2, w, t], [-w / 2, 0, t, d], [w / 2, 0, t, d]].forEach(([x, z, sx, sz]) => { const e = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz).rotateX(-Math.PI / 2), chalk); e.position.set(cx + x, .05, z); scene.add(e); }); });
   S.zones = {};
-  [-1, 1].forEach((s) => { const r = new THREE.Mesh(new THREE.RingGeometry(.42, .6, 30).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); r.position.set(s * .8, .11, -.4); scene.add(r); S.zones[s] = r; });
+  [-1, 1].forEach((s) => { const r = new THREE.Mesh(new THREE.RingGeometry(.7, 1.0, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); r.position.set(s * 1.4, .11, -.4); scene.add(r); S.zones[s] = r; });
 
   // ---- outfield wall: navy padding, painted distances, a yellow top line, foul poles ----
   const WH = 8;
@@ -274,7 +274,7 @@ export function buildStadium(scene, T = {}) {
   const bth = .3, bw = 44, bh = 24.75, boardPos = P3(bth, wallR(bth) + TIERS[2].off - 4, 58);
   const board = new THREE.Mesh(new THREE.PlaneGeometry(bw, bh), new THREE.MeshBasicMaterial({ map: sbT, color: new THREE.Color(1.15, 1.15, 1.15), fog: false })); board.position.copy(boardPos); board.lookAt(0, 58, 0); scene.add(board);
   const frame = new THREE.Mesh(new THREE.BoxGeometry(bw + 3, bh + 3, 2), mat({ color: 0x1b2230, metalness: .3 })); frame.position.copy(boardPos); frame.lookAt(0, 58, 0); frame.translateZ(-1.3); scene.add(frame);
-  S.setScore = (hr, outs, name) => {
+  S.setScore = (hr, balls = [], total = 10, name) => {
     const g = sbC.getContext('2d'), W = 1280, H = 720; g.fillStyle = '#04070d'; g.fillRect(0, 0, W, H);
     const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0b1a3a'); bg.addColorStop(1, '#030610'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
     for (let y = 0; y < H; y += 6) { g.fillStyle = 'rgba(255,255,255,.025)'; g.fillRect(0, y, W, 2); }
@@ -282,13 +282,13 @@ export function buildStadium(scene, T = {}) {
     g.textAlign = 'center'; g.fillStyle = '#ffb030'; g.font = '800 92px Arial, sans-serif'; g.fillText('HOME RUN DERBY', W / 2, 150);
     g.fillStyle = '#f2f2f2'; g.font = '700 68px Arial, sans-serif'; g.fillText(((name || 'Tony') + "'S").toUpperCase(), W / 2, 240);
     g.fillStyle = '#5dff7a'; g.font = '800 250px "Courier New", monospace'; g.fillText(String(hr), 340, 520); g.fillStyle = '#9fb0d8'; g.font = '700 54px Arial, sans-serif'; g.fillText('HOME RUNS', 340, 600);
-    for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(800 + i * 120, 470, 44, 0, 7); g.fillStyle = i < outs ? '#ff3a4a' : 'rgba(255,255,255,.08)'; g.fill(); g.lineWidth = 6; g.strokeStyle = '#ff3a4a'; g.stroke(); }
-    g.fillStyle = '#9fb0d8'; g.font = '700 54px Arial, sans-serif'; g.fillText('OUTS', 920, 600); sbT.needsUpdate = true;
+    for (let i = 0; i < total; i++) { const x = 700 + (i % 5) * 104, y = 410 + Math.floor(i / 5) * 104, r = balls[i]; g.beginPath(); g.arc(x, y, 40, 0, 7); g.fillStyle = r === 'hr' ? '#ffd24d' : r === 'miss' ? 'rgba(160,170,190,.55)' : 'rgba(255,255,255,.12)'; g.fill(); g.lineWidth = 5; g.strokeStyle = r === 'hr' ? '#fff3b0' : 'rgba(255,255,255,.4)'; g.stroke(); }
+    g.fillStyle = '#9fb0d8'; g.font = '700 54px Arial, sans-serif'; g.fillText('PITCHES', 908, 640); sbT.needsUpdate = true;
   };
-  S.setScore(0, 0);
+  S.setScore(0, [], 10, 'Tony');
   /** flash a big message on the video board for a few seconds (then the score comes back) */
-  let boardFlash = null, lastScore = [0, 0, 'Tony'];
-  const setScoreBase = S.setScore; S.setScore = (hr, outs, name) => { lastScore = [hr, outs, name]; if (!boardFlash) setScoreBase(hr, outs, name); };
+  let boardFlash = null, lastScore = [0, [], 10, 'Tony'];
+  const setScoreBase = S.setScore; S.setScore = (...a) => { lastScore = a; if (!boardFlash) setScoreBase(...a); };
   S.celebrate = (text, sub, sec = 4) => { boardFlash = { text, sub, t: sec, k: 0 }; };
   const drawFlash = (inv) => {
     const g = sbC.getContext('2d'), W = 1280, H = 720; g.fillStyle = inv ? '#ffd24d' : '#0b1a3a'; g.fillRect(0, 0, W, H);
@@ -381,13 +381,17 @@ export function buildStadium(scene, T = {}) {
   });
   S.litSpots = litSpots; S.mode = 'day';
   /** shadow quality by graphics tier: the day sun, and the night key lights (one on medium, both on high) */
-  S.setShadows = (tier) => { sun.castShadow = tier !== 'low'; litSpots.forEach((sp, i) => { if (i < 2) sp.castShadow = tier === 'high' || (tier === 'medium' && i === 0); }); };
+  S.setShadows = (tier, size = 1024) => {
+    sun.castShadow = tier !== 'low'; litSpots.forEach((sp, i) => { if (i < 2) sp.castShadow = tier === 'high' || (tier === 'medium' && i === 0); });
+    [sun, ...litSpots].forEach((l) => { if (size && l.shadow.mapSize.x !== size) { l.shadow.mapSize.set(size, size); if (l.shadow.map) { l.shadow.map.dispose(); l.shadow.map = null; } } });   // the tier's shadow-map size
+  };
   S.setMode = (mode, hasHdr = T.hdr) => {
     const night = mode === 'night'; S.mode = mode;
     hemi.color.set(night ? 0x4a5f9a : 0xbcd4ff); hemi.groundColor.set(night ? 0x151a26 : 0x4a5a3a); hemi.intensity = night ? .65 : (hasHdr ? .25 : .7); sun.intensity = hasHdr ? 2.4 : 3.0;
     sun.visible = !night; litSpots.forEach((sp) => (sp.visible = night));
     skyNight.visible = night; skyline.visible = night; darkGround.visible = night;
-    if (S.grassMat) { S.grassMat.emissive.set(night ? 0x2a6a2c : 0x000000); S.grassMat.emissiveIntensity = night ? .22 : 0; }       // the turf glows a little under the lights without brightening the players sky.visible = !night && !hasHdr;
+    if (S.grassMat) { S.grassMat.emissive.set(night ? 0x2a6a2c : 0x000000); S.grassMat.emissiveIntensity = night ? .22 : 0; }       // the turf glows a little under the lights without brightening the players
+    sky.visible = !night && !hasHdr;                                                    // (this sat inside the comment above, so the sky photo was always hidden)
     lampM.color.copy(new THREE.Color(0xfff2d0)).multiplyScalar(night ? 5 : 1.6); glows.forEach((g) => (g.material.opacity = night ? .55 : .2));
     ledM.color.setScalar(night ? 2.2 : 1.4); board.material.color.setScalar(night ? 1.5 : 1.1);
     crowdMat.color.setScalar(night ? .72 : 1); S.clouds.forEach((m) => (m.visible = !night && !hasHdr));

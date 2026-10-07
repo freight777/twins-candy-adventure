@@ -65,6 +65,8 @@ P('catch_the', 'Catch the'); P('things', 'things!');
 P('pick_a_card', 'Pick a card!', 'counter');
 P('which_cookie_is', 'Which cookie is a'); ['circle', 'triangle', 'square', 'rectangle', 'hexagon'].forEach((s) => add(`shape_${s}`, s, 'counter'));
 P('find_shape_with', 'Find the shape with'); P('sides', 'sides.');
+P('home_runs', 'home runs!', 'announcer'); P('home_run', 'home run!', 'announcer'); P('one_more_than_last', 'One more than last time!', 'announcer'); P('new_best', "That's your best ever!", 'announcer');
+P('that_one_farther', 'That one went farther!', 'counter');
 P('which_more_juice', 'Which glass has more juice?'); P('which_less_juice', 'Which glass has less juice?');
 P('more_juice', 'That one has more!', 'counter'); P('less_juice', 'That one has less!', 'counter');
 P('full_frame_love', 'Ten hearts! A full frame of love!', 'hero');
