@@ -2,6 +2,12 @@
 import './shell.css';
 import { say } from '../audio.js';
 
+// every game is landscape: held upright, the screen shows an iPad turning on its side (CSS shows it in portrait only)
+if (typeof document !== 'undefined' && !document.querySelector('.turn')) {
+  const t = document.createElement('div'); t.className = 'turn'; t.setAttribute('aria-hidden', 'true'); t.innerHTML = '<div class="turn-pad"><i></i></div><div class="turn-arrow">&#8635;</div>';
+  (document.body || document.documentElement).appendChild(t);
+}
+
 /**
  * holdGate(el, onOpen, { ms, onTap }) — a ring fills around `el` while it is held; letting go early cancels
  * (and calls onTap, e.g. to say "Hold the house to go home!"). Moving the finger away cancels too.

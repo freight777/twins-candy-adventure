@@ -11,6 +11,15 @@
 .loading .bar i { display: block; height: 100%; width: 3%; border-radius: 9px; background: #ff5fb3; transition: width .25s; }
 @keyframes ld-bounce { from { transform: translateY(0); } to { transform: translateY(-28px) rotate(8deg); } }
 
+/* "turn the iPad": an upright tablet that turns on its side, shown only when held in portrait */
+.turn { position: fixed; inset: 0; z-index: 90; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: linear-gradient(#9fe0ff, #ffd6ee); }
+.turn-pad { width: 120px; height: 168px; border-radius: 18px; border: 10px solid #fff; background: #ff9ad5; box-shadow: 0 8px 0 rgba(0,0,0,.15); animation: turn-it 2.4s ease-in-out infinite; display: flex; align-items: flex-end; justify-content: center; }
+.turn-pad i { width: 16px; height: 16px; margin-bottom: 6px; border-radius: 50%; background: #fff; }
+.turn-arrow { font-size: 72px; color: #fff; text-shadow: 0 4px 0 rgba(0,0,0,.15); animation: turn-spin 2.4s ease-in-out infinite; }
+@keyframes turn-it { 0%, 25% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
+@keyframes turn-spin { 0%, 25% { transform: rotate(0); } 55%, 100% { transform: rotate(-200deg); } }
+@media (orientation: portrait) and (max-aspect-ratio: 4/5) { .turn { display: flex; } }
+
 /* hold-to-open (engine/gate.js): a pink ring fills around the button while it is held */
 @property --gate-p { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 .gate { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: none; }

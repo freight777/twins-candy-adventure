@@ -77,7 +77,10 @@ const G = createBoardGame({
     },
     update(dt, t) { king.update(dt, t, 0); queen.update(dt, t, 0); updateGifts(dt, t); },
     camera(mode, desired, look, t) {
-      if (mode === 'title') { G.followShot(desired, look, t, 5 + Math.sin(t * .4) * 2); return true; }
+      if (mode === 'title') {                                                    // a slow swim around Esmae, so the title shows her
+        const up = hero.root.position, a = t * .22 + .5;
+        desired.set(up.x + Math.sin(a) * 8.5, up.y + 2.8, up.z + Math.cos(a) * 8.5); look.copy(up); look.y += 1.3; return true;
+      }
       if (mode === 'finale') {                                                   // swing gently in front of the palace
         const f = W.endT, ang = Math.sin(t * .3) * .7, ca = Math.cos(ang), sa = Math.sin(ang), tc = W.terrace;
         desired.copy(tc).addScaledVector(_q.set(-f.x * ca + f.z * sa, 0, -f.z * ca - f.x * sa), 25); desired.y += 10.5;
