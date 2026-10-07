@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { loading } from '../engine/loading.js';
 import { skyEnv } from '../env.js';
 import { preloadModels, onProgress, model } from '../assets.js';
-import { ease, lerp, clamp, rand, glowTex, RAINBOW } from '../util.js';
+import { ease, lerp, clamp, rand, glowTex, emojiSprite, RAINBOW } from '../util.js';
 import { say, sfx } from '../audio.js';
 import { ask } from '../engine/quiz.js';
 import { makeReadingQuestion } from '../learn/reading.js';
@@ -14,6 +14,8 @@ import { earn } from '../engine/sticker.js';
 import { N } from '../board/path.js';
 import { buildWorld, FRIEND_TILES } from './world.js';
 import { createUnicorn, LOOKS } from './unicorn.js';
+import { makeCat } from '../cat.js';
+import { mk, toon } from '../util.js';
 import { createHouse, HOUSES } from './houses.js';
 
 const SCALE = 1.1;
@@ -66,7 +68,13 @@ const G = createBoardGame({
       twin.root.position.copy(W.endSpot); twin.root.position.y = W.heightAt(W.endSpot.x, W.endSpot.z) + 0.3;
       const e = W.tiles[N - 1]; twin.root.rotation.y = Math.atan2(-e.tan.x, -e.tan.z); twin.root.visible = true;
     },
-    tapWorld(ray) {                                                               // (an easter egg: five lamp posts make it night)
+    tapWorld(ray) {
+      const nc = S.napCat;
+      if (nc && !nc.awake && ray.intersectObject(nc.c, true).length) {              // the Cat wakes up for a moment
+        nc.awake = 5; nc.cat.userData.eyes.forEach((e) => (e.scale.y = 1)); nc.z.visible = false; sfx.meow();
+        ui.bubble('\u{1F431} \u{1F971}', 'Hi Uni! I was having a catnap!', 'cat', true, { priority: 1 }); G.timers.after(3.5, () => ui.hideBubble());
+        return;
+      }
       const h = ray.intersectObject(W.lampPosts)[0]; if (!h || S.night) return;
       (S.lamps || (S.lamps = new Set())).add(h.instanceId); sfx.ting();
       if (S.lamps.size >= 5) nightForest();
@@ -74,6 +82,11 @@ const G = createBoardGame({
     update(dt, t) {
       kingU.update(dt, t, 0); queenU.update(dt, t, 0); updateTreats(dt, t);
       if (S.flies) { S.flies.position.copy(uni.root.position); S.flyT.value = t; }
+      const nc = S.napCat;
+      if (nc) {
+        nc.c.position.y = nc.y + Math.sin(t * .8) * .4; nc.z.position.y = 3.2 + Math.sin(t * 2) * .2;
+        if (nc.awake > 0 && (nc.awake -= dt) <= 0) { nc.awake = 0; nc.cat.userData.eyes.forEach((e) => (e.scale.y = .12)); nc.z.visible = true; }
+      }
       W.startSign.visible = S.mode !== 'title';                              // (no START under the title text while it is up)
     },
     camera(mode, desired, look, t) {
@@ -115,9 +128,20 @@ async function build() {
   kingU = unicorn(LOOKS.king, 1.45); queenU = unicorn(LOOKS.queen, 1.45);
   [kingU, queenU].forEach((m) => (m.root.visible = false));
   G.taps = [{ u: twin, n: 'Uni' }];
+  napCat();
   twin.speaker = 'uni'; kingU.speaker = 'king'; queenU.speaker = 'queen'; G.talkers = [kingU, queenU];
 }
 
+/** the Cat from Candy Adventure, asleep on a little cloud beside the path (tap her: she yawns and says hello) */
+function napCat() {
+  const t = W.tiles[19], c = new THREE.Group(); c.position.copy(t.pos).addScaledVector(G.side(t.tan), -8).add(upBy(6)); G.scene.add(c);
+  [[0, 0, 0, 1.5], [-1.4, -.2, .2, 1.1], [1.4, -.15, 0, 1.15], [.3, .5, -.3, 1]].forEach(([x, y, z, r]) => c.add(mk(new THREE.SphereGeometry(r, 18, 12), toon(0xffffff), [x, y, z], [1.2, .8, 1])));
+  const cat = makeCat(); cat.userData.grin.forEach((m) => (m.opacity = 1)); cat.userData.body.forEach((m) => (m.opacity = 1));
+  cat.scale.setScalar(.75); cat.position.set(0, 1.5, 0); cat.rotation.set(0, Math.atan2(t.pos.x - c.position.x, t.pos.z - c.position.z), .35); c.add(cat);
+  cat.userData.eyes.forEach((e) => (e.scale.y = .12));
+  const z = emojiSprite('\u{1F4A4}', 1.6); z.position.set(1, 3.2, 0); c.add(z);
+  S.napCat = { c, cat, z, y: c.position.y, awake: 0 };
+}
 /** night falls on the forest for half a minute, with fireflies around Uni */
 function nightForest() {
   S.night = true; S.lamps = null; sfx.magic(); earn('adalyn', 'egg-lamps');

@@ -9,13 +9,13 @@ import { homeGate } from '../engine/gate.js';
 import { createPipeline } from '../engine/pipeline.js';
 import { Q } from '../engine/quality.js';
 import '../engine/quiz.css';
-import { Timers, Fx, ease, lerp, clamp, rand, linearizeFrag, RAINBOW } from '../util.js';
+import { Timers, Fx, ease, lerp, clamp, rand, linearizeFrag, emojiSprite, RAINBOW } from '../util.js';
 import { unlock, playMusic, say, sayAsync, voice, sfx, stopSpeech, level, currentSpeaker } from '../audio.js';
 import { storyId } from '../engine/lines.js';
 import { fovPunch } from '../engine/quiz.js';
 import { earn } from '../engine/sticker.js';
 import { renderShow } from '../learn/frame.js';
-import { levelOf, startSession } from '../learn/profile.js';
+import { levelOf, startSession, kid } from '../learn/profile.js';
 import { taughtThrough, trickyThrough, unitForLevel } from '../learn/code.js';
 import { COLORS, N } from './path.js';
 
@@ -192,9 +192,12 @@ export function createBoardGame(cfg) {
   }
   async function play() {
     S.mode = 'follow'; ui.show('#title', false); ui.show('#hud');
+    const last = cfg.reader ? kid(cfg.reader).lastPlayed : 0;
     if (cfg.reader) startSession(cfg.reader);
+    if (last && Date.now() - last > 3 * 864e5) { await ui.bubble(`${HERO.emoji} \u{1F496}`, 'Welcome back! I missed you!', HERO.voice, true, { priority: 2 }); await sleep(.3); }   // three days away
     const [emoji, line, secs] = cfg.intro;
     ui.bubble(emoji, line); sfx.chime(); await sleep(secs); ui.hideBubble();
+    if (S.surprise && S.surprise.fresh) { S.surprise.fresh = false; G.face(G.hero, S.surprise.obj.position); await ui.bubble(S.surprise.emoji + ' \u2728', 'Look! Something new today!', HERO.voice, true, { priority: 2 }); await sleep(.5); ui.hideBubble(); }
     while (S.idx < N - 1) await takeTurn();
     await finale();
   }
@@ -391,6 +394,7 @@ export function createBoardGame(cfg) {
     for (const c of G.talkers) c.talk = who && c.speaker === who ? lv : 0;
     G.friends.forEach((f) => f.u.update(dt, t, f.speed));
     if (G.twin) G.twin.update(dt, t, S.twinSpeed || 0);
+    if (S.surprise) S.surprise.obj.position.y = S.surprise.y + Math.sin(t * 1.6) * .35;
     if (hooks.update) hooks.update(dt, t);
     parade(dt, t);
     if (S.speed > .4 && hooks.wake) hooks.wake(G.hero.root.position, dt);
@@ -432,12 +436,22 @@ export function createBoardGame(cfg) {
     G.hero.speaker = HERO.voice; G.friends.forEach((f) => (f.u.speaker = f.voice));
     G.talkers = [G.hero, ...G.friends.map((f) => f.u), ...(G.twin ? [G.twin] : []), ...(G.talkers || [])];
     if (hooks.ready) hooks.ready();
+    dailySurprise();
     if (cfg.scoreFrame) { const st = $('#stars'); st.classList.add('framed'); st.innerHTML = `<span class="tens"></span><span class="sf">${`<i>${cfg.scoreFrame}</i>`.repeat(10)}</span><span id="starcount" hidden>0</span>`; }
     const tag = cfg.houses ? 'button' : 'div';
     $('#friends').innerHTML = [...cfg.friends, cfg.twin].map((f, i) => `<${tag} class="fr" data-i="${i}" style="--c:${f.css}" title="${f.name}${cfg.houses ? "'s house" : ''}">${f.emoji}</${tag}>`).join('');
     if (cfg.houses) document.querySelectorAll('.fr').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); unlock(); visit(+b.dataset.i); }));
     loading.done();
     S.mode = 'title'; ui.show('#title');
+  }
+  /** one new thing in the world each day, beside the first squares; mentioned the first time it is seen that day */
+  function dailySurprise() {
+    const d = new Date(), m = d.getMonth(), day = d.getDate();
+    const emoji = m === 9 ? '\u{1F383}' : m === 11 ? '\u26C4' : m === 1 && day === 14 ? '\u{1F49D}' : ['\u{1F388}', '\u{1F308}', '\u{1F98B}', '\u{1F381}', '\u{1F33B}', '\u{1FA81}', '\u{1F422}'][d.getDay()];
+    const t = G.W.tiles[3], obj = emojiSprite(emoji, 4); obj.position.copy(t.pos).addScaledVector(side(t.tan), 6).add(_r.set(0, 2.6, 0)); scene.add(obj);
+    let fresh = true; const key = `ae:surprise:${cfg.debugName}`;
+    try { fresh = localStorage.getItem(key) !== d.toDateString(); localStorage.setItem(key, d.toDateString()); } catch { /* private mode */ }
+    S.surprise = { obj, emoji, fresh, y: obj.position.y };
   }
   G.start = () => {
     gfx.start((dt) => {

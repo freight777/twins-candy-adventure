@@ -110,6 +110,9 @@ story('hero', "Let's go on a mermaid adventure, Esmae!", 'A dolphin ride!', 'A s
   "Welcome to Sparkle's Shell Salon! Tap the hair clips to put them in her hair!", "Welcome to Rainbow's Coral Band! Tap every color to play music!",
   "Welcome to Kitty's Fish Cafe! Give each fish one treat!", "Welcome to Lucy's Bubble Room! Pop the bubbles!");
 story('lucy', "Esmae! It's me, Lucy! We're twins!");
+story('uni', 'Welcome back! I missed you!', 'Look! Something new today!');
+story('hero', 'Welcome back! I missed you!', 'Look! Something new today!');
+story('cat', 'Hi Uni! I was having a catnap!');
 story('sparkle', 'Oh no! I lost my hair clip! Can you help me find it?', "Thank you, Esmae! You're so kind!");
 story('rainbow', 'Oh no! I lost my pretty shell! Can you help me find it?', "Thank you, Esmae! You're so kind!");
 story('cat', 'Oh no! I lost my toy fish! Can you help me find it?', "Thank you, Esmae! You're so kind!");
