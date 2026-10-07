@@ -3,7 +3,7 @@
 // on a rolling window of first-try results, so a lucky streak can't strand a child on work that is too hard.
 const KEY = 'ae:learn:v2';
 const blank = () => ({ reading: { level: 0, hist: [] }, math: { level: 0, hist: [] }, items: {}, stickers: [], sessions: 0, lastPlayed: 0 });
-const DEFAULT_SETTINGS = { on: true, every: 1, voice: true, maxPerSession: 12, level: 'auto', mathLevel: 'auto', scaffoldNew: true, retry: true };
+const DEFAULT_SETTINGS = { on: true, every: 1, voice: true, maxPerSession: 12, level: 'auto', mathLevel: 'auto', scaffoldNew: true, retry: true, bedtime: false };
 let data = { adalyn: blank(), esmae: blank(), tony: blank(), settings: { ...DEFAULT_SETTINGS } };
 try {
   const s = JSON.parse(localStorage.getItem(KEY));
@@ -21,6 +21,8 @@ function migrateV1() {
 function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* storage full / private mode */ } }
 
 export const settings = data.settings;
+/** questions are asked when a grown-up has them on, and never in bedtime mode */
+export const questionsOn = () => settings.on && !settings.bedtime;
 export const saveSettings = save;
 export const kid = (who) => data[who] || (data[who] = blank());
 export const MAX = { reading: 6, math: 6 };

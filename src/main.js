@@ -6,6 +6,8 @@ import { createPipeline } from './engine/pipeline.js';
 import { Q, auto as autoTier, chooseTier } from './engine/quality.js';
 import { skyEnv } from './env.js';
 import { settings as learnSettings, saveSettings as saveLearn } from './learning.js';
+import { applyBedtime } from './engine/bedtime.js';
+applyBedtime();
 import { preloadAssets, MODEL_LIST, onProgress } from './assets.js';
 import { Party } from './party.js';
 import { ui } from './ui.js';
@@ -110,6 +112,8 @@ const LEVELS_R = ['auto', 0, 1, 2, 3, 4, 5, 6];         // reading level: auto f
 const showLearn = () => { pquiz.textContent = `Questions: ${learnSettings.on ? 'on' : 'off'}`; plevel.textContent = learnSettings.level === 'auto' ? 'Reading level: auto' : `Reading level: ${learnSettings.level}`; pretry.textContent = learnSettings.scaffoldNew !== false ? 'New words: answer glows' : 'New words: no hint'; };
 pquiz.onclick = () => { learnSettings.on = !learnSettings.on; saveLearn(); showLearn(); };
 plevel.onclick = () => { const i = LEVELS_R.findIndex((v) => String(v) === String(learnSettings.level)); learnSettings.level = LEVELS_R[(i + 1) % LEVELS_R.length]; saveLearn(); showLearn(); };
+const pbed = document.getElementById('pbed'), showBed = () => { pbed.textContent = `\u{1F319} Bedtime: ${learnSettings.bedtime ? 'on' : 'off'}`; };
+pbed.onclick = () => { learnSettings.bedtime = !learnSettings.bedtime; saveLearn(); showBed(); document.documentElement.classList.toggle('bedtime', learnSettings.bedtime); }; showBed();
 pretry.onclick = () => { learnSettings.scaffoldNew = learnSettings.scaffoldNew === false; saveLearn(); showLearn(); };   // errorless help for brand-new items
 showLearn();
 const pvoice = document.getElementById('pvoice'); pvoice.textContent = `Voices: ${voicesEnabled() ? 'on' : 'off'}`;

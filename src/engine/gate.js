@@ -1,6 +1,7 @@
 // Hold-to-open: grown-up things (the menu, leaving a game) open only after a steady hold. Kids mash; they don't hold still.
 import './shell.css';
 import { say } from '../audio.js';
+import { applyBedtime } from './bedtime.js';
 
 /** every game is landscape: held upright, the screen shows an iPad turning on its side (CSS shows it in portrait only) */
 function turnPicture() {
@@ -40,6 +41,6 @@ export function holdGate(el, onOpen, { ms = 2000, onTap = null } = {}) {
 
 /** the 🏠 button in every game: hold it to go back to the games menu; a quick tap says how */
 export function homeGate(id = 'home') {
-  turnPicture();
+  turnPicture(); applyBedtime();
   holdGate(document.getElementById(id), () => { location.href = './'; }, { ms: 1200, onTap: () => say('Hold the house to go home!', 'narrator', { priority: 0 }) });
 }

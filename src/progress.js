@@ -56,6 +56,7 @@ function settingsUI() {
   const s = $('#settings'), lv = [['auto', 'auto (follows her answers)'], ...[0, 1, 2, 3, 4, 5, 6].map((n) => [n, `pinned at level ${n}`])];
   s.append(
     row('Questions in the games', () => settings.on, (v) => (settings.on = v), [[true, 'on'], [false, 'off']]),
+    row('Bedtime mode \u{1F319}', () => !!settings.bedtime, (v) => (settings.bedtime = v), [[false, 'off'], [true, 'on: softer, quieter, no questions']]),
     row('Ask a question', () => settings.every, (v) => (settings.every = v), [[1, 'every turn'], [2, 'every 2nd turn'], [3, 'every 3rd turn']]),
     row('Questions per game (most)', () => settings.maxPerSession, (v) => (settings.maxPerSession = v), [[6, '6'], [12, '12'], [20, '20']]),
     row('Reading level', () => settings.level, (v) => (settings.level = v), lv),

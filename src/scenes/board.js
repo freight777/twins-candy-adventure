@@ -198,7 +198,7 @@ export class BoardScene extends BaseScene {
     const turnSaid = ui.bubble(pl.tw.name === 'adalyn' ? '\u{1F984} \u{1F3B2}' : '\u{1F9DC}‍♀️ \u{1F3B2}', pl.tw.name === 'adalyn' ? "Adalyn's turn!" : "Esmae's turn!");
     // a reading question comes first (CKLA-gated, errorless). Every N turns and at most N per game (grown-ups page),
     // so a whole game stays around 12-15 minutes. Right on the first try = sparkle dice.
-    const due = learnSettings.on && !noQuiz && this.asked < (learnSettings.maxPerSession || 12) && (this.turnNo - 1) % (learnSettings.every || 1) === 0;
+    const due = learnSettings.on && !learnSettings.bedtime && !noQuiz && this.asked < (learnSettings.maxPerSession || 12) && (this.turnNo - 1) % (learnSettings.every || 1) === 0;
     if (due) {
       this.asked++;
       await turnSaid; await this.sleep(.3);                            // "Adalyn's turn!" is heard in full

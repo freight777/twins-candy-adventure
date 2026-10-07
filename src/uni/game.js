@@ -53,7 +53,7 @@ const G = createBoardGame({
     stop: async (i) => { const ice = W.iceProps.find((p) => p.tile === i); if (ice) await iceCream(ice); },
     // each friend asks Adalyn one reading question before joining (errorless: it always ends on a right answer)
     async onFriend(f) {
-      if (!learn.on) return;
+      if (!learn.on || learn.bedtime) return;
       ui.hideBubble();
       const r = await ask(makeReadingQuestion('adalyn'), 'adalyn');
       if (r.correct && r.first) { G.addStars(2); sparkleAt(G.above(f.u, 2.6), [0xffe14d, 0xffffff, 0xff9ecb], 50, 6); sfx.sparkle(); }

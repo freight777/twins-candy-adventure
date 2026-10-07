@@ -64,6 +64,7 @@ for (let i = 1; i <= 10; i++) add(`cat_n_${i}`, NUM[i], 'cat');
 P('cat_can_you_eat', 'Can you eat', 'cat'); P('cat_candies', 'candies?', 'cat'); P('cat_you_did_it', 'You did it!', 'cat');
 P('catch_the', 'Catch the'); P('things', 'things!');
 P('pick_a_card', 'Pick a card!', 'counter');
+P('bedtime_soon', "It's getting late. Time for sleep soon!");
 P('new_sticker', 'A new sticker!'); STICKERS.forEach((s) => add(`stk_${s.id}`, `${s.name}!`, 'narrator'));
 P('which_cookie_is', 'Which cookie is a'); ['circle', 'triangle', 'square', 'rectangle', 'hexagon'].forEach((s) => add(`shape_${s}`, s, 'counter'));
 P('find_shape_with', 'Find the shape with'); P('sides', 'sides.');

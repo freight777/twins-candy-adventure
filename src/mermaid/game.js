@@ -167,7 +167,7 @@ function flyPearl(pr) {
 async function kindness(f) {
   const n = f.need;
   await ui.bubble(`${f.emoji} ${n.emoji} \u2753`, n.lost, f.voice, true, { priority: 2, minMs: 1600 });
-  if (learn.on) { ui.hideBubble(); await ask(makeReadingQuestion('esmae'), 'esmae'); }
+  if (learn.on && !learn.bedtime) { ui.hideBubble(); await ask(makeReadingQuestion('esmae'), 'esmae'); }
   // there it is, half buried in the sand right here! up it pops, and Esmae swims it over to her friend
   const item = emojiSprite(n.emoji, 1.8), hp = hero.root.position, start = hp.clone().addScaledVector(G.pathTan(S.u), 1.6), mid = hp.clone().add(upBy(2.4)), to = f.u.root.position.clone().add(upBy(1.6));
   start.y -= 2; item.position.copy(start); G.scene.add(item); sfx.magic(); bubblesAt(start.clone(), 16);
