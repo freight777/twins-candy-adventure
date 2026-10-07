@@ -5,6 +5,7 @@ Everything below is free to use (CC0 / public domain). Credit isn't required, bu
 - **3D models:** [Kenney](https://kenney.nl) — Food Kit and Nature Kit (CC0).
 - **Sky lighting photos:** [Poly Haven](https://polyhaven.com) — Kloofendal 48d partly cloudy, Qwantani noon, Belfast sunset (CC0).
 - **Engine:** [three.js](https://threejs.org) (MIT), built with [Vite](https://vite.dev) (MIT).
+- **Celebration particles** (confetti, fireworks): [three.quarks](https://github.com/Alchemist0823/three.quarks) (MIT).
 - **Characters, music, sound effects, scenes and everything else:** made for this game with Claude.
 
 ## Home Run Derby motion data

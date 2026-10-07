@@ -21,7 +21,7 @@ import { BoardScene } from './scenes/board.js';
 import { CastleScene } from './scenes/castle.js';
 import { WarpScene, WakeScene } from './scenes/ending.js';
 import { fovPunch } from './engine/quiz.js';
-addEventListener('ae:tada', () => game.current && fovPunch(game.current.camera));      // a first-try right answer punches the camera
+addEventListener('ae:tada', () => { const g = game.current; if (g) { fovPunch(g.camera); import('./engine/celebrate.js').then((m) => m.confetti(g.scene, g.camera)); } });      // a first-try right answer: camera punch + confetti
 
 const canvas = document.getElementById('c');
 // one shared renderer + glow + colour grade (src/engine/pipeline.js); NeutralToneMapping keeps candy colours vivid without clipping

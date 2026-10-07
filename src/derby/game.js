@@ -231,7 +231,7 @@ async function homeRun(from) {
     ball.scale.setScalar(1 + k * 1.3); ball.userData.glow.scale.setScalar(1 + k * 2.5); ball.rotation.x -= .5; hrTracer.push(ball.position);
   }, ease.linear);
   ball.visible = false; hrTracer.clear(); ball.userData.glow.scale.setScalar(1); fx.burst(end, { count: 40, colors: [0xffffff, 0xffe14d, 0xd8c8a0], speed: 5, gravity: -5, life: 1.1, size: 1.2 }); stadium.cheer(7);   // it drops into the seats and the fans go wild
-  S.hr++; S.balls.push('hr'); S.dists.push(ft); stadium.celebrate(ft >= 500 ? 'MOON SHOT!' : 'HOME RUN!', `${ft} FT  \u2022  ${mph} MPH`, 4.5); setHud(); sfx.tada();
+  S.hr++; S.balls.push('hr'); S.dists.push(ft); stadium.celebrate(ft >= 500 ? 'MOON SHOT!' : 'HOME RUN!', `${ft} FT  \u2022  ${mph} MPH`, 4.5); setHud(); sfx.tada(); import('../engine/celebrate.js').then((m) => m.fireworks(scene, camera, ft >= 500 ? 5 : 3));
   if (ft >= 500) earn('tony', 'egg-moon');                                       // (an easter egg: a moon shot)
   (async () => { const dir = new THREE.Vector3(end.x, 0, end.z).normalize(), side = new THREE.Vector3(-dir.z, 0, dir.x); for (let i = 0; i < 7; i++) { fx.burst(end.clone().addScaledVector(dir, rand(55, 85)).addScaledVector(side, rand(-60, 60)).setY(rand(92, 120)), { count: 110, colors: [0xffffff, 0xffe9a8, 0xffc04d, 0xff6a4a, 0x7ab4ff], speed: 17, gravity: -2.6, life: 3, size: 3.2 }); sfx.pop(); await sleep(.28); } })();
   if (S.hr <= 2 || await offerReplay()) await playReplay(from, end, ft, mph, peak);       // the first two in full; after that, only if asked (📺)

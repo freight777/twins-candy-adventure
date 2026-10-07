@@ -289,7 +289,7 @@ export function createBoardGame(cfg) {
     await hooks.finale();
     ui.hideBubble(); ui.show('#banner'); ui.show('#again'); stopSpeech();
     if (hooks.cheer) hooks.cheer();
-    S.celebrate = true; S.mode = 'finale';
+    S.celebrate = true; S.mode = 'finale'; import('../engine/celebrate.js').then((m) => m.confetti(scene, camera));
     $('#again').onclick = () => { $('#fade').style.opacity = 1; setTimeout(restart, 520); };
   }
   function restart() {
@@ -347,7 +347,7 @@ export function createBoardGame(cfg) {
     const w = S.houseWas || {}; if (w.deck && S.waiting) ui.show('#deck'); if (w.banner) ui.show('#banner'); if (w.again) ui.show('#again');
   }
   $('#leave').addEventListener('click', leave);
-  addEventListener('ae:tada', () => fovPunch(S.house ? S.house.camera : camera));
+  addEventListener('ae:tada', () => { const h = S.house; fovPunch(h ? h.camera : camera); import('../engine/celebrate.js').then((m) => m.confetti(h ? h.scene : scene, h ? h.camera : camera)); });
 
   // ---------------------------------------------------------------- per frame
   /** the usual shot: behind and above the hero, looking a little ahead (sd: sideways offset) */
