@@ -44,8 +44,9 @@ export function quiz(q, { who = 'adalyn', icon, iconAlt } = {}) {
       if (ch.group != null && shown) el = shown.groups[ch.group];
       else {
         el = document.createElement('button'); el.type = 'button';
-        el.className = 'aeq-choice' + (ch.text != null ? (ch.num != null ? ' num readable' : ' word readable') : ' pic');
-        el.textContent = ch.text ?? ch.emoji; el.setAttribute('aria-label', ch.say || ch.text || 'choice');
+        el.className = 'aeq-choice' + (ch.html != null ? ' art' : ch.text != null ? (ch.num != null ? ' num readable' : ' word readable') : ' pic');
+        if (ch.html != null) el.innerHTML = ch.html; else el.textContent = ch.text ?? ch.emoji;           // html: an inline picture (a cookie shape, a glass)
+        el.setAttribute('aria-label', ch.say || ch.text || 'choice');
         el.style.animationDelay = `${i * 70}ms`;
         box.appendChild(el);
       }

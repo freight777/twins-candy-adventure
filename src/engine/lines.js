@@ -63,6 +63,10 @@ for (let i = 1; i <= 10; i++) add(`cat_n_${i}`, NUM[i], 'cat');
 P('cat_can_you_eat', 'Can you eat', 'cat'); P('cat_candies', 'candies?', 'cat'); P('cat_you_did_it', 'You did it!', 'cat');
 P('catch_the', 'Catch the'); P('things', 'things!');
 P('pick_a_card', 'Pick a card!', 'counter');
+P('which_cookie_is', 'Which cookie is a'); ['circle', 'triangle', 'square', 'rectangle', 'hexagon'].forEach((s) => add(`shape_${s}`, s, 'counter'));
+P('find_shape_with', 'Find the shape with'); P('sides', 'sides.');
+P('which_more_juice', 'Which glass has more juice?'); P('which_less_juice', 'Which glass has less juice?');
+P('more_juice', 'That one has more!', 'counter'); P('less_juice', 'That one has less!', 'counter');
 P('full_frame_love', 'Ten hearts! A full frame of love!', 'hero');
 P('ice_make', "Let's make an ice cream with", 'uni'); P('ice_scoops', 'scoops!', 'uni'); P('ice_strawberry', 'strawberry', 'uni'); P('ice_lemon', 'lemon scoops!', 'uni');
 P('ice_eat', 'Tap the ice cream to eat it!', 'uni');
@@ -114,4 +118,8 @@ story('announcer', 'Play ball!', 'Home run!', 'Almost! Try again!', 'Great game!
 story('mom', "Girls! Don't go too far!", 'Wake up, sleepyheads!', 'Look! Candy, presents and toys are here!', 'Have fun, girls!');
 story('dad', 'Look at you two!', 'Great swimming!');
 // Princess Kitchen
-story('princess', 'Try again!', 'Thank you!');
+story('princess', 'Try again!', 'Thank you!', 'A royal feast! Ten dishes!', 'Again?',
+  "I'd like a bowl of noodles, please!", "I'd like a pupusa, please!", "I'd like a popsicle, please!", "I'd like bread with butter, please!",
+  'Yummy noodles! Thank you!', 'Yummy pupusas! Thank you!', 'Yummy popsicle! Thank you!', 'Yummy bread with butter! Thank you!',
+  "Cookie time! Let's cut some cookies!", 'Juice time! Which glass is for me?', 'Ding dong! Tony brought eggs for a cake!',
+  'Yummy cookies! Thank you!', 'Yummy juice! Thank you!', 'Yummy cake! Thank you!');

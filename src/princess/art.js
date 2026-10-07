@@ -85,10 +85,10 @@ function breadSVG() {
 }
 
 export const FOODS = [
-  { id: 'noodles', name: 'noodles', a: 'a bowl of noodles', svg: noodlesSVG },
-  { id: 'pupusas', name: 'pupusas', a: 'a pupusa', svg: pupusaSVG },
-  { id: 'popsicle', name: 'a popsicle', a: 'a popsicle', svg: popsicleSVG },
-  { id: 'bread', name: 'bread with butter', a: 'bread with butter', svg: breadSVG },
+  { id: 'noodles', name: 'noodles', a: 'a bowl of noodles', emoji: '\u{1F35C}', svg: noodlesSVG },
+  { id: 'pupusas', name: 'pupusas', a: 'a pupusa', emoji: '\u{1FAD3}', svg: pupusaSVG },
+  { id: 'popsicle', name: 'popsicle', a: 'a popsicle', emoji: '\u{1F36D}', svg: popsicleSVG },
+  { id: 'bread', name: 'bread with butter', a: 'bread with butter', emoji: '\u{1F35E}', svg: breadSVG },
 ];
 
 // ---------- the princess ----------
@@ -154,14 +154,16 @@ export function princessSVG() {
   </svg>`;
 }
 
-// ---------- staff (butler, maid, cook, footman) ----------
-// kind: butler | maid | cook | footman. Each carries a silver tray at about 56% of its height.
+// ---------- staff (butler, maid, cook, footman, and Tony from the Home Run Derby on a delivery) ----------
+// kind: butler | maid | cook | footman | tony. Each carries a silver tray at about 56% of its height.
 const trayItems = {
   butler: '',
   maid: `<g><path d="M30 134 h14 l-2 10 h-10z" fill="#ff8fc2"/><ellipse cx="37" cy="134" rx="8" ry="5" fill="#fff"/><circle cx="37" cy="128" r="3" fill="#e0443e"/>
     <path d="M52 134 h14 l-2 10 h-10z" fill="#8fd3ff"/><ellipse cx="59" cy="134" rx="8" ry="5" fill="#fff"/><circle cx="59" cy="128" r="3" fill="#e0443e"/>
     <path d="M74 134 h14 l-2 10 h-10z" fill="#ffd45a"/><ellipse cx="81" cy="134" rx="8" ry="5" fill="#fff"/><circle cx="81" cy="128" r="3" fill="#e0443e"/></g>`,
   cook: `<g><ellipse cx="60" cy="138" rx="24" ry="7" fill="#d9a35e"/><path d="M36 138 C36 118 84 118 84 138Z" fill="#f0c372"/><path d="M44 130 q16-8 32 0" stroke="#fff3c8" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="50" cy="128" r="2" fill="#e0443e"/><circle cx="68" cy="126" r="2" fill="#e0443e"/></g>`,
+  tony: `<g><g fill="#fffaf0" stroke="#e2d6c0" stroke-width="1.2">${[37, 48, 59, 70, 81].map((x) => `<ellipse cx="${x}" cy="124" rx="5" ry="6.5"/>`).join('')}</g>
+    <rect x="28" y="126" width="64" height="18" rx="3" fill="#c9905a" stroke="#9a6534" stroke-width="1.5"/><path d="M28 135 H92" stroke="#9a6534" stroke-width="1.2"/></g>`,
   footman: `<g><path d="M34 144 q-2-18 6-18 q8 0 6 18z" fill="#fff" opacity=".85" stroke="#cfd6e0"/><path d="M58 144 q-2-18 6-18 q8 0 6 18z" fill="#fff" opacity=".85" stroke="#cfd6e0"/>
     <path d="M78 144 h16 l-2-16 h-12z" fill="#ffd45a" stroke="#c98a0c"/><path d="M82 128 q-4-8 6-8" stroke="#c98a0c" stroke-width="2" fill="none"/></g>`,
 };
@@ -173,6 +175,7 @@ export function staffSVG(kind, withTrayItems = true) {
     maid: { body: '#7fb8ff', body2: '#4a86d8', hair: '#6b3f26', skin: '#f6d0b0' },
     cook: { body: '#ffffff', body2: '#d9d4e0', hair: '#4a2d1c', skin: '#f0c19c' },
     footman: { body: '#e0443e', body2: '#a82a26', hair: '#ffffff', skin: '#f4cfae' },
+    tony: { body: '#3a7bd5', body2: '#25549a', hair: '#5a3a24', skin: '#f2c9a5' },
   }[kind];
   const defs = `<defs><linearGradient id="${p}b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${C.body2}"/><stop offset=".4" stop-color="${C.body}"/><stop offset="1" stop-color="${C.body2}"/></linearGradient>
     <radialGradient id="${p}s" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#fff0e0"/><stop offset="1" stop-color="${C.skin}"/></radialGradient>
@@ -199,6 +202,14 @@ export function staffSVG(kind, withTrayItems = true) {
       <circle cx="60" cy="114" r="2" fill="#ff8fc2"/>`;
     hat = `<circle cx="60" cy="26" r="11" fill="${C.hair}"/><path d="M38 52 C34 28 52 24 60 28 C68 24 86 28 82 52 C78 40 70 36 60 36 C50 36 42 40 38 52Z" fill="${C.hair}"/>
       <path d="M42 36 Q60 24 78 36 Q78 42 60 38 Q42 42 42 36Z" fill="#fff" stroke="#e4e0ec"/><path d="M44 36 q4 6 8 0 q4 6 8 0 q4 6 8 0 q4 6 8 0" fill="none" stroke="#e4e0ec"/>`;
+  } else if (kind === 'tony') {                           // a kid in jeans, sneakers, his team shirt and a red ball cap
+    lower = `<path d="M42 150 L40 236 H58 L60 172 L62 236 H80 L78 150Z" fill="#3b5b9a"/><path d="M40 222 H58 M62 222 H80" stroke="#2b4377" stroke-width="2"/>
+      <ellipse cx="48" cy="244" rx="13" ry="6" fill="#fff" stroke="#e0443e" stroke-width="2.4"/><ellipse cx="72" cy="244" rx="13" ry="6" fill="#fff" stroke="#e0443e" stroke-width="2.4"/>`;
+    upper = `<path d="M32 82 C28 110 32 140 34 156 L86 156 C88 140 92 110 88 82 Q60 72 32 82Z" fill="url(#${p}b)" stroke="#1d3f7a" stroke-width="1.5"/>
+      <path d="M50 80 Q60 90 70 80" fill="none" stroke="#fff" stroke-width="3"/><path d="M53 108 H67 L58 134" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    hat = `<path d="M40 56 q-3 -8 1 -14 M80 56 q3 -8 -1 -14" stroke="${C.hair}" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <path d="M37 44 C37 22 83 22 83 44 Z" fill="#e0443e"/><ellipse cx="60" cy="44" rx="27" ry="5.5" fill="#c0302b"/><circle cx="60" cy="25" r="2.6" fill="#c0302b"/>
+      <path d="M48 26 Q46 34 47 43 M72 26 Q74 34 73 43" stroke="#c0302b" stroke-width="1.6" fill="none"/>`;
   } else if (kind === 'cook') {
     lower = `<path d="M40 150 L38 238 H58 L60 170 L62 238 H82 L80 150Z" fill="#4a5568"/><ellipse cx="48" cy="246" rx="12" ry="5" fill="#2b2b3a"/><ellipse cx="72" cy="246" rx="12" ry="5" fill="#2b2b3a"/>`;
     upper = `<path d="M30 80 C24 110 30 150 32 176 L88 176 C90 150 96 110 90 80 Q60 70 30 80Z" fill="url(#${p}b)" stroke="#bdb6c9" stroke-width="1.5"/>
@@ -254,7 +265,7 @@ export function wallSVG() {
     <path d="M${cx} 0 V90" stroke="#c98a0c" stroke-width="5"/>
     <path d="M${cx - 80} 128 Q${cx} 168 ${cx + 80} 128 L${cx + 70} 116 Q${cx} 150 ${cx - 70} 116Z" fill="url(#${p}gold)" stroke="#a87408" stroke-width="2"/>
     <ellipse cx="${cx}" cy="100" rx="22" ry="22" fill="url(#${p}gold)" stroke="#a87408" stroke-width="2"/>
-    ${[-64, -32, 0, 32, 64].map((dx) => `<rect x="${cx + dx - 4}" y="${96 + Math.abs(dx) * 0.28}" width="8" height="22" rx="2" fill="#fff8e0"/><ellipse class="flame" cx="${cx + dx}" cy="${90 + Math.abs(dx) * 0.28}" rx="5" ry="9" fill="#ffc83a"/><ellipse cx="${cx + dx}" cy="${92 + Math.abs(dx) * 0.28}" rx="2.5" ry="5" fill="#fff4b0"/>`).join('')}
+    ${[-64, -32, 0, 32, 64].map((dx) => `<rect x="${cx + dx - 4}" y="${96 + Math.abs(dx) * 0.28}" width="8" height="22" rx="2" fill="#fff8e0"/><ellipse cx="${cx + dx}" cy="${90 + Math.abs(dx) * 0.28}" rx="5" ry="9" fill="#ffc83a"/><ellipse cx="${cx + dx}" cy="${92 + Math.abs(dx) * 0.28}" rx="2.5" ry="5" fill="#fff4b0"/>`).join('')}
     ${[-56, -28, 0, 28, 56].map((dx, i) => `<path d="M${cx + dx} ${138 + Math.abs(dx) * 0.2} l-5 12 l5 14 l5 -14z" fill="#d8f1ff" stroke="#9fd0f0" stroke-width="1" opacity=".9"/>`).join('')}
     <ellipse cx="${cx}" cy="116" rx="130" ry="60" fill="#ffe08a" opacity=".12"/></g>`;
   return `<svg viewBox="0 0 1600 640" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><defs>

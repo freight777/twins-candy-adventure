@@ -1,6 +1,6 @@
 :root { --pink:#ff7eb6; --gold:#ffc93c; --ink:#5a2a6b; --tw:min(40vw,56vh); }
 * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
-html,body { margin:0; height:100%; overflow:hidden; font-family:'Fredoka',system-ui,sans-serif; color:var(--ink); background:#ffd1ec; touch-action:manipulation; }
+html,body { margin:0; height:100%; overflow:hidden; font-family:'Fredoka',system-ui,sans-serif; color:var(--ink); background:#ffd1ec; touch-action:manipulation; overscroll-behavior:none; }
 .hidden { display:none !important; }
 svg { display:block; }
 #scene { position:fixed; inset:0; background:#f3dcc4; overflow:hidden; }
@@ -9,6 +9,12 @@ svg { display:block; }
 #wall svg, #floor svg { width:100%; height:100%; }
 .flame { transform-box:fill-box; transform-origin:50% 100%; animation:flicker .9s ease-in-out infinite alternate; }
 @keyframes flicker { from { transform:scale(1,1) } to { transform:scale(.85,1.15) } }
+/* the chandelier flames: small elements of their own over the wall, so flickering never repaints the big wall picture */
+#flames { position:absolute; inset:0; pointer-events:none; }
+.flame-x { position:absolute; transform:translate(-50%,-50%); border-radius:50% 50% 50% 50% / 62% 62% 38% 38%; background:radial-gradient(circle at 50% 72%, #fff8d0 0, #ffd04a 45%, #ff9a2a 100%);
+  box-shadow:0 0 10px 3px rgba(255,200,58,.5); animation:flick .9s ease-in-out infinite alternate; will-change:transform; }
+.flame-x:nth-child(3n) { animation-duration:1.15s; } .flame-x:nth-child(3n+1) { animation-duration:.8s; }
+@keyframes flick { from { transform:translate(-50%,-50%) scale(1,1) } to { transform:translate(-50%,-56%) scale(.86,1.14) } }
 .steam { animation:steam 2.4s ease-in-out infinite alternate; }
 @keyframes steam { from { opacity:.25; transform:translateY(2px) } to { opacity:.75; transform:translateY(-3px) } }
 
@@ -17,13 +23,36 @@ svg { display:block; }
 .walker { position:absolute; left:0; aspect-ratio:120/260; animation:wander var(--dur) linear var(--delay) infinite; }
 .walker.rev { animation-name:wanderrev; }
 .walker > div { width:100%; height:100%; animation:step .62s ease-in-out infinite alternate; transform-origin:50% 100%; }
-.walker svg, #butler svg, #princess svg, #plate svg, .w-food svg, #tablesvg svg { width:100%; height:100%; overflow:visible; }
+.walker svg, #butler svg, #tony svg, #princess svg, #plate svg, .w-food svg, #tablesvg svg { width:100%; height:100%; overflow:visible; }
 @keyframes wander { from { transform:translateX(-24vw) } to { transform:translateX(112vw) } }
 @keyframes wanderrev { from { transform:translateX(112vw) } to { transform:translateX(-24vw) } }
 @keyframes step { from { transform:translateY(0) rotate(-1.6deg) } to { transform:translateY(-2.4%) rotate(1.6deg) } }
 
 #home { position:absolute; top:12px; right:14px; width:clamp(44px,7vw,60px); height:clamp(44px,7vw,60px); border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; font-size:clamp(22px,4vw,32px); text-decoration:none; box-shadow:0 3px 0 #0002; z-index:6; }
-#stars { position:absolute; top:12px; left:14px; background:#fff; border-radius:30px; padding:6px 16px; font-size:clamp(20px,4vw,34px); font-weight:700; box-shadow:0 3px 0 #0002; z-index:2; }
+#stars { position:absolute; top:12px; left:14px; background:#fff; border-radius:24px; padding:6px 12px; box-shadow:0 3px 0 #0002; z-index:2; }
+/* the dishes served, as a ten-frame of stars */
+#stars .sf { display:grid; grid-template-columns:repeat(5,1fr); gap:1px 3px; }
+#stars .sf i { font-style:normal; font-size:clamp(16px,2.8vw,28px); line-height:1.1; opacity:.22; filter:grayscale(1); transition:opacity .2s, filter .2s; }
+#stars .sf i.on { opacity:1; filter:none; animation:popin .4s backwards; }
+@keyframes popin { from { transform:scale(.3); opacity:0; } }
+/* her order, in a speech bubble above her */
+#wish { position:absolute; left:2%; bottom:calc(6% + min(22vw,26vh) * 1.78); background:#fff; border-radius:26px; padding:8px 14px; box-shadow:0 5px 0 #0002, 0 0 0 5px var(--gold); z-index:6; animation:bubble .35s cubic-bezier(.3,1.6,.5,1); }
+#wish::after { content:''; position:absolute; left:34%; bottom:-15px; border:15px solid transparent; border-top-color:#fff; border-bottom:0; }
+#wish .w-food { width:clamp(70px,12vw,112px); height:clamp(70px,12vw,112px); display:flex; align-items:center; justify-content:center; }
+#wish .w-food svg { width:100%; height:100%; }
+@keyframes bubble { from { transform:scale(.4); opacity:0; } }
+.dish-emoji { font-size:clamp(46px,8vw,86px); line-height:1; display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
+/* the feast: every dish back on the table */
+#feast { position:absolute; left:2%; right:2%; bottom:56%; display:flex; justify-content:center; flex-wrap:wrap; gap:0 1%; }
+#feast > div { width:18%; aspect-ratio:1; margin-bottom:-6%; animation:popin .5s cubic-bezier(.3,1.6,.5,1) backwards; }
+#feast svg { width:100%; height:100%; }
+#feast .dish-emoji { font-size:clamp(30px,5vw,56px); }
+#again { position:absolute; left:0; right:0; bottom:10%; display:flex; justify-content:center; gap:5vw; z-index:9; }
+#again button, #again a { width:clamp(90px,15vw,136px); height:clamp(90px,15vw,136px); border-radius:50%; border:6px solid #fff; background:var(--pink); color:#fff; font-size:clamp(44px,7vw,68px);
+  display:flex; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 8px 0 #a0316a; cursor:pointer; animation:pulse 1.4s ease-in-out infinite; }
+#again a { background:#8fd3ff; box-shadow:0 8px 0 #2a7ab8; animation-delay:.7s; }
+/* the shared quiz shows cookies and glasses as pictures */
+body .aeq-choice.art svg { height:100%; width:auto; max-width:100%; display:block; margin:auto; }
 
 #princess { position:absolute; left:3%; bottom:5%; width:min(22vw,26vh); aspect-ratio:240/420; transform-origin:50% 100%; }
 #princess.cheer { animation:cheer .6s ease 2; }
@@ -39,31 +68,18 @@ svg { display:block; }
 #plate.gone { opacity:0; }
 
 /* the butler walks in from the right carrying the food */
-#butler { position:absolute; bottom:3%; right:calc(3% + var(--tw) + 1vw); height:min(48vh,64vw); aspect-ratio:120/260; transform:translateX(90vw); z-index:4; transition:transform 2.6s linear; }
-#butler.in { transform:translateX(0); }
-#butler.out { transform:translateX(90vw); transition:transform 2.4s linear; }
-#butler.walking .b-body { animation:step .55s ease-in-out infinite alternate; transform-origin:50% 100%; }
-#butler.bow .b-body { animation:bow .9s ease; transform-origin:50% 100%; }
-#butler .b-body { width:100%; height:100%; }
+#butler, #tony { position:absolute; bottom:3%; right:calc(3% + var(--tw) + 1vw); height:min(48vh,64vw); aspect-ratio:120/260; transform:translateX(90vw); z-index:4; transition:transform var(--walk, 1.7s) linear; }
+#tony { height:min(38vh,50vw); }
+#butler.in, #tony.in { transform:translateX(0); }
+#butler.out, #tony.out { transform:translateX(90vw); transition:transform var(--walk, 1.7s) linear; }
+#butler.walking .b-body, #tony.walking .b-body { animation:step .5s ease-in-out infinite alternate; transform-origin:50% 100%; }
+#butler.bow .b-body, #tony.bow .b-body { animation:bow .7s ease; transform-origin:50% 100%; }
+#butler .b-body, #tony .b-body { width:100%; height:100%; }
 @keyframes bow { 0%,100%{transform:rotate(0)} 40%,60%{transform:rotate(9deg) translateY(2%)} }
 #butler .b-food { position:absolute; left:23%; width:54%; aspect-ratio:1; bottom:36%; }
 #butler.set .b-food { display:none; }
 #butler .b-food svg { width:100%; height:100%; }
 
-#wish { display:flex; align-items:center; gap:10px; font-size:clamp(18px,3.4vw,30px); font-weight:700; color:#d6336c; }
-#wish .w-food { width:clamp(40px,7vw,60px); height:clamp(40px,7vw,60px); }
-#quiz { position:absolute; left:50%; top:8px; transform:translateX(-50%); width:min(70vw,620px); background:#fffaf0; border:5px solid var(--gold); border-radius:30px; padding:clamp(8px,1.6vh,16px) clamp(12px,2.4vw,28px) clamp(6px,1.2vh,12px); box-shadow:0 8px 0 #0003; display:flex; flex-direction:column; align-items:center; gap:clamp(4px,1.2vh,10px); animation:popq .35s ease; z-index:3; }
-@keyframes popq { 0%{transform:translateX(-50%) scale(.6);opacity:0} 100%{transform:translateX(-50%) scale(1);opacity:1} }
-.q-top { display:flex; align-items:center; gap:16px; }
-.q-prompt { font-size:clamp(44px,12vh,96px); font-weight:700; line-height:1; text-align:center; letter-spacing:.04em; }
-#say { width:clamp(44px,7vw,64px); height:clamp(44px,7vw,64px); border-radius:50%; border:0; background:#8fd3ff; font-size:clamp(22px,4vw,34px); box-shadow:0 4px 0 #0003; }
-.q-choices { display:flex; gap:clamp(10px,3vw,30px); }
-.choice { width:clamp(70px,16vw,130px); height:clamp(60px,15vh,110px); border-radius:26px; border:0; font:700 clamp(36px,9vh,68px)/1 'Fredoka',system-ui,sans-serif; color:#fff; box-shadow:0 7px 0 #0004; cursor:pointer; }
-.choice:nth-child(1){background:#ff7eb6} .choice:nth-child(2){background:#5bc0ff} .choice:nth-child(3){background:#7bd66b}
-.choice:active { transform:translateY(5px); box-shadow:0 2px 0 #0004; }
-.choice.wrong { animation:shake .45s ease; opacity:.45; }
-@keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-10px)} 40%{transform:translateX(10px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
-.q-msg { min-height:1.3em; font-size:clamp(16px,3vw,26px); font-weight:700; color:#d6336c; }
 #hearts { position:absolute; inset:0; pointer-events:none; z-index:5; }
 .heart { position:absolute; bottom:46%; font-size:clamp(24px,5vw,44px); animation:floatup 1.8s ease-out forwards; }
 @keyframes floatup { to { transform:translateY(-35vh) rotate(20deg); opacity:0; } }
@@ -73,3 +89,6 @@ svg { display:block; }
 .logo-big { font-size:clamp(40px,10vw,96px); font-weight:700; line-height:1; color:#fff; -webkit-text-stroke:3px #c2185b; paint-order:stroke fill; text-shadow:0 5px 0 #c2185b; }
 #go { margin-top:22px; width:clamp(90px,18vw,150px); height:clamp(90px,18vw,150px); border-radius:50%; border:0; background:var(--pink); color:#fff; font-size:clamp(44px,9vw,76px); box-shadow:0 8px 0 #a0316a; cursor:pointer; animation:pulse 1.4s ease infinite; }
 @keyframes pulse { 50%{transform:scale(1.08)} }
+/* the shared quiz card sits to the right so the princess stays in view while she orders */
+body .aeq { justify-content:flex-end; padding-right:2vw; }
+body .aeq-card { width:min(74vw, 900px); }
