@@ -171,14 +171,42 @@ export function mk(geo, color, pos = [0, 0, 0], scale = [1, 1, 1]) {
   return m;
 }
 
-const outlineMat = new THREE.MeshBasicMaterial({ color: 0x4a2c3a, side: THREE.BackSide }); keep.add(outlineMat);
+// ---------- outlines: the ink line around characters and hero props ----------
+export const OUTLINE_COLOR = 0x4a2c3a;
+const outlineMats = new Map();
+/** k = line width as a fraction of the distance to the camera (constant on screen); 0 = a plain back-face copy (scaled) */
+function outlineMaterial(k) {
+  if (outlineMats.has(k)) return outlineMats.get(k);
+  const m = new THREE.MeshBasicMaterial({ color: OUTLINE_COLOR, side: THREE.BackSide });
+  if (k) {
+    m.onBeforeCompile = (s) => {
+      s.vertexShader = s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        vec4 mvO = modelViewMatrix * vec4(position, 1.);
+        transformed += normalize(normal) * clamp(-mvO.z, 1., 90.) * ${k.toFixed(5)};`);
+    };
+    m.customProgramCacheKey = () => 'outline' + k;
+  }
+  keep.add(m); outlineMats.set(k, m); return m;
+}
+/** give a mesh an ink outline (s: the old scale factor, still used for boxes) */
 export function outline(m, s = 1.07) {
-  if (STYLE !== 'toon') return m;
-  const o = new THREE.Mesh(m.geometry, outlineMat);
-  o.userData.noShadow = true;
-  o.scale.setScalar(s);
+  const box = m.geometry.type === 'BoxGeometry';
+  const o = new THREE.Mesh(m.geometry, outlineMaterial(box ? 0 : .0032));
+  o.userData.noShadow = true; o.userData.outline = true;
+  if (box) o.scale.setScalar(s);
   m.add(o);
   return m;
+}
+/** outline every solid mesh under root bigger than minSize (characters: the big shapes, not eyes and lashes) */
+export function addOutlines(root, minSize = .2) {
+  const list = [];
+  root.traverse((o) => {
+    if (!o.isMesh || o.userData.outline || o.userData.noOutline || o.isInstancedMesh || o.isSkinnedMesh || !o.geometry.attributes.normal) return;
+    const mat = o.material; if (!mat || Array.isArray(mat) || mat.transparent || mat.isMeshBasicMaterial) return;
+    o.geometry.computeBoundingSphere(); const s = o.scale;
+    if (o.geometry.boundingSphere.radius * Math.max(s.x, s.y, s.z) >= minSize) list.push(o);
+  });
+  list.forEach((o) => outline(o));
 }
 
 // ---------- math ----------

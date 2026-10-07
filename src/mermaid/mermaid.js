@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, mk, glowSprite, setStyle, getStyle, RAINBOW } from '../util.js';
+import { toon, mk, glowSprite, addOutlines, setStyle, getStyle, RAINBOW } from '../util.js';
 
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 14) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -17,6 +17,9 @@ export function heartGeo(size = 1, depth = .3) {
  * male, beard, crown ('king'|'queen'), trident, glitter
  */
 export function createMermaid(spec) {
+  const m = buildMermaid(spec); addOutlines(m.root, .45); return m;         // storybook ink lines on the big shapes (body, head, hair lobes)
+}
+function buildMermaid(spec) {
   const prev = getStyle(); setStyle('candy');
   const S = { iris: 0x4a2a9a, shell: 0xffd1e8, fin: spec.tail[1], ...spec };
   const root = new THREE.Group(), pitch = new THREE.Group(); root.add(pitch);

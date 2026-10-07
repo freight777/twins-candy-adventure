@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, mk, canvasTex, glowSprite, blobShadow, emojiTex, keep, setStyle, getStyle } from '../util.js';
+import { toon, mk, canvasTex, glowSprite, blobShadow, emojiTex, keep, addOutlines, setStyle, getStyle } from '../util.js';
 
 const sph = (r, w = 22, h = 16) => new THREE.SphereGeometry(r, w, h);
 const cyl = (rt, rb, h, s = 16) => new THREE.CylinderGeometry(rt, rb, h, s);
@@ -122,8 +122,9 @@ export function createUnicorn(spec) {
   // grounding: a soft contact shadow under the hooves on every tier, and real shadows from the big shapes where the tier
   // has a shadow map (eyes, lashes and other little parts would only add shadow-pass draws)
   const blob = blobShadow(2.5, .34); blob.position.set(0, -.1, -.05); root.add(blob);
+  addOutlines(root, .22);                                                     // storybook ink lines on the big shapes
   root.traverse((o) => {
-    if (!o.isMesh || o === blob || o.material.transparent) return;
+    if (!o.isMesh || o === blob || o.userData.outline || o.material.transparent) return;
     o.geometry.computeBoundingSphere(); const s = o.scale;
     if (o.geometry.boundingSphere.radius * Math.max(s.x, s.y, s.z) > .25) o.castShadow = true;   // ~20 of ~70 parts
   });
