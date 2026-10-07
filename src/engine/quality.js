@@ -37,8 +37,9 @@ export function chooseTier(name) {
 }
 
 // Automatic adjustment with hysteresis: step down when most of the last 150 frames were slow (at most twice per visit),
-// step up after ~15 s of steady 60 fps (at most once a minute), and never climb back to a tier this visit already had to leave.
-let frames = 0, slow = 0, fast = 0, lastChange = 0, lowered = 0, ceiling = 0;
+// step back up after ~15 s of steady 60 fps (at most once a minute) — but never above the device's own default, so an iPad never
+// "probes" high and then hitches back down on the first heavy scene.
+let frames = 0, slow = 0, fast = 0, lastChange = 0, lowered = 0;
 export function applyAutoTier(dt) {
   if (!auto.on || dt > .5 || (typeof document !== 'undefined' && document.hidden)) return false;
   const now = performance.now(); frames++;
@@ -46,9 +47,9 @@ export function applyAutoTier(dt) {
   if (frames >= 150) {
     const drop = slow > 80 && now - lastChange > 8000 && lowered < 2;
     frames = slow = 0;
-    if (drop) { const from = ORDER.indexOf(Q.name); if (lowerTier()) { ceiling = Math.max(ceiling, from + 1); lastChange = now; lowered++; fast = 0; return true; } }
+    if (drop) { if (lowerTier()) { lastChange = now; lowered++; fast = 0; return true; } }
   }
-  if (fast > 900 && now - lastChange > 60000 && ORDER.indexOf(Q.name) - 1 >= ceiling && raiseTier()) { lastChange = now; fast = 0; return true; }
+  if (fast > 900 && now - lastChange > 60000 && ORDER.indexOf(Q.name) > ORDER.indexOf(deviceDefault()) && raiseTier()) { lastChange = now; fast = 0; return true; }
   return false;
 }
 export function lowerTier() { const i = ORDER.indexOf(Q.name); if (i < ORDER.length - 1) { setTier(ORDER[i + 1]); return true; } return false; }

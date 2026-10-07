@@ -22,7 +22,7 @@ const dots = (hist) => hist.map((h) => (h ? '●' : '○')).join(' ') || '–';
 
 function kidCard(who, k) {
   const items = Object.entries(k.items);
-  const working = items.filter(([, it]) => it.box < 3).sort((a, b) => a[1].box - b[1].box || b[1].seen - a[1].seen).slice(0, 10);
+  const working = items.filter(([, it]) => it.seen > 0 && it.box < 3).sort((a, b) => a[1].box - b[1].box || b[1].seen - a[1].seen).slice(0, 10);
   const mastered = items.filter(([, it]) => it.box >= 3).sort((a, b) => b[1].last - a[1].last).slice(0, 10);
   const list = (rows, empty) => (rows.length ? `<ul>${rows.map(([id, it]) => `<li>${label(id)} <span class="box b${it.box}" title="box ${it.box} of 4">${'★'.repeat(it.box)}${'☆'.repeat(4 - it.box)}</span></li>`).join('')}</ul>` : `<p class="note">${empty}</p>`);
   const el = document.createElement('article'); el.className = 'kid';

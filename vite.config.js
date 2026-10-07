@@ -37,6 +37,7 @@ export default defineConfig({
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/\/jackson\//],   // Jackson's game is its own page, not part of the A&E hub
         cleanupOutdatedCaches: true,
+        skipWaiting: true, clientsClaim: true,     // a new version takes over on the next launch, not the one after (script-defer registration skips autoUpdate's wiring)
         importScripts: ['sw-cleanup.js'],          // removes the caches of the old hand-written service worker
       },
     }),

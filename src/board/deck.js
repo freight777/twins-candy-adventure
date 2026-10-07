@@ -166,7 +166,7 @@ export function createBoardGame(cfg) {
       const el = $('#pick'), cards = el.querySelectorAll('.pc');
       cards.forEach((b) => b.classList.remove('chosen', 'gone'));
       el.classList.remove('hidden'); S.picking = true; S.hint = 0;
-      voice('pick_a_card', { priority: 1 });
+      S.picks = (S.picks || 0) + 1; if (S.picks <= 2 || S.picks % 5 === 0) voice('pick_a_card', { priority: 1 });   // not every single turn
       el.onclick = (e) => {
         const b = e.target.closest('.pc'); if (!b || !S.picking) return;
         S.picking = false; ui.show('#hint', false); sfx.pop();
@@ -198,7 +198,11 @@ export function createBoardGame(cfg) {
     const [emoji, line, secs] = cfg.intro;
     ui.bubble(emoji, line); sfx.chime(); await sleep(secs); ui.hideBubble();
     if (S.surprise && S.surprise.fresh) { S.surprise.fresh = false; G.face(G.hero, S.surprise.obj.position); await ui.bubble(S.surprise.emoji + ' \u2728', 'Look! Something new today!', HERO.voice, true, { priority: 2 }); await sleep(.5); ui.hideBubble(); }
-    while (S.idx < N - 1) await takeTurn();
+    while (S.idx < N - 1) {
+      try { await takeTurn(); } catch (e) {                        // a hook that throws must not leave her with no deck to tap
+        console.error('turn failed', e); S.picking = S.waiting = false; ui.hideBubble(); await sleep(.5);
+      }
+    }
     await finale();
   }
 
@@ -294,7 +298,7 @@ export function createBoardGame(cfg) {
   }
   function restart() {
     if (hooks.reset) hooks.reset();
-    Object.assign(S, { celebrate: false, mode: 'follow', idx: 0, followers: [], stars: 0, speed: 0, greeting: null, twinMet: false, housesDone: new Set() });
+    Object.assign(S, { celebrate: false, mode: 'follow', idx: 0, picks: 0, followers: [], stars: 0, speed: 0, greeting: null, twinMet: false, housesDone: new Set() });
     ui.score(0); G.hero.lift = 0;
     placeHero(0); resetCast(); G.W.pickups.forEach((s) => { s.taken = false; s.mesh.visible = true; });
     document.querySelectorAll('.fr').forEach((e) => e.classList.remove('met'));

@@ -20,9 +20,6 @@
 @keyframes turn-spin { 0%, 25% { transform: rotate(0); } 55%, 100% { transform: rotate(-200deg); } }
 @media (orientation: portrait) and (max-aspect-ratio: 4/5) { .turn { display: flex; } }
 
-/* bedtime mode (engine/bedtime.js): softer, warmer, a little dimmer */
-.bedtime canvas, .bedtime #scene { filter: saturate(.8) brightness(.93) sepia(.1); }
-
 /* hold-to-open (engine/gate.js): a pink ring fills around the button while it is held */
 @property --gate-p { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 .gate { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: none; }

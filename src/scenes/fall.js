@@ -2,9 +2,7 @@ import * as THREE from 'three';
 import { BaseScene } from '../scene-base.js';
 import { toon, mk, rand, pick, clamp, lerp, glowSprite, emojiSprite, emojiTex, stripedGeo, vertexToon, CANDY } from '../util.js';
 import { sfx, playMusic, voice } from '../audio.js';
-import { levelOf, recordItem } from '../learn/profile.js';
 import { earn } from '../engine/sticker.js';
-import { taughtThrough, unitForLevel } from '../learn/code.js';
 import { PIC } from '../learn/words.js';
 import { wordsThrough, withPic, onset, sameSound } from '../learn/reading.js';
 
@@ -236,12 +234,14 @@ export class FallScene extends BaseScene {
   }
 
   // ===================================================================== the sound game
-  /** pick the next sound to listen for (only sounds the child's CKLA unit has taught, with at least two pictures) */
+  /** pick the next first sound to listen for. This is oral phonemic awareness (hearing /m/ at the start of "moon"), which comes
+   *  before letters, so it uses every picture word, not just the child's CKLA unit: at reading level 0 that unit has only four
+   *  pictures, and every round was /d/. Consonant sounds with at least two pictures. */
   newTarget() {
     if (this.dir < 0 || this.disposed) return;
-    const who = this.game.party.active, unit = unitForLevel(levelOf(who, 'reading'));
-    this.pool = withPic(wordsThrough(unit));
-    const taught = taughtThrough(unit), options = [...new Set(this.pool.map(onset))].filter((s) => taught.includes(s) && this.pool.filter((w) => onset(w) === s).length >= 2 && s !== this.target);
+    const who = this.game.party.active;
+    this.pool = withPic(wordsThrough(10));
+    const options = [...new Set(this.pool.map(onset))].filter((s) => !/^[aeiou]/.test(s) && this.pool.filter((w) => onset(w) === s).length >= 2 && s !== this.target);
     if (!options.length || this.pool.length < 4) return;
     this.target = pick(options); this.caught = 0; this.who = who;
     this.bubbles.forEach((b, i) => this.fillBubble(b, true, i));
@@ -273,7 +273,8 @@ export class FallScene extends BaseScene {
           this.caught++; sfx.collect(this.caught); voice(`w_${u.word}`, { priority: 1 });
           this.fx.burst(b.position, { count: 26, colors: [0xffffff, 0xbfefff, 0xffe14d, 0xff9fcb], speed: 5, gravity: 0, life: .9, size: .9 });
           this.fillBubble(b);
-          if (this.caught >= 4) { recordItem(this.who, `snd:${this.target}`, true, true); sfx.tada(); earn(this.who, 'sound-catcher'); this.tm.after(1.2, () => this.newTarget()); this.target = null; }
+          // (not recorded as learning: it can't be missed, so it would only make the quizzes ask this sound less)
+          if (this.caught >= 4) { sfx.tada(); earn(this.who, 'sound-catcher'); this.tm.after(1.2, () => this.newTarget()); this.target = null; }
         } else {                                                   // a different sound: it just bounces away, no penalty
           u.bounce = .5; u.vx = (b.position.x > tp.x ? 1 : -1) * 6; sfx.soft();
         }

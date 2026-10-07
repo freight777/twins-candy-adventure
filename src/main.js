@@ -114,14 +114,14 @@ const showLearn = () => { pquiz.textContent = `Questions: ${learnSettings.on ? '
 pquiz.onclick = () => { learnSettings.on = !learnSettings.on; saveLearn(); showLearn(); };
 plevel.onclick = () => { const i = LEVELS_R.findIndex((v) => String(v) === String(learnSettings.level)); learnSettings.level = LEVELS_R[(i + 1) % LEVELS_R.length]; saveLearn(); showLearn(); };
 const pbed = document.getElementById('pbed'), showBed = () => { pbed.textContent = `\u{1F319} Bedtime: ${learnSettings.bedtime ? 'on' : 'off'}`; };
-pbed.onclick = () => { learnSettings.bedtime = !learnSettings.bedtime; saveLearn(); showBed(); document.documentElement.classList.toggle('bedtime', learnSettings.bedtime); }; showBed();
+pbed.onclick = () => { learnSettings.bedtime = !learnSettings.bedtime; saveLearn(); showBed(); applyBedtime(); }; showBed();
 pretry.onclick = () => { learnSettings.scaffoldNew = learnSettings.scaffoldNew === false; saveLearn(); showLearn(); };   // errorless help for brand-new items
 showLearn();
 const pvoice = document.getElementById('pvoice'); pvoice.textContent = `Voices: ${voicesEnabled() ? 'on' : 'off'}`;
 pvoice.onclick = () => { setVoices(!voicesEnabled()); pvoice.textContent = `Voices: ${voicesEnabled() ? 'on' : 'off'}`; };
 // graphics: Auto (adjusts itself, the default) or a fixed tier picked here, which is remembered on this device
 const pgfx = document.getElementById('pgfx');
-const gfxLabel = () => { pgfx.textContent = `Graphics: ${autoTier.on ? `auto (${Q.name})` : Q.name}`; };
+const gfxLabel = () => { pgfx.textContent = `Graphics: ${autoTier.on ? `auto (${Q.name})` : Q.name}${gfx.calls ? ` · ${gfx.calls} draws` : ""}`; };
 pgfx.onclick = () => { const o = [null, 'high', 'medium', 'low'], i = autoTier.on ? 0 : o.indexOf(Q.name); chooseTier(o[(i + 1) % o.length]); gfx.applyTier(); gfxLabel(); };
 gfx.onTier = gfxLabel; gfx.applyTier();
 pmute.onclick = () => { setMuted(!isMuted()); pmute.textContent = `Sound: ${isMuted() ? 'off' : 'on'}`; };

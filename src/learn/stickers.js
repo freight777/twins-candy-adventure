@@ -15,8 +15,8 @@ export const STICKERS = [
   S('frame-of-love', '\u{1F496}', 'Frame of love', 'mermaid', ['esmae'], 'Fill a ten-frame with hearts'),
   S('sea-houses', '\u{1F420}', 'Sea house party', 'mermaid', ['esmae'], "Finish all four friends' house games"),
   S('royal-feast', '\u{1F370}', 'Royal feast', 'princess', ['esmae'], 'Serve ten dishes in Princess Kitchen'),
-  S('derby-hero', '\u{1F3C6}', 'Home run hero', 'derby', ['tony'], 'Hit five home runs in one game'),
-  S('derby-best', '\u{1F31F}', 'Best ever', 'derby', ['tony'], 'Beat your best number of home runs'),
+  S('derby-hero', '\u{1F3C6}', 'Home run hero', 'derby', ['tony', 'adalyn', 'esmae'], 'Hit five home runs in one game'),
+  S('derby-best', '\u{1F31F}', 'Best ever', 'derby', ['tony', 'adalyn', 'esmae'], 'Beat your best number of home runs'),
   // learning: every new reading or math level (only real first-try answers move a level)
   ...['\u{1F4D7}', '\u{1F4D8}', '\u{1F4D9}', '\u{1F4D5}', '\u{1F4D3}', '\u{1F4DA}'].map((e, i) => S(`reading-${i + 1}`, e, `Reading star ${i + 1}`, 'learn', ALL, `Reach reading level ${i + 1}`)),
   ...['\u{1F522}', '➕', '➖', '\u{1F51F}', '\u{1F9EE}', '\u{1F4AF}'].map((e, i) => S(`math-${i + 1}`, e, `Math star ${i + 1}`, 'learn', ALL, `Reach math level ${i + 1}`)),
@@ -31,7 +31,7 @@ export const STICKERS = [
   S('egg-nap', '\u{1F4A4}', 'Sleepy king', 'mermaid', ['esmae'], 'Tap the King three times', true),
   S('egg-bat', '\u{1F987}', 'Chandelier bat', 'princess', ['esmae'], 'Tap a chandelier', true),
   S('egg-dance', '\u{1F57A}', 'Dancing butler', 'princess', ['esmae'], 'Serve noodles three times in one game', true),
-  S('egg-moon', '\u{1F315}', 'Moon shot', 'derby', ['tony'], 'Hit a home run of 500 feet or more', true),
+  S('egg-moon', '\u{1F315}', 'Moon shot', 'derby', ['tony', 'adalyn', 'esmae'], 'Hit a home run of 500 feet or more', true),
   S('egg-parade', '\u{1F389}', 'Hero parade', 'hub', ALL, 'Tap the & on the games menu', true),
 ];
 export const sticker = (id) => STICKERS.find((s) => s.id === id);

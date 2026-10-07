@@ -21,4 +21,3 @@ export const PIC = {
   duck: '🦆', sock: '🧦', bell: '🔔', rock: '🪨', lock: '🔒',
   bee: '🐝', tree: '🌳', cake: '🎂', kite: '🪁', bike: '🚲', nine: '9️⃣', bone: '🦴', home: '🏠', nose: '👃', rose: '🌹', rope: '🪢', cube: '🧊', green: '🟢',
 };
-// Later (#46): swap these emoji for Fluent Emoji 3D PNGs (MIT) so every iPad shows the same pictures.

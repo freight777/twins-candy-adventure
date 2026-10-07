@@ -43,7 +43,7 @@ const GAMES = {
     scene.add(mk(new THREE.BoxGeometry(6, .5, 2.2), toon(0xffffff), [0, 1.6, -8.4]), mk(cyl(.25, .3, 1.4, 12), 0xffd0e8, [-2.4, .7, -8.4]), mk(cyl(.25, .3, 1.4, 12), 0xffd0e8, [2.4, .7, -8.4]));
     const cols = [0xff5fa4, 0xffd84d, 0x62e0d0, 0xb07cff, 0xff9f4d, 0x7bd0ff], geo = heartGeo(.42, .16), clips = [];
     const place = (c) => { c.position.set(rand(-6.5, 6.5), rand(2.2, 7.5), rand(-5, 1.5)); c.userData.y0 = c.position.y; c.userData.ph = rand(0, 6); c.visible = true; c.userData.free = true; c.scale.setScalar(1); scene.add(c); };
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < H.goal; i++) {                                           // one clip per count (was 9: at goal 10 she could never finish)
       const col = cols[i % cols.length], c = new THREE.Mesh(geo, toon(col, { emissive: col, emissiveIntensity: .3 })); c.add(glowSprite(col, 2.2, .45)); place(c); clips.push(c);
       H.tapOn(c, async () => {
         if (!c.userData.free || H.count >= H.goal) return; c.userData.free = false;

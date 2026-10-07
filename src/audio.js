@@ -25,6 +25,13 @@ function primeSpeech() {                    // iPads only allow speech after a t
   primeSpeech.done = true;
   const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u);
 }
+/** true once the audio clock is running; waits (up to 1.5 s) for a resume in flight, e.g. just back from a lock or Siri, so the
+ *  interrupted line carries on in its recorded voice instead of falling to the device voice */
+function audioReady() {
+  if (!ctx || ctx.state === 'closed') return Promise.resolve(false);
+  if (ctx.state === 'running') return Promise.resolve(true);
+  return Promise.race([ctx.resume().then(() => ctx.state === 'running', () => false), new Promise((r) => setTimeout(() => r(ctx.state === 'running'), 1500))]);
+}
 /** Start (or wake up) the sound. Safe to call any time; every tap anywhere calls it. */
 export function unlock() {
   if (!ctx) { createGraph(); primeSpeech(); }
@@ -200,9 +207,9 @@ export function voice(ids, { who = null, priority = 1, minMs = 0, gap = 0.08, fa
     who: speaker, priority, minMs, tag, est: 20000,
     play(done, started) {
       let stopped = false, stopTts = null, guard = 0; const srcs = [];
-      Promise.all(list.map(clipBuffer)).then((bufs) => {
+      Promise.all([...list.map(clipBuffer), audioReady()]).then((bufs) => {
         if (stopped) return;
-        if (!ctx || ctx.state !== 'running' || bufs.some((b) => !b)) { stopTts = ttsPlayer(text, speaker)(done, started); return; }
+        if (!bufs.pop() || bufs.some((b) => !b)) { stopTts = ttsPlayer(text, speaker)(done, started); return; }
         let t = ctx.currentTime + 0.03;
         bufs.forEach((b, i) => { const s = ctx.createBufferSource(); s.buffer = b; s.connect(analyser); s.start(t); t += b.duration + (i < bufs.length - 1 ? gap : 0); srcs.push(s); });
         playing++;
@@ -407,7 +414,7 @@ function scoreBar({ chord: [root, qual], mel }, b, t, eighth, out) {
 export function playScore(score, { loop = false, onBar = null, onEnd = null } = {}) {
   stopMusic(); stopScore();
   if (!ctx) { if (onEnd) setTimeout(onEnd, 0); return { stop() {}, length: 0 }; }
-  const bus = scoreBus = ctx.createGain(); bus.gain.value = Math.max(0.5, musicLevel * 1.5); bus.connect(master);
+  const bus = scoreBus = ctx.createGain(); bus.gain.value = musicLevel * 1.5;   // follows the music level: off stays off, bedtime stays soft bus.connect(master);
   const eighth = 60 / score.bpm / 2, barLen = eighth * 8, live = () => scoreBus === bus;
   let b = 0, at = ctx.currentTime + 0.15, iv = 0;
   const tick = () => {

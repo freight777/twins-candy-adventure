@@ -7,6 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { Q, loadTier, applyAutoTier, resetAutoTier } from './quality.js';
+import { registerGrade, applyBedtime } from './bedtime.js';
 
 /** colour grade: a touch more saturation + contrast so pastels pop, and a soft vignette. Runs after tone mapping on 0-1 screen colours. */
 export const GradeShader = {
@@ -32,6 +33,7 @@ export function createPipeline(canvas, {
 } = {}) {
   loadTier();
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+  renderer.info.autoReset = false;                     // counted per whole frame in render()
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = toneMapping; renderer.toneMappingExposure = exposure;
   renderer.shadowMap.enabled = shadows;
@@ -42,6 +44,7 @@ export function createPipeline(canvas, {
   const bloomPass = new UnrealBloomPass(new THREE.Vector2(256, 256), bloom.strength, bloom.radius, bloom.threshold);
   const gradeP = gradePass || new ShaderPass(GradeShader);
   if (!gradePass) for (const [k, v] of Object.entries(grade)) if (gradeP.uniforms[k]) gradeP.uniforms[k].value = v;
+  registerGrade(gradeP); applyBedtime();                // bedtime mode softens the colours here
   composer.addPass(renderPass); extraPasses.forEach((p) => composer.addPass(p));
   composer.addPass(bloomPass); composer.addPass(new OutputPass()); composer.addPass(gradeP);
 
@@ -59,7 +62,8 @@ export function createPipeline(canvas, {
     },
     applyTier() { bloomPass.enabled = Q.bloom; api.onTier?.(Q); api.resize(); },
     /** call once per frame with the real frame time in seconds; also adjusts the quality tier when needed */
-    render(frameDt = 1 / 60) { if (applyAutoTier(frameDt)) api.applyTier(); composer.render(); },
+    /** api.calls = draw calls in the last whole frame (every pass), shown in the grown-ups menu */
+    render(frameDt = 1 / 60) { if (applyAutoTier(frameDt)) api.applyTier(); renderer.info.reset(); composer.render(); api.calls = renderer.info.render.calls; },
     /** run the game: fn(dt, rawDt) each frame (dt is capped at 50 ms); return false from fn to skip drawing that frame */
     start(fn) {
       renderer.setAnimationLoop((ts) => {

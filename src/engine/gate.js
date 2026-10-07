@@ -1,6 +1,6 @@
 // Hold-to-open: grown-up things (the menu, leaving a game) open only after a steady hold. Kids mash; they don't hold still.
 import './shell.css';
-import { say } from '../audio.js';
+import { voice } from '../audio.js';
 import { applyBedtime } from './bedtime.js';
 import { fluentPage } from './fluent.js';
 fluentPage();                                                                  // the same emoji pictures on every iPad
@@ -44,5 +44,5 @@ export function holdGate(el, onOpen, { ms = 2000, onTap = null } = {}) {
 /** the 🏠 button in every game: hold it to go back to the games menu; a quick tap says how */
 export function homeGate(id = 'home') {
   turnPicture(); applyBedtime();
-  holdGate(document.getElementById(id), () => { location.href = './'; }, { ms: 1200, onTap: () => say('Hold the house to go home!', 'narrator', { priority: 0 }) });
+  holdGate(document.getElementById(id), () => { location.href = './'; }, { ms: 1200, onTap: () => voice('hold_to_go_home', { priority: 0 }) });
 }

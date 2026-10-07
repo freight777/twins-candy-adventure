@@ -29,16 +29,19 @@ export const MAX = { reading: 6, math: 6 };
 
 /** Leitner gaps in minutes, not days: sessions are short and frequent */
 const GAP = [0, 1, 3, 7, 30].map((m) => m * 60_000);
+/** an item's record without creating one (a question that is shown but never answered leaves no trace) */
+export const peekItem = (who, id) => kid(who).items[id] || null;
 export function item(who, id) { const k = kid(who); return k.items[id] || (k.items[id] = { box: 0, seen: 0, right: 0, nextAt: 0, last: 0 }); }
 export function recordItem(who, id, correct, first) {
   const it = item(who, id); it.seen++; it.last = Date.now();
   if (correct && first) { it.right++; it.box = Math.min(4, it.box + 1); } else if (!correct) it.box = Math.max(0, it.box - 1);   // right after help: stays put
   it.nextAt = Date.now() + GAP[it.box]; save();
 }
-/** weighted pick: never-seen items 3x, due items 3x, low boxes favoured, and never the same id twice in a row */
+/** weighted pick: never-seen items 3, due items up to 3 (never more than a new one, so she keeps meeting new words), low boxes
+ *  favoured, and never the same id twice in a row */
 export function choose(who, ids, avoid) {
   const now = Date.now(), items = kid(who).items;
-  const w = ids.map((id) => { if (id === avoid && ids.length > 1) return 0; const it = items[id]; if (!it) return 3; let x = 1 + (4 - it.box) * .5; if (it.nextAt <= now) x *= 3; return x; });
+  const w = ids.map((id) => { if (id === avoid && ids.length > 1) return 0; const it = items[id]; if (!it || !it.seen) return 3; let x = 1 + (4 - it.box) * .5; if (it.nextAt <= now) x = Math.min(3, x * 3); return x; });
   let r = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let i = 0; i < ids.length; i++) { r -= w[i]; if (r <= 0) return ids[i]; }
   return ids[ids.length - 1];

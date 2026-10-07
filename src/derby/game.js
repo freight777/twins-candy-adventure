@@ -60,6 +60,8 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } },
 };
 const prefs = { who: store.get('derbyWho', 'tony'), helper: store.get('derbyHelper', true), time: store.get('derbyTime', 'night') };
+/** whose game this is: the avatar picked on the leaderboard (questions, bests and stickers go to her or him) */
+const me = () => (PLAYERS[prefs.who] ? prefs.who : 'tony');
 const PLAYERS = { tony: { emoji: '⚾', name: 'Tony' }, adalyn: { emoji: '\u{1F984}', name: 'Addie' }, esmae: { emoji: '\u{1F9DC}‍♀️', name: 'Esmae' } };
 /** scores are { who, hr, at }; older saved scores had a typed name */
 const scores = () => store.get('derbyScores', []).map((s) => (s.who ? s : { who: /^add/i.test(s.name || '') ? 'adalyn' : /^esm/i.test(s.name || '') ? 'esmae' : 'tony', hr: s.hr, at: s.at }));
@@ -67,7 +69,7 @@ function saveScore(who, hr) { const all = scores(), at = Date.now(); all.push({ 
 /** the top five as rows of gold baseballs you can count (with the number too once Tony's math is past counting) */
 function boardHTML(hl) {
   const all = scores(); if (!all.length) return '<p class="empty">⚾ ⚾ ⚾</p>';
-  const nums = levelOf('tony', 'math') >= 2;
+  const nums = levelOf(me(), 'math') >= 2;
   return '<ol>' + all.slice(0, 5).map((s, i) => `<li class="${hl && s.at === hl ? 'me' : ''}"><span class="rk">${['\u{1F947}', '\u{1F948}', '\u{1F949}', '4', '5'][i]}</span><span class="av">${(PLAYERS[s.who] || PLAYERS.tony).emoji}</span><span class="gb">${'<i></i>'.repeat(Math.min(s.hr, 20))}</span>${nums ? `<span class="sc">${s.hr}</span>` : ''}</li>`).join('') + '</ol>';
 }
 
@@ -153,7 +155,7 @@ const setHud = () => { $('#hr').textContent = S.hr; $('#balls').innerHTML = Arra
 
 function start() {
   unlock(); playMusic('park'); crowdBed(true); show('#title', false); show('#over', false); show('#board', false); show('#hud'); taps(true);
-  S.hr = 0; S.balls = []; S.dists = []; S.over = false; S.lastLanes = []; S.pitchNo = 0; setHud(); startSession('tony');
+  S.hr = 0; S.balls = []; S.dists = []; S.over = false; S.lastLanes = []; S.pitchNo = 0; setHud(); startSession(me());
   batter.unswing(); loop();
 }
 
@@ -232,7 +234,7 @@ async function homeRun(from) {
   }, ease.linear);
   ball.visible = false; hrTracer.clear(); ball.userData.glow.scale.setScalar(1); fx.burst(end, { count: 40, colors: [0xffffff, 0xffe14d, 0xd8c8a0], speed: 5, gravity: -5, life: 1.1, size: 1.2 }); stadium.cheer(7);   // it drops into the seats and the fans go wild
   S.hr++; S.balls.push('hr'); S.dists.push(ft); stadium.celebrate(ft >= 500 ? 'MOON SHOT!' : 'HOME RUN!', `${ft} FT  \u2022  ${mph} MPH`, 4.5); setHud(); sfx.tada(); import('../engine/celebrate.js').then((m) => m.fireworks(scene, camera, ft >= 500 ? 5 : 3));
-  if (ft >= 500) earn('tony', 'egg-moon');                                       // (an easter egg: a moon shot)
+  if (ft >= 500) earn(me(), 'egg-moon');                                       // (an easter egg: a moon shot)
   (async () => { const dir = new THREE.Vector3(end.x, 0, end.z).normalize(), side = new THREE.Vector3(-dir.z, 0, dir.x); for (let i = 0; i < 7; i++) { fx.burst(end.clone().addScaledVector(dir, rand(55, 85)).addScaledVector(side, rand(-60, 60)).setY(rand(92, 120)), { count: 110, colors: [0xffffff, 0xffe9a8, 0xffc04d, 0xff6a4a, 0x7ab4ff], speed: 17, gravity: -2.6, life: 3, size: 3.2 }); sfx.pop(); await sleep(.28); } })();
   if (S.hr <= 2 || await offerReplay()) await playReplay(from, end, ft, mph, peak);       // the first two in full; after that, only if asked (📺)
   ball.visible = false; hrTracer.clear(); S.camMode = 'home'; S.state = 'play';
@@ -253,7 +255,7 @@ async function fartherQ() {
   const bar = (ft, col) => { const w = Math.round(46 + (ft - 380) / 140 * 150); return `<svg viewBox="0 0 250 64" class="bar"><rect x="4" y="10" width="${w}" height="40" rx="12" fill="${col}"/><circle cx="${w - 14}" cy="30" r="10" fill="#fff"/><text x="${w + 12}" y="42" font-family="Fredoka, sans-serif" font-weight="700" font-size="30" fill="#14234a">${ft}</text></svg>`; };
   taps(false);
   await ask({ id: `far:${Math.abs(a - b) <= 25 ? 'close' : 'clear'}`, strand: 'math', kind: 'compare', prompt: { voice: ['which_is_farther'], say: 'Which one went farther?' },
-    choices: [{ html: bar(a, '#4aa8ff'), say: `${a} feet`, correct: a > b }, { html: bar(b, '#ffb030'), say: `${b} feet`, correct: b > a }], answerVoice: ['that_one_farther'], answerSay: 'That one went farther!' }, 'tony');
+    choices: [{ html: bar(a, '#4aa8ff'), say: `${a} feet`, correct: a > b }, { html: bar(b, '#ffb030'), say: `${b} feet`, correct: b > a }], answerVoice: ['that_one_farther'], answerSay: 'That one went farther!' }, me());
   taps(true);
 }
 
@@ -284,10 +286,10 @@ async function gameOver() {
   const gold = [...document.querySelectorAll('#balls i.hr')];
   for (let i = 0; i < gold.length; i++) { gold[i].classList.add('counted'); sfx.collect(i); await voice(`n_${i + 1}`, { priority: 2, minMs: 450 }); }
   if (gold.length) await voice(gold.length === 1 ? 'home_run' : 'home_runs', { priority: 2 });
-  const best = kid('tony').best || 0;
+  const best = kid(me()).best || 0;
   if (best && S.hr > best) await voice(S.hr === best + 1 ? 'one_more_than_last' : 'new_best', { priority: 2 });
-  if (S.hr > best) remember('tony', 'best', S.hr);
-  if (hero) earn('tony', 'derby-hero'); if (best && S.hr > best) earn('tony', 'derby-best');
+  if (S.hr > best) remember(me(), 'best', S.hr);
+  if (hero) earn(me(), 'derby-hero'); if (best && S.hr > best) earn(me(), 'derby-best');
   show('#bigtext', false);
   $('#final').textContent = S.hr; $('#over h2').textContent = hero ? '\u{1F31F}' : '\u{1F389}';
   $('#boardmini').innerHTML = boardHTML(); document.querySelectorAll('#who button').forEach((b) => { b.disabled = false; b.classList.remove('picked'); });

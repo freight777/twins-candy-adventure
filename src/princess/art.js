@@ -307,7 +307,7 @@ export function floorSVG() {
 
 export function tableSVG() {
   const p = uid();
-  const candle = (x) => `<g><rect x="${x - 3}" y="18" width="6" height="26" fill="url(#${p}g)"/><path d="M${x - 14} 52 Q${x} 40 ${x + 14} 52Z" fill="url(#${p}g)"/><rect x="${x - 3}" y="2" width="6" height="20" rx="2" fill="#fff8e0"/><ellipse class="flame" cx="${x}" cy="-4" rx="4" ry="8" fill="#ffc83a"/><ellipse cx="${x}" cy="-2" rx="2" ry="4.4" fill="#fff4b0"/></g>`;
+  const candle = (x) => `<g><rect x="${x - 3}" y="18" width="6" height="26" fill="url(#${p}g)"/><path d="M${x - 14} 52 Q${x} 40 ${x + 14} 52Z" fill="url(#${p}g)"/><rect x="${x - 3}" y="2" width="6" height="20" rx="2" fill="#fff8e0"/><ellipse cx="${x}" cy="-4" rx="4" ry="8" fill="#ffc83a"/><ellipse cx="${x}" cy="-2" rx="2" ry="4.4" fill="#fff4b0"/></g>`;
   return `<svg viewBox="0 0 420 200" style="overflow:visible"><defs>
     <linearGradient id="${p}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2a8"/><stop offset=".5" stop-color="#e8b422"/><stop offset="1" stop-color="#a87408"/></linearGradient>
     <linearGradient id="${p}t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ece4f4"/></linearGradient>

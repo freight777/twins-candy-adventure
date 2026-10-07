@@ -7,7 +7,7 @@ import './quiz.css';
 import { voice, sayAsync, sfx } from '../audio.js';
 import { renderShow } from '../learn/frame.js';
 import { segments } from '../learn/reading.js';
-import { item, settings, recordItem, recordSkill, kid } from '../learn/profile.js';
+import { peekItem, settings, recordItem, recordSkill, kid } from '../learn/profile.js';
 import { earn } from './sticker.js';
 
 let root = null;
@@ -38,7 +38,18 @@ export function quiz(q, { who = 'adalyn', icon, iconAlt } = {}) {
     R.classList.remove('hidden'); R.querySelector('.aeq-card').classList.remove('done'); void R.offsetWidth;
 
     let misses = 0, done = false, busy = false, idleT = 0;
-    const speak = () => (q.prompt.voice ? voice(q.prompt.voice, { priority: 2, fallback: q.prompt.say }) : sayAsync(q.prompt.say, 'narrator', { priority: 2 }));
+    // with an equation on the card, each numeral and sign lights up as it is said (karaoke for maths)
+    const EQ = { plus: '+', take_away: '−', minus: '−', is: '=' }, spans = [...eq.children];
+    const tokenFor = (id, used) => { const t = id.startsWith('n_') ? id.slice(2) : EQ[id]; return t && spans.find((s) => s.textContent === t && !used.has(s)); };
+    const speakLit = async () => {
+      const used = new Set();
+      for (const id of q.prompt.voice) {
+        const s = tokenFor(id, used); if (s) { used.add(s); s.classList.add('lit'); }
+        await voice(id, { priority: 2 }); if (s) s.classList.remove('lit');
+      }
+    };
+    const speak = () => (q.prompt.voice && q.equation && Array.isArray(q.prompt.voice) && q.prompt.voice.some((id) => tokenFor(id, new Set())) ? speakLit()
+      : q.prompt.voice ? voice(q.prompt.voice, { priority: 2, fallback: q.prompt.say }) : sayAsync(q.prompt.say, 'narrator', { priority: 2 }));
     // the choices: buttons, or the two picture groups themselves for "which has more?"
     const els = q.choices.map((ch, i) => {
       let el;
@@ -56,7 +67,7 @@ export function quiz(q, { who = 'adalyn', icon, iconAlt } = {}) {
     });
     const right = els[q.choices.findIndex((c) => c.correct)];
     // prompt fading: brand-new items show the answer softly from the start; seen-once items only after a miss
-    const fresh = settings.scaffoldNew !== false && q.id && item(who, q.id).box === 0 && item(who, q.id).seen === 0;
+    const seenIt = q.id && peekItem(who, q.id), fresh = settings.scaffoldNew !== false && q.id && (!seenIt || (seenIt.box === 0 && seenIt.seen === 0));
     let helped = false; if (fresh) right.classList.add('hint');
 
     const armIdle = () => {
@@ -89,7 +100,7 @@ export function quiz(q, { who = 'adalyn', icon, iconAlt } = {}) {
       misses++; el.classList.add('dim'); sfx.soft(); clearTimeout(idleT);
       if (ch.voice && !q.choices.every((c) => c.num != null)) voice(ch.voice, { priority: 1, fallback: ch.say });   // name the picture/word she tapped
       if (misses === 1) {
-        if (q.id && item(who, q.id).box <= 1) { right.classList.add('hint'); helped = true; }
+        if (q.id && (peekItem(who, q.id)?.box ?? 0) <= 1) { right.classList.add('hint'); helped = true; }
         await voice('hmm_try_again', { priority: 1 });
         return armIdle();
       }
