@@ -125,6 +125,10 @@ function arcadeEnv(renderer) {
   panel(2.4, .9, 0xffe8f6, .9, [-1.5, 1.6, 5.9], [0, 1.4, 0]);                              // the arcade behind the player
   panel(1.2, 1.6, 0x3f8cff, 2, [-3, 1.1, 5.5], [0, 1, 0]); panel(1.2, 1.6, 0xff6fb5, 2, [3, 1.1, 5.5], [0, 1, 0]);
   panel(2, .3, 0xffffff, 6, [0, 1.15, .2], [0, 0, .2]);                                    // the machine's own roof light, just above
+  // the arcade behind you: a row of machines with glowing screens and marquees, and rows of ceiling lights (the glass shows them)
+  const scr = [0x3fd0ff, 0xff5fb0, 0xffd34d, 0x7cff8a, 0xb07cff, 0xff8a3d, 0x4dc3ff];
+  for (let i = 0; i < 7; i++) { const x = -4.2 + i * 1.4; panel(.7, .55, scr[i], 2.4, [x, 1.0, 5.8], [x, 1.0, 0]); panel(.8, .16, scr[(i + 3) % 7], 4, [x, 1.75, 5.8], [x, 1.75, 0]); }
+  for (const z of [-2.5, 0, 2.5, 4.8]) for (const x of [-3, 0, 3]) panel(.9, .18, 0xfff0e0, 3, [x, 3.95, z], [x, 0, z]);
   const pm = new THREE.PMREMGenerator(renderer), t = pm.fromScene(s, .035).texture; pm.dispose();
   s.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
   return t;
@@ -231,7 +235,7 @@ export function buildMachine(scene, renderer, theme) {
   const blackPlastic = new THREE.MeshPhysicalMaterial({ color: 0x0c0c10, roughness: .42, clearcoat: .5, clearcoatRoughness: .3 });
   const smudge = tex(smudgeCanvas(), { srgb: false });
   // glass: only its reflection is drawn (added on top), so you see straight through it but the room shows in it at an angle
-  const glass = new THREE.MeshPhysicalMaterial({ color: 0x000000, roughness: .03, roughnessMap: smudge, metalness: 0, specularIntensity: 1, envMapIntensity: .9, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x000000, roughness: .03, roughnessMap: smudge, metalness: 0, specularIntensity: 1, envMapIntensity: 2.1, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const acrylic = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .05, transparent: true, opacity: .1, envMapIntensity: 2, depthWrite: false, side: THREE.DoubleSide });
   const rb = (w, h, d, r = .012, seg = 3) => new RoundedBoxGeometry(w, h, d, seg, r);
   const add = (geo, mat, pos, { cast = true, recv = true, parent = G, rot = null } = {}) => { const m = new THREE.Mesh(geo, mat); m.position.set(...pos); if (rot) m.rotation.set(...rot); m.castShadow = cast; m.receiveShadow = recv; parent.add(m); return m; };
