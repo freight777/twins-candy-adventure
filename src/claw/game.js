@@ -47,7 +47,7 @@ const gtao = new GTAOPass(scene, camera, 256, 256); gtao.blendIntensity = .85; g
 const bokeh = new BokehPass(scene, camera, { focus: 1.6, aperture: .0035, maxblur: .006 });
 const depthSkip = [];
 const collectDepthSkip = () => { depthSkip.length = 0; scene.traverse((o) => { const m = o.material; if (o.isSprite || o.isPoints || (o.isMesh && m && (Array.isArray(m) ? m.some((x) => x.transparent) : m.transparent))) depthSkip.push(o); }); };
-[gtao, bokeh].forEach((p) => { const run = p.render.bind(p); p.render = (...a) => { const vis = depthSkip.map((o) => o.visible); depthSkip.forEach((o) => (o.visible = false)); try { run(...a); } finally { depthSkip.forEach((o, i) => (o.visible = vis[i])); } }; });
+[gtao, bokeh].forEach((p) => { const run = p.render.bind(p); p.render = (...a) => { const vis = depthSkip.map((o) => o.visible); depthSkip.forEach((o) => (o.visible = false)); furShown(false); try { run(...a); } finally { furShown(true); depthSkip.forEach((o, i) => (o.visible = vis[i])); } }; });
 const pipe = createPipeline(canvas, { toneMapping: THREE.ACESFilmicToneMapping, exposure: .95, bloom: { strength: .18, radius: .5, threshold: 1.25 }, gradePass: grade, extraPasses: [gtao, bokeh] });
 const renderer = pipe.renderer;
 pipe.setScene(scene, camera);
@@ -55,7 +55,7 @@ let machine = null, phys = null, shelf = null;
 const view = { fov: 38, aspect: 1 };
 pipe.onTier = (q) => {
   // ambient occlusion and depth of field on every tier but the lowest (the iPad included); the automatic quality steps down if it's slow
-  gtao.enabled = bokeh.enabled = q.name !== 'low';
+  bokeh.enabled = q.name !== 'low'; gtao.enabled = q.name === 'high';                       // (the toys have their own baked contact shading; the extra pass is for big screens)
   setFurLayers(q.name === 'high' ? 12 : q.name === 'medium' ? 7 : 0);
   if (machine) { const r = machine.roof; r.shadow.mapSize.set(q.shadow || 768, q.shadow || 768); r.shadow.map?.dispose(); r.shadow.map = null; }
 };
@@ -144,7 +144,7 @@ async function boot() {
   scene.environment = machine.env; scene.environmentIntensity = .6; scene.background = new THREE.Color(0x07060c); scene.fog = new THREE.Fog(0x07060c, 3.5, 7);
   plushMaterials(); tick();
   phys = createPhysics(); fillNow();
-  let lastThud = 0; phys.onImpact = (t, v) => { const now = performance.now(); if (now - lastThud < 90 || S.state === 'boot') return; lastThud = now; sfx.thud(Math.min(1, v / 2.5) * .8); }; shelf = buildShelf(scene); tick();
+  let lastThud = 0; phys.onImpact = (t, v) => { const now = performance.now(); if (now - lastThud < 90 || S.state === 'boot') return; lastThud = now; sfx.thud(Math.min(1, v / 2.5) * .8); }; shelf = buildShelf(scene); shelf.merge(); tick();
   pipe.applyTier(); collectDepthSkip();
   placeCamera(1);
   try { await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 5000))]); } catch { /* compiles on the first frame instead */ }
@@ -646,6 +646,7 @@ function renderClawCam() {
   const ex = renderer.toneMappingExposure; renderer.toneMappingExposure = ex * .62; furShown(false); renderer.render(scene, clawCam); furShown(true); renderer.toneMappingExposure = ex;
   renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.shadowMap.autoUpdate = au;
 }
-pipe.start((dt, raw) => { if (!machine || !phys) return false; update(dt); pipe.render(raw); renderClawCam(); return false; });
+let frameNo = 0; renderer.shadowMap.autoUpdate = false;
+pipe.start((dt, raw) => { if (!machine || !phys) return false; update(dt); renderer.shadowMap.needsUpdate = (frameNo++ & 1) === 0 || Q.name === 'high'; pipe.render(raw); renderClawCam(); return false; });   // shadows: every other frame on the iPad
 window.claw = { S, scene, openShelf, keepToys, THREE, renderClawCam: () => renderClawCam(), camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus } };
 boot().catch((e) => { console.error(e); loading.fail(); });

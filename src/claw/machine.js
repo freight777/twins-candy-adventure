@@ -167,6 +167,31 @@ function buildDecor(theme) {
   g.userData.sway = sway; return g;
 }
 
+/**
+ * Fewer draw calls: every mesh under root that never moves is baked into one mesh per material (same look, one draw each
+ * instead of dozens). Anything under a node in `keep` (the claw, the gantry, the joystick, the flap, the decorations) is left alone.
+ */
+function mergeStatic(root, keep) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), groups = new Map(), victims = [];
+  root.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh || Array.isArray(o.material) || o.material.transparent) return;
+    for (let p = o; p && p !== root; p = p.parent) if (keep.has(p)) return;
+    const g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    if (!g.attributes.uv) return;
+    if (!groups.has(o.material)) groups.set(o.material, { geos: [], cast: false, recv: false });
+    const e = groups.get(o.material); e.geos.push(g); e.cast ||= o.castShadow; e.recv ||= o.receiveShadow; victims.push(o);
+  });
+  for (const [mat, e] of groups) {
+    if (e.geos.length < 2) { e.geos.forEach((g) => g.dispose()); victims.splice(0, victims.length, ...victims.filter((v) => v.material !== mat)); continue; }
+    const geos = e.geos.some((g) => !g.index) ? e.geos.map((g) => (g.index ? g.toNonIndexed() : g)) : e.geos;
+    const merged = mergeGeometries(geos); if (!merged) continue;
+    const m = new THREE.Mesh(merged, mat); m.castShadow = e.cast; m.receiveShadow = e.recv; m.matrixAutoUpdate = false; root.add(m);
+    victims.filter((v) => v.material === mat).forEach((v) => { v.parent.remove(v); v.geometry.dispose(); });
+  }
+}
+
 // ---------------------------------------------------------------- the toy shelf: a wooden bookcase in a corner of the arcade where each girl's toys are kept
 export function buildShelf(scene) {
   const g = new THREE.Group(); g.position.set(0, -.92, 4.3); scene.add(g);
@@ -189,6 +214,7 @@ export function buildShelf(scene) {
       sign.material.map?.dispose(); sign.material.map = tex(c); sign.material.needsUpdate = true;
     },
     view: { p: new THREE.Vector3(0, .02, 6.75), l: new THREE.Vector3(0, -.13, 4.3) },
+    merge() { mergeStatic(g, new Set([sign])); },
   };
 }
 
@@ -406,5 +432,6 @@ export function buildMachine(scene, renderer, theme) {
     floor, back,
   };
   api.setClaw(DIM.home.x, DIM.top, DIM.home.z); api.setOpen(.15);
+  mergeStatic(G, new Set([claw, carriage, bridge, stick, button, flap, decor]));
   return api;
 }
