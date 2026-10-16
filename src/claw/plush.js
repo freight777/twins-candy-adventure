@@ -375,10 +375,23 @@ export function mermaid(seed) {
     const cap = new THREE.SphereGeometry(1, 30, 22, 0, Math.PI * 2, 0, 1.96);
     T.add(place(cap, head[1], [-1.0, 0, 0], [.056, .056, .055]), 'hair', hair);
     for (let i = 0; i < 5; i++) { const x = (i - 2) * .015; T.add(tubeGeo([[x * .6, .212, .01], [x, .206, .036], [x * 1.3, .195, .049]], .011, .006, { seg: 8, rad: 8 }), 'hair', hair); }
-    for (let i = 0; i < 14; i++) {
-      const a = Math.PI * (.04 + .92 * i / 13), sx = -Math.cos(a), sz = -Math.sin(a), len = .085 + r() * .03, w = Math.sin(i * 2.1) * .006;
+    const style = r();                                                    // long and flowing, a high ponytail, or two space buns
+    const locks = style < .5 ? 14 : 8, short = style < .5 ? 1 : .45;
+    for (let i = 0; i < locks; i++) {
+      const a = Math.PI * (.04 + .92 * i / (locks - 1)), sx = -Math.cos(a), sz = -Math.sin(a), len = (.085 + r() * .03) * short, w = Math.sin(i * 2.1) * .006;
       const p0 = [sx * .04, .19, sz * .036], p1 = [sx * .056, .155, sz * .05], p2 = [sx * .055 + w, .155 - len * .5, sz * .046 + .004], p3 = [sx * .05 - w, .155 - len, sz * .038];
       T.add(tubeGeo([p0, p1, p2, p3], .017, .01, { seg: 14, rad: 10 }), 'hair', hair);
+    }
+    const tie = pickR(r, ['#ff6f9a', '#ffd84d', '#9fd8ff', '#c9a8ff', '#ffffff']);
+    if (style >= .5 && style < .78) {                                     // ponytail: a scrunchie at the back of the crown and a big swishy tail
+      T.add(place(new THREE.TorusGeometry(.013, .006, 10, 24), [0, .205, -.035], [1.1, 0, 0]), 'satin', tie);
+      for (let k = 0; k < 3; k++) T.add(tubeGeo([[(k - 1) * .006, .207, -.04], [(k - 1) * .01, .2, -.075], [(k - 1) * .014, .165, -.088], [(k - 1) * .01, .12, -.078]], .016, .007, { seg: 14, rad: 10 }), 'hair', hair);
+      T.cols.push({ c: new THREE.Vector3(0, .17, -.075), r: .022 });
+    } else if (style >= .78) {                                            // space buns, each with a little bow-coloured band
+      for (const s of [-1, 1]) {
+        T.ell([.022, .02, .022], [s * .036, .208, -.006], hair, { mat: 'hair', seg: 18, lump: .06 });
+        T.add(place(new THREE.TorusGeometry(.016, .004, 8, 22), [s * .033, .195, -.005], [Math.PI / 2 - .2, 0, -s * .5]), 'satin', tie);
+      }
     }
     if (r() < .6) T.add(place(puffGeo(starShape(.014, .007, 5, .3), .002, .003, { seg: 2, curve: 6 }), [.036, .205, .022], [0, .5, .3]), 'felt', '#ffd84d');
   }
