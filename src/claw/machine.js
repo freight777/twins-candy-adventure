@@ -130,6 +130,43 @@ function arcadeEnv(renderer) {
   return t;
 }
 
+// ---------------------------------------------------------------- decorations inside the machine: printed foam-board cut-outs
+// standing against the backdrop (white edges, glossy print on the front) and a few things dangling on fishing line
+const SHP = {
+  circle(r) { const s = new THREE.Shape(); s.absarc(0, 0, r, 0, Math.PI * 2, false); return s; },
+  star(ro, ri, n = 5) { const s = new THREE.Shape(); for (let i = 0; i <= n * 2; i++) { const a = Math.PI / 2 + i * Math.PI / n, r = i % 2 ? ri : ro; i ? s.lineTo(Math.cos(a) * r, Math.sin(a) * r) : s.moveTo(Math.cos(a) * r, Math.sin(a) * r); } return s; },
+  cloud(w) { const s = new THREE.Shape(), k = w / 2; s.moveTo(-k, 0); s.absarc(-k * .55, k * .2, k * .45, Math.PI, Math.PI * .35, true); s.absarc(0, k * .45, k * .55, Math.PI * .85, Math.PI * .15, true); s.absarc(k * .55, k * .2, k * .45, Math.PI * .65, 0, true); s.lineTo(-k, 0); return s; },
+  heart(w) { const s = new THREE.Shape(), k = w / 2; s.moveTo(0, -k * .9); s.bezierCurveTo(k * .6, -k * .4, k * 1.1, 0, k, k * .4); s.bezierCurveTo(k * .9, k * .9, k * .3, k, 0, k * .6); s.bezierCurveTo(-k * .3, k, -k * .9, k * .9, -k, k * .4); s.bezierCurveTo(-k * 1.1, 0, -k * .6, -k * .4, 0, -k * .9); return s; },
+  arch(r0, r1) { const s = new THREE.Shape(); s.absarc(0, 0, r1, 0, Math.PI, false); s.absarc(0, 0, r0, Math.PI, 0, true); s.closePath(); return s; },
+  weed(h, w, seed) { const s = new THREE.Shape(), N = 10, L = [], R = []; for (let i = 0; i <= N; i++) { const t = i / N, x = Math.sin(t * 5 + seed) * w * .8, ww = w * (1 - t * .7); L.push([x - ww / 2, t * h]); R.push([x + ww / 2, t * h]); } s.moveTo(...L[0]); L.forEach((p) => s.lineTo(...p)); s.quadraticCurveTo(L[N][0] + w * .2, h + w * .4, R[N][0], R[N][1]); R.reverse().forEach((p) => s.lineTo(...p)); s.closePath(); return s; },
+  coral(h) { const s = new THREE.Shape(), b = (x0, y0, x1, y1, w) => { const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy), nx = -dy / l * w, ny = dx / l * w; const p = new THREE.Path(); return [[x0 + nx, y0 + ny], [x1 + nx * .6, y1 + ny * .6], [x1 - nx * .6, y1 - ny * .6], [x0 - nx, y0 - ny]]; };
+    const pts = [[-.02, 0], [-.025, h * .45], [-.11, h * .75], [-.12, h * .9], [-.09, h * .92], [-.01, h * .62], [-.01, h * .98], [.025, h], [.03, h * .6], [.1, h * .82], [.125, h * .8], [.04, h * .4], [.03, 0]];
+    s.moveTo(...pts[0]); pts.forEach((p) => s.lineTo(...p)); s.closePath(); void b; return s; },
+};
+function cutout(shape, color, depth = .008) {
+  const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: .0015, bevelSize: .0015, bevelSegments: 2, curveSegments: 20 });
+  const m = new THREE.Mesh(g, [new THREE.MeshPhysicalMaterial({ color, roughness: .3, clearcoat: .7, clearcoatRoughness: .15 }), new THREE.MeshStandardMaterial({ color: 0xf6f2ee, roughness: .85 })]);
+  m.castShadow = m.receiveShadow = true; return m;
+}
+function buildDecor(theme) {
+  const g = new THREE.Group(), sway = [], z = -DIM.D + .012;
+  const put = (m, x, y, zz = z, rz = 0) => { m.position.set(x, y, zz); m.rotation.z = rz; g.add(m); return m; };
+  const hang = (m, x, y, len) => { const pivot = new THREE.Group(); pivot.position.set(x, DIM.H - .01, z + .02); m.position.y = -len; pivot.add(m);
+    const line = new THREE.Mesh(new THREE.CylinderGeometry(.0007, .0007, len, 4).translate(0, -len / 2, 0), new THREE.MeshBasicMaterial({ color: 0xdddddd, transparent: true, opacity: .5 })); pivot.add(line); g.add(pivot); sway.push({ o: pivot, k: Math.random() * 6, a: .07 }); void y; };
+  if (theme === 'unicorn') {
+    ['#ff8fa8', '#ffc27a', '#fff09a', '#9fe6a8', '#8fcfff'].forEach((c, i) => put(cutout(SHP.arch(.27 - i * .034, .3 - i * .034), c, .006), 0, .02, z + i * .0015));
+    put(cutout(SHP.cloud(.2), '#ffffff', .01), -.29, .02, z + .02); put(cutout(SHP.cloud(.22), '#ffffff', .01), .3, .02, z + .02);
+    put(cutout(SHP.heart(.09), '#ff7fb0'), -.36, .42, z + .004, .2); put(cutout(SHP.heart(.07), '#c79bff'), .37, .5, z + .004, -.25);
+    [[-.24, .19, '#ffd84d'], [.06, .13, '#fff2a0'], [.27, .22, '#ffd84d']].forEach(([x, len, c]) => hang(cutout(SHP.star(.04, .018), c, .006), x, 0, len));
+  } else {
+    [[-.39, .5, 1], [-.31, .38, 2.4], [.33, .44, 4], [.4, .55, 5.5]].forEach(([x, h, sd]) => sway.push({ o: put(cutout(SHP.weed(h, .045, sd), sd > 3 ? '#3cc48a' : '#2fae7a', .006), x, 0, z + .01), k: sd, a: .04, base: true }));
+    put(cutout(SHP.coral(.3), '#ff7f9f'), .2, 0, z + .006); put(cutout(SHP.coral(.24), '#ffa36b'), -.17, 0, z + .006);
+    const shell = cutout(SHP.cloud(.16), '#ffc9dd', .01); put(shell, .02, .03, z + .02);
+    [[-.22, .2, '#ffb84d'], [.1, .14, '#ff8fb3'], [.28, .24, '#ffd84d']].forEach(([x, len, c]) => hang(cutout(SHP.star(.038, .016), c, .006), x, 0, len));
+  }
+  g.userData.sway = sway; return g;
+}
+
 // ---------------------------------------------------------------- the toy shelf: a wooden bookcase in a corner of the arcade where each girl's toys are kept
 export function buildShelf(scene) {
   const g = new THREE.Group(); g.position.set(0, -.92, 4.3); scene.add(g);
@@ -197,6 +234,7 @@ export function buildMachine(scene, renderer, theme) {
   const backTex = tex(backdropCanvas(theme));
   const backMat = new THREE.MeshStandardMaterial({ map: backTex, roughness: .55, emissive: 0xffffff, emissiveMap: backTex, emissiveIntensity: .06 });
   const back = add(new THREE.PlaneGeometry(2 * DIM.W + .02, DIM.H), backMat, [0, DIM.H / 2, -DIM.D - .002], { cast: false });
+  let decor = buildDecor(theme); G.add(decor);
   for (const x of [-1, 1]) add(new THREE.PlaneGeometry(2 * DIM.D, DIM.H), glass, [x * (DIM.W + .012), DIM.H / 2, 0], { cast: false, recv: false, rot: [0, Math.PI / 2, 0] });
   const front = add(new THREE.PlaneGeometry(W - .1, 1.0), glass, [0, .5, D / 2 - .012], { cast: false, recv: false }); front.renderOrder = 5;
   // chute: a dark shaft, a chrome lip, a clear guard on its two inner sides
@@ -328,6 +366,7 @@ export function buildMachine(scene, renderer, theme) {
       paint.color.set(look.paint); paint2.color.set(look.paint2); velvet.color.set(look.floor);
       signTex.image = signCanvas(look); signTex.needsUpdate = true;
       backTex.image = backdropCanvas(t); backTex.needsUpdate = true;
+      G.remove(decor); decor.traverse((o) => { o.geometry?.dispose(); [].concat(o.material || []).forEach((m) => m.dispose()); }); decor = buildDecor(t); G.add(decor);
       panelTex.image = panelCanvas(look); panelTex.needsUpdate = true;
       clawLed.color.set(look.led); area.color.set(look.led); ledBar.material.color.set(look.led).multiplyScalar(2); ledRing.material.color.set(look.led).multiplyScalar(4);
     },
@@ -335,6 +374,7 @@ export function buildMachine(scene, renderer, theme) {
     /** a quick bright pulse of every light in the cabinet (the claw landing, a win) */
     flash(k = 1) { flash = Math.max(flash, k); },
     lights(t, mode) {
+      for (const s of decor.userData.sway) { if (s.base) s.o.rotation.z = Math.sin(t * .9 + s.k) * s.a; else { s.o.rotation.z = Math.sin(t * .7 + s.k) * s.a; s.o.rotation.x = Math.sin(t * .5 + s.k * 1.3) * s.a * .5; } }
       // the LED strip, the light it throws and the claw's ring: the theme's colour while playing, a slow rainbow drift on the
       // title screen, a fast rainbow chase on a win; everything flares for a moment on a flash
       const dt = Math.min(.1, Math.max(0, t - lastT)); lastT = t; flash *= Math.exp(-4 * dt);
