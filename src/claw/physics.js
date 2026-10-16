@@ -29,13 +29,14 @@ export function createPhysics() {
   const bodies = new Map();       // toy group -> body
   let acc = 0;
   const api = {
-    world, CANNON,
+    world, CANNON, onImpact: null,
     /** a body for a toy group (built from userData.toy.spheres) at a position */
     add(toy, pos, quat = null) {
       const b = new CANNON.Body({ mass: .16, material: plush, linearDamping: .32, angularDamping: .62, sleepSpeedLimit: .045, sleepTimeLimit: .6 });
       for (const s of toy.userData.toy.spheres) b.addShape(new CANNON.Sphere(s.r), new CANNON.Vec3(s.p.x, s.p.y, s.p.z));
       b.position.set(pos.x, pos.y, pos.z); if (quat) b.quaternion.set(quat.x, quat.y, quat.z, quat.w);
       b.userData = { toy }; world.addBody(b); bodies.set(toy, b); toy.userData.body = b;
+      b.addEventListener('collide', (e) => { if (api.onImpact) { const v = Math.abs(e.contact.getImpactVelocityAlongNormal()); if (v > .7) api.onImpact(toy, v); } });
       return b;
     },
     remove(toy) { const b = bodies.get(toy); if (b) { world.removeBody(b); bodies.delete(toy); toy.userData.body = null; } api.wakeAll(); },

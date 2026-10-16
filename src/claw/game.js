@@ -143,7 +143,8 @@ async function boot() {
   machine = buildMachine(scene, renderer, S.theme); tick();
   scene.environment = machine.env; scene.environmentIntensity = .6; scene.background = new THREE.Color(0x07060c); scene.fog = new THREE.Fog(0x07060c, 3.5, 7);
   plushMaterials(); tick();
-  phys = createPhysics(); fillNow(); shelf = buildShelf(scene); tick();
+  phys = createPhysics(); fillNow();
+  let lastThud = 0; phys.onImpact = (t, v) => { const now = performance.now(); if (now - lastThud < 90 || S.state === 'boot') return; lastThud = now; sfx.thud(Math.min(1, v / 2.5) * .8); }; shelf = buildShelf(scene); tick();
   pipe.applyTier(); collectDepthSkip();
   placeCamera(1);
   try { await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 5000))]); } catch { /* compiles on the first frame instead */ }
@@ -196,6 +197,17 @@ async function openShelf() {
   anim(1, (k) => { shelf.light.intensity = 7 * k; shelf.fill.intensity = .8 * k; });
   if (all.length) { await sleep(.9); voice(`n_${Math.min(30, all.length)}`, { priority: 1 }); }
 }
+const _tapP = new THREE.Vector3();
+canvas.addEventListener('pointerdown', (e) => {
+  if (S.state !== 'shelf' || !shelfToys.length) return;
+  // the nearest toy to the finger (generous: small fingers miss), measured on the screen
+  camera.updateMatrixWorld(); let t = null, best = 80 * 80;
+  for (const toy of shelfToys) { _tapP.copy(toy.position).project(camera); const dx = (_tapP.x + 1) / 2 * innerWidth - e.clientX, dy = (1 - _tapP.y) / 2 * innerHeight - e.clientY, d = dx * dx + dy * dy; if (d < best) { best = d; t = toy; } }
+  if (!t) return;
+  if (t.userData.hopping) return; t.userData.hopping = true; sfx.plush(); if (t.userData.golden) sfx.sparkle();
+  const y0 = t.position.y, r0 = t.rotation.y, s0 = t.scale.x;
+  anim(.7, (k) => { t.position.y = y0 + Math.sin(k * Math.PI) * .07; t.rotation.y = r0 + k * Math.PI * 2; const sq = Math.sin(k * Math.PI * 3) * .08 * (1 - k); t.scale.set(s0 * (1 + sq), s0 * (1 - sq), s0 * (1 + sq)); }, ease.linear).then(() => { t.position.y = y0; t.rotation.y = r0; t.scale.setScalar(s0); t.userData.hopping = false; });
+});
 async function closeShelf() {
   sfx.pop(); show('#shelfUI', false); S.state = 'title';
   await anim(.6, (k) => { shelf.light.intensity = 7 * (1 - k); shelf.fill.intensity = .8 * (1 - k); });
@@ -280,7 +292,7 @@ async function grab(shouldWin) {
   await anim(.55, (k) => { C.angle = lerp(openA, shut, k); C.y = stopY - .028 * k; });
   motor(0);
   if (target) {
-    phys.hold(target);
+    phys.hold(target); sfx.plush();
     S.held = { toy: target, off0: target.position.clone().sub(clawVec()), q0: target.quaternion.clone(), up: uprightOf(target.quaternion), k: 0, slide: 0, loose: 0 };
   }
   await sleep(.25);
@@ -318,7 +330,7 @@ async function grab(shouldWin) {
   if (S.held && win) {
     clearChute();
     // a winning toy goes straight down the hole (its body stays out of the world, so it can't catch on the guard)
-    const t = S.held.toy, y0 = t.position.y, sx = (Math.random() - .5) * 5, sz = (Math.random() - .5) * 5; S.held = null; sfx.click();
+    const t = S.held.toy; t.scale.setScalar(1); const y0 = t.position.y, sx = (Math.random() - .5) * 5, sz = (Math.random() - .5) * 5; S.held = null; sfx.click();
     t.position.x += (DIM.home.x - t.position.x) * .5; t.position.z += (DIM.home.z - t.position.z) * .5;
     await anim(.55, (k) => { t.position.y = y0 - 4.9 * (k * .55) ** 2 - .3 * k; t.rotation.x += sx * .016; t.rotation.z += sz * .016; }, ease.linear);
     caught(t);
@@ -349,7 +361,7 @@ async function loosen(t) { const H = S.held; if (!H) return; const a0 = S.claw.a
 async function wiggle() { const a0 = S.claw.angle; for (let i = 0; i < 2; i++) { await anim(.12, (k) => { S.claw.angle = a0 + .1 * k; S.held && (S.held.slide = .01 * k); }); await anim(.12, (k) => { S.claw.angle = a0 + .1 * (1 - k); }); } }
 /** let go of whatever the claw is holding */
 function drop(intoChute = false) {
-  const H = S.held; if (!H) return; S.held = null;
+  const H = S.held; if (!H) return; S.held = null; H.toy.scale.setScalar(1);
   phys.release(H.toy, { x: S.claw.vx * .8, y: -.05, z: S.claw.vz * .8 }, intoChute ? .3 : 1);
   S.recentDrop = true; sfx.click();
 }
@@ -512,6 +524,8 @@ function update(dt) {
     H.k = Math.min(1, H.k + dt * 1.6); const e = ease.inOut(H.k);
     _p.copy(H.off0).lerp(_hang.set(0, -(.07 * CLAW.s + H.toy.userData.toy.radius * .42) - H.slide, 0), e);
     H.swing = (H.swing || 0) * Math.exp(-2.5 * dt) + clamp(C.vx, -1, 1) * dt * 2.2; H.swingZ = (H.swingZ || 0) * Math.exp(-2.5 * dt) + clamp(C.vz, -1, 1) * dt * 2.2;
+    H.sq = Math.min(1, (H.sq || 0) + dt * 5); const sq = Math.sin(Math.min(1, H.sq) * Math.PI / 2) * (1 - .4 * Math.min(1, H.k));   // squeezed by the prongs, easing a little once it hangs
+    H.toy.scale.set(1 - .08 * sq, 1 + .06 * sq, 1 - .08 * sq);
     const hp = machine.clawPos; H.toy.position.set(hp.x + _p.x - H.swing * .05, hp.y + _p.y, hp.z + _p.z - H.swingZ * .05);
     _q.slerpQuaternions(H.q0, H.up, e * .85); H.toy.quaternion.copy(_q).premultiply(_q2.setFromEuler(_e.set(-H.swingZ * .6, 0, H.swing * .6)));
   }
@@ -571,5 +585,5 @@ function placeCamera(dt) {
 }
 
 pipe.start((dt) => { if (!machine || !phys) return false; update(dt); });
-window.claw = { S, scene, openShelf, keepToys, camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } };
+window.claw = { S, scene, openShelf, keepToys, THREE, camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } };
 boot().catch((e) => { console.error(e); loading.fail(); });
