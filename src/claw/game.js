@@ -17,7 +17,7 @@ import { Timers, ease, lerp, clamp } from '../util.js';
 import { unlock, playMusic, stopMusic, sfx, voice, say, motor } from '../audio.js';
 import { buildMachine, DIM, CLAW } from './machine.js';
 import { createPhysics } from './physics.js';
-import { makeToy, plushMaterials, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } from './plush.js';
+import { makeToy, plushMaterials, setFurLayers, forgetToy, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } from './plush.js';
 
 const $ = (s) => document.querySelector(s);
 homeGate();
@@ -51,11 +51,12 @@ const collectDepthSkip = () => { depthSkip.length = 0; scene.traverse((o) => { c
 const pipe = createPipeline(canvas, { toneMapping: THREE.ACESFilmicToneMapping, exposure: .95, bloom: { strength: .18, radius: .5, threshold: 1.25 }, gradePass: grade, extraPasses: [gtao, bokeh] });
 const renderer = pipe.renderer;
 pipe.setScene(scene, camera);
-const COARSE = matchMedia('(pointer: coarse)').matches;
 let machine = null, phys = null;
 const view = { fov: 38, aspect: 1 };
 pipe.onTier = (q) => {
-  gtao.enabled = bokeh.enabled = !!q.post && !COARSE;
+  // ambient occlusion and depth of field on every tier but the lowest (the iPad included); the automatic quality steps down if it's slow
+  gtao.enabled = bokeh.enabled = q.name !== 'low';
+  setFurLayers(q.name === 'high' ? 12 : q.name === 'medium' ? 7 : 0);
   if (machine) { const r = machine.roof; r.shadow.mapSize.set(q.shadow || 768, q.shadow || 768); r.shadow.map?.dispose(); r.shadow.map = null; }
 };
 /** the glass window of the machine always fills the screen: fit its height (and its width on narrow screens) */
@@ -84,7 +85,7 @@ if (!['unicorn', 'mermaid'].includes(S.theme)) S.theme = 'unicorn';
 // ---------------------------------------------------------------- the pile
 const randQuat = () => new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3));
 function newToy(i) { const t = makeToy(S.theme, i, S.seed++); scene.add(t); S.toys.push(t); return t; }
-function removeToy(t) { phys.remove(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); S.toys = S.toys.filter((x) => x !== t); }
+function removeToy(t) { forgetToy(t); phys.remove(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); S.toys = S.toys.filter((x) => x !== t); }
 /** a full machine, already settled (behind the loading screen) */
 function fillNow() {
   for (let i = 0; i < TOYS; i++) { phys.add(newToy(i), dropPoint(.62), randQuat()); phys.settle(.14); }
@@ -111,7 +112,7 @@ function keepInside(silent) {
   for (const t of S.toys) {
     const b = phys.bodyOf(t); if (!b || b.userData.held || b.world == null) continue;
     if (b.position.y < -.1 || !Number.isFinite(b.position.y)) {
-      if (S.state === 'try' && inChute(b.position) && !silent) { caught(t); continue; }
+      if (S.catchResolve && inChute(b.position) && !silent) { caught(t); continue; }      // a lucky extra only counts while the claw is letting go over the chute
       console.debug('claw: toy back on the pile from', b.position.x.toFixed(2), b.position.y.toFixed(2), b.position.z.toFixed(2), S.state);
       b.position.copy(dropPoint(.6)); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.wakeUp();
     }
@@ -254,17 +255,22 @@ async function grab(shouldWin) {
     await anim(dur * fracStop, (k) => { if (done) return; const kk = k * fracStop; C.x = lerp(x0, DIM.home.x, kk); C.z = lerp(z0, DIM.home.z, kk); }, fracStop < 1 ? ease.in : ease.inOut);
     done = true; motor(0);
   };
-  if (target && fail === 'carry') { await travel(.3 + Math.random() * .45); await loosen(.2); drop(); await sleep(.3); }
+  if (target && fail === 'carry') { await travel(.2 + Math.random() * .3); await loosen(.2); drop(); await sleep(.3); }
   await sleep(.15);
   await travel(1);
   await sleep(.2);
   // 5. open over the chute
   let caughtToy = null;
   S.catchWait = new Promise((r) => (S.catchResolve = r));
-  sfx.click(); await anim(.35, (k) => { C.angle = lerp(C.angle ?? -.1, .62, k); });
-  if (S.held) drop(true);
-  const waitFor = win || S.recentDrop ? 1.8 : .5;
-  caughtToy = bonus.shift() || await Promise.race([S.catchWait, sleep(waitFor).then(() => null)]);
+  const a0 = C.angle ?? -.1; sfx.click(); await anim(.3, (k) => { C.angle = lerp(a0, .62, k); });
+  if (S.held && win) {
+    // a winning toy goes straight down the hole (its body stays out of the world, so it can't catch on the guard)
+    const t = S.held.toy, y0 = t.position.y, sx = (Math.random() - .5) * 5, sz = (Math.random() - .5) * 5; S.held = null; sfx.click();
+    t.position.x += (DIM.home.x - t.position.x) * .5; t.position.z += (DIM.home.z - t.position.z) * .5;
+    await anim(.55, (k) => { t.position.y = y0 - 4.9 * (k * .55) ** 2 - .3 * k; t.rotation.x += sx * .016; t.rotation.z += sz * .016; }, ease.linear);
+    caught(t);
+  } else if (S.held) drop(true);
+  caughtToy = bonus.shift() || await Promise.race([S.catchWait, sleep(S.recentDrop ? 1.4 : .4).then(() => null)]);
   S.catchResolve = null; S.recentDrop = false;
   await anim(.4, (k) => { C.angle = lerp(.62, lerp(-.1, .62, .15), k); });
   C.angle = null; C.open = .15;
@@ -363,7 +369,7 @@ async function gameOver() {
 }
 async function again(changeTheme) {
   sfx.pop(); show('#over', false);
-  for (const t of S.won) { t.visible = false; scene.remove(t); t.traverse((o) => o.geometry?.dispose()); }
+  for (const t of S.won) { t.visible = false; forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); }
   S.won = []; S.results = [];
   await anim(1.1, (k) => { S.endView = 1 - k; machine.counterLight.intensity = 6 * (1 - k); });
   if (changeTheme) { S.state = 'title'; showTitle(); return; }

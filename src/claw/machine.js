@@ -260,6 +260,13 @@ export function buildMachine(scene, renderer, theme) {
   const backLed = new THREE.RectAreaLight(0xffffff, 2.5, 2 * DIM.W, .03); backLed.position.set(0, .95, -DIM.D + .03); backLed.lookAt(0, 0, .1); G.add(backLed);
   const roomKey = new THREE.SpotLight(0xffe8f2, 3, 6, .7, .9, 1.5); roomKey.position.set(.6, 2.6, 2.6); roomKey.target.position.set(0, .2, 0); G.add(roomKey, roomKey.target);
 
+  // dust in the light: a few hundred specks drifting slowly inside the machine, catching the roof light
+  const moteN = 260, motePos = new Float32Array(moteN * 3), moteSeed = new Float32Array(moteN);
+  for (let i = 0; i < moteN; i++) { motePos.set([rnd(-DIM.W, DIM.W), rnd(.05, .95), rnd(-DIM.D, DIM.D)], i * 3); moteSeed[i] = Math.random() * 100; }
+  const moteGeo = new THREE.BufferGeometry(); moteGeo.setAttribute('position', new THREE.BufferAttribute(motePos, 3).setUsage(THREE.DynamicDrawUsage));
+  const moteTex = tex(canvas(32, 32, (g) => { const r = g.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 32, 32); }));
+  const motes = new THREE.Points(moteGeo, new THREE.PointsMaterial({ size: .0035, map: moteTex, color: new THREE.Color(1.3, 1.2, 1.1), transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending }));
+  motes.frustumCulled = false; G.add(motes);
   const api = {
     group: G, env, claw, prongs, carriage, bridge, cable, clawLed, ledRing, roof, area, sign, bulbs, stickTop, btnCap, counter, counterLight, neighbours, look,
     clawPos: new THREE.Vector3(DIM.home.x, DIM.top, DIM.home.z),
@@ -284,6 +291,12 @@ export function buildMachine(scene, renderer, theme) {
     },
     /** bulbs chase around the sign; mode 'attract' (title), 'play', 'win' (all flashing) */
     lights(t, mode) {
+      for (let i = 0; i < moteN; i++) {                                         // a lazy curl of air: each speck wanders and sinks a little, then comes back round
+        const k = moteSeed[i], j = i * 3;
+        motePos[j] += Math.sin(t * .23 + k) * .00012; motePos[j + 1] += Math.sin(t * .17 + k * 1.7) * .0001 - .00004; motePos[j + 2] += Math.cos(t * .19 + k * .7) * .00012;
+        if (motePos[j + 1] < .03) motePos[j + 1] = .95;
+      }
+      moteGeo.attributes.position.needsUpdate = true;
       const c = new THREE.Color();
       for (let i = 0; i < bulbN; i++) {
         let k;

@@ -59,6 +59,45 @@ function fabricify(mat, { kind = 'pile', freq = 320, bump = 1, tone = .08, seq =
   return mat;
 }
 
+// ---------------------------------------------------------------- fur: the plush pile as real fibres
+// Each fabric mesh carries a second, instanced copy of itself: up to 12 thin shells stacked a few millimetres out along
+// the surface. Every shell keeps only the fibres tall enough to reach it, so close up you see individual fibres and a soft,
+// fuzzy outline, and from further away they blend (alpha to coverage) into the velvet halo plush has. One draw per mesh.
+export const FUR = { max: 12, k: { value: 7 }, len: { value: .0028 } };
+/** how many shells to draw (0 = off): set from the graphics quality */
+export function setFurLayers(k) { FUR.k.value = Math.max(1, k); FUR.on = k > 0; furMeshes.forEach((m) => { m.count = k; m.visible = k > 0; }); }
+const furMeshes = new Set();
+let FURMAT = null;
+function furMaterial() {
+  if (FURMAT) return FURMAT;
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .95, alphaToCoverage: true });
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.furK = FUR.k; sh.uniforms.furLen = FUR.len;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float furK, furLen; varying vec3 vFurP; varying float vLayer;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n vLayer = (float(gl_InstanceID) + 1.) / furK; vFurP = position * 880.; transformed += objectNormal * furLen * vLayer;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      uniform float furK; varying vec3 vFurP; varying float vLayer;
+      float fuH(vec3 p){ p = fract(p * .1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      { vec3 c = floor(vFurP), f = fract(vFurP) - .5; float h = fuH(c), r = length(f.xy + f.z * .3);
+        float strand = step(vLayer, .35 + h * .75) * (1. - smoothstep(.3, .48 + .1 * (1. - vLayer), r));
+        float far = smoothstep(.7, 2.6, length(fwidth(vFurP)));
+        float a = mix(strand, (1. - vLayer) * .5, far); if (a < .02) discard;
+        diffuseColor.a = a; diffuseColor.rgb *= mix(.62, 1.1, vLayer); }`);
+  };
+  m.customProgramCacheKey = () => 'plush-fur';
+  return (FURMAT = m);
+}
+function addFur(mesh) {
+  const fur = new THREE.InstancedMesh(mesh.geometry, furMaterial(), FUR.max);
+  const I = new THREE.Matrix4(); for (let i = 0; i < FUR.max; i++) fur.setMatrixAt(i, I);
+  fur.count = FUR.on === false ? 0 : FUR.k.value; fur.visible = FUR.on !== false; fur.castShadow = false; fur.receiveShadow = true; fur.frustumCulled = false; fur.userData.fur = true;
+  mesh.add(fur); furMeshes.add(fur);
+  return fur;
+}
+/** a toy that's gone for good: forget its fur too */
+export function forgetToy(toy) { toy.traverse((o) => { if (o.userData.fur) furMeshes.delete(o); }); }
+
 let MATS = null;
 export function plushMaterials() {
   if (MATS) return MATS;
@@ -169,9 +208,10 @@ class Toy {
       const geo = mergeGeometries(list, false); list.forEach((g) => g.dispose());
       geo.translate(-cm.x, -cm.y, -cm.z); geo.scale(scale, scale, scale); geo.computeBoundingSphere();
       const mesh = new THREE.Mesh(geo, M[mat]); mesh.castShadow = mesh.receiveShadow = true; root.add(mesh);
+      if (mat === 'fabric') addFur(mesh);
     }
     const spheres = this.cols.map((c) => ({ p: c.c.clone().sub(cm).multiplyScalar(scale), r: c.r * scale }));
-    let R = 0; root.children.forEach((m) => { R = Math.max(R, m.geometry.boundingSphere.center.length() + m.geometry.boundingSphere.radius); });
+    let R = 0; root.children.forEach((m) => { if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere(); R = Math.max(R, m.geometry.boundingSphere.center.length() + m.geometry.boundingSphere.radius); });
     root.userData.toy = { kind: this.kind, spheres, radius: R, emoji: EMOJI[this.kind] || '\u{1F381}' };
     return root;
   }
@@ -183,7 +223,7 @@ const EMOJI = { unicorn: '\u{1F984}', mermaid: '\u{1F9DC}‍♀️', star: '⭐'
 /** glossy black safety eyes set into a head (ellipsoid centre c, radii r), looking along dir; with two tiny lashes */
 function eyes(T, r, c, { y = .18, x = .5, size = .18, lashes = true, lash = 0x2a1a22 } = {}) {
   for (const s of [-1, 1]) {
-    const d = new THREE.Vector3(s * x, y, 1).normalize(), at = new THREE.Vector3(...c).add(d.clone().multiply(new THREE.Vector3(...r)).multiplyScalar(.97));
+    const d = new THREE.Vector3(s * x, y, 1).normalize(), at = new THREE.Vector3(...c).add(d.clone().multiply(new THREE.Vector3(...r)).multiplyScalar(1.0));
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), d), e = new THREE.Euler().setFromQuaternion(q);
     const er = r[0] * size;
     T.add(ellGeo([er, er, er * .62], at.toArray(), [e.x, e.y, e.z], { seg: 16, lump: 0 }), 'eye', null);
@@ -197,7 +237,7 @@ function eyes(T, r, c, { y = .18, x = .5, size = .18, lashes = true, lash = 0x2a
 /** round felt cheeks */
 function cheeks(T, r, c, color, { y = -.05, x = .78 } = {}) {
   for (const s of [-1, 1]) {
-    const d = new THREE.Vector3(s * x, y, .62).normalize(), at = new THREE.Vector3(...c).add(d.clone().multiply(new THREE.Vector3(...r)).multiplyScalar(.985));
+    const d = new THREE.Vector3(s * x, y, .62).normalize(), at = new THREE.Vector3(...c).add(d.clone().multiply(new THREE.Vector3(...r)).multiplyScalar(1.03));
     const e = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), d));
     T.add(ellGeo([r[0] * .2, r[0] * .15, r[0] * .04], at.toArray(), [e.x, e.y, e.z], { seg: 14, lump: 0 }), 'felt', color);
   }
@@ -298,7 +338,7 @@ export function mermaid(seed) {
   T.ell(...head, skin, { col: true });                                                                  // head
   eyes(T, ...head, { y: .05, x: .4, size: .17 });
   cheeks(T, ...head, '#ff98ad', { y: -.22, x: .74 });
-  smile(T, [0, .145, .046], .0075);
+  smile(T, [0, .145, .0495], .0075);
   {                                                                                                      // hair: a yarn cap, bangs, long locks down the back
     const cap = new THREE.SphereGeometry(1, 30, 22, 0, Math.PI * 2, 0, 1.96);
     T.add(place(cap, head[1], [-1.0, 0, 0], [.056, .056, .055]), 'hair', hair);
@@ -319,9 +359,9 @@ function facePillow(kind, seed, shape, color, { depth = .022, puff = .018, face 
   T.add(puffGeo(shape, depth, puff, { seg: 6 }), 'fabric', null, { paint: dots ? (p) => dots(p) : null });
   if (!dots) T.parts[T.parts.length - 1].color = new THREE.Color(color);
   const [fx, fy] = face, er = .0075;
-  for (const s of [-1, 1]) T.add(ellGeo([er, er, er * .6], [fx + s * .017, fy + .008, z - .001], [0, 0, 0], { seg: 14, lump: 0 }), 'eye', null);
-  for (const s of [-1, 1]) T.add(ellGeo([.008, .006, .002], [fx + s * .028, fy - .006, z - .003], [0, 0, 0], { seg: 12, lump: 0 }), 'felt', '#ff8fb0');
-  smile(T, [fx, fy - .008, z + .0005], .007);
+  for (const s of [-1, 1]) T.add(ellGeo([er, er, er * .75], [fx + s * .017, fy + .008, z + .0015], [0, 0, 0], { seg: 14, lump: 0 }), 'eye', null);
+  for (const s of [-1, 1]) T.add(ellGeo([.008, .006, .0025], [fx + s * .028, fy - .006, z + .0012], [0, 0, 0], { seg: 12, lump: 0 }), 'felt', '#ff8fb0');
+  smile(T, [fx, fy - .008, z + .0032], .007);
   T.occluder([fx, fy, 0], [.06, .06, z]); T.parts[0].self = 0;
   const n = 4; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + .4; T.cols.push({ c: new THREE.Vector3(Math.cos(a) * .028, Math.sin(a) * .028, 0), r: z * 1.02 }); }
   T.cols.push({ c: new THREE.Vector3(0, 0, 0), r: z * 1.05 });
@@ -342,8 +382,8 @@ export function rainbow(seed) {
   }
   T.cols.push({ c: new THREE.Vector3(0, .05, 0), r: .02 }, { c: new THREE.Vector3(-.035, .035, 0), r: .016 }, { c: new THREE.Vector3(.035, .035, 0), r: .016 });
   const side = r() < .5 ? .058 : -.058;
-  for (const s of [-1, 1]) T.add(ellGeo([.0048, .0048, .003], [side + s * .0065, -.006, .0196], [0, 0, 0], { seg: 10, lump: 0 }), 'eye', null);
-  smile(T, [side, -.0135, .0198], .0045);
+  for (const s of [-1, 1]) T.add(ellGeo([.0048, .0048, .0035], [side + s * .0065, -.006, .0215], [0, 0, 0], { seg: 10, lump: 0 }), 'eye', null);
+  smile(T, [side, -.0135, .0222], .0045);
   return T.finish(1.4);
 }
 /** a scallop shell pillow: a fan with a wavy top edge, ribs in two tones, a face, and a pearl at its hinge */
