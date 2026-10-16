@@ -61,8 +61,8 @@ function signCanvas(look) {
     g.fillStyle = '#0a0612'; g.fillRect(0, 0, w, h);
     const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, look.signCol[0]); gr.addColorStop(1, look.signCol[1]);
     g.font = '700 120px Fredoka, "Arial Rounded MT Bold", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    for (const [blur, a] of [[40, .9], [18, 1], [6, 1]]) { g.shadowColor = look.signCol[0]; g.shadowBlur = blur; g.globalAlpha = a; g.fillStyle = gr; g.fillText(`${look.sign} CLAW`, w / 2, h / 2 + 6); }
-    g.shadowBlur = 0; g.globalAlpha = 1; g.fillStyle = 'rgba(255,255,255,.85)'; g.font = '700 116px Fredoka, "Arial Rounded MT Bold", sans-serif'; g.fillText(`${look.sign} CLAW`, w / 2, h / 2 + 6);
+    for (const [blur, a] of [[40, .9], [18, 1], [6, 1]]) { g.shadowColor = look.signCol[0]; g.shadowBlur = blur; g.globalAlpha = a; g.fillStyle = gr; g.fillText(`${look.owner || look.sign} CLAW`, w / 2, h / 2 + 6); }
+    g.shadowBlur = 0; g.globalAlpha = 1; g.fillStyle = 'rgba(255,255,255,.85)'; g.font = '700 116px Fredoka, "Arial Rounded MT Bold", sans-serif'; g.fillText(`${look.owner || look.sign} CLAW`, w / 2, h / 2 + 6);
   });
 }
 function carpetCanvas() {
@@ -391,8 +391,10 @@ export function buildMachine(scene, renderer, theme) {
     /** joystick tilt (-1..1 each way) and the button pressed in (0..1) */
     setStick(x, z) { stickTop.rotation.set(z * .35, 0, -x * .35); },
     setButton(k) { btnCap.position.y = .016 - k * .008; btnCap.material.emissiveIntensity = .6 + k * 2.4; },
+    /** the marquee says whose machine it is ("ESMAE'S CLAW"), or the theme when nobody (or both) */
+    setOwner(name) { look.owner = name ? `${name.toUpperCase()}'S` : null; signTex.image = signCanvas(look); signTex.needsUpdate = true; },
     setTheme(t) {
-      Object.assign(look, THEME_LOOK[t]);
+      Object.assign(look, THEME_LOOK[t], { owner: look.owner });
       paint.color.set(look.paint); paint2.color.set(look.paint2); velvet.color.set(look.floor);
       signTex.image = signCanvas(look); signTex.needsUpdate = true;
       backTex.image = backdropCanvas(t); backTex.needsUpdate = true;

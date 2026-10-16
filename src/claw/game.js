@@ -178,7 +178,7 @@ function showTitle(step = 'who') {
   document.querySelectorAll('#pickTheme .choice').forEach((b) => b.classList.toggle('picked', b.dataset.theme === S.theme));
 }
 const themeMusic = () => (S.theme === 'mermaid' ? 'ocean' : 'arcade');
-function chooseWho(who) { unlock(); sfx.pop(); if (!S.musicOn) { S.musicOn = true; playMusic(themeMusic()); } arcadeBed(true); S.who = who; store.set('clawWho', who); showTitle('theme'); }
+function chooseWho(who) { unlock(); sfx.pop(); if (!S.musicOn) { S.musicOn = true; playMusic(themeMusic()); } arcadeBed(true); S.who = who; store.set('clawWho', who); machine.setOwner(who === 'both' ? null : who === 'adalyn' ? 'Adalyn' : 'Esmae'); showTitle('theme'); }
 
 // ---------------------------------------------------------------- each girl's toy shelf: every toy she has ever won, kept on this iPad
 /** whose try this is: with "take turns" Adalyn has the even tries and Esmae the odd ones */
