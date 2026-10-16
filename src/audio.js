@@ -305,8 +305,39 @@ export const sfx = {
   clunk: () => { noise(.07, { vol: .3, from: 1400, to: 300, q: .9 }); tone(110, .12, { type: 'square', slide: .6, vol: .12, wet: .05 }); },
   click: () => { noise(.035, { vol: .35, from: 6000, to: 3000, type: 'highpass', q: .6 }); tone(620, .05, { type: 'square', slide: .7, vol: .06, wet: .05 }); },
   thud: (v = 1) => { noise(.14, { vol: .22 * v, from: 500, to: 140, q: .7 }); tone(85, .14, { slide: .6, vol: .22 * v, wet: .05 }); },
+  bell: () => { [0, .2, .4].forEach((d) => { tone(2349, .7, { vol: .1, delay: d, wet: .45 }); tone(2349 * 2.76, .35, { vol: .035, delay: d, wet: .45 }); tone(2349 * 5.4, .15, { vol: .015, delay: d, wet: .45 }); }); },
+  door: () => { noise(.05, { vol: .3, from: 1100, to: 400, q: .8 }); tone(170, .08, { type: 'square', slide: .5, vol: .1, wet: .05 }); noise(.04, { vol: .16, from: 900, to: 350, q: .8, delay: .14 }); },
   chute: () => { [0, .16, .34].forEach((d, i) => { noise(.16, { vol: .3 - i * .07, from: 700, to: 160, q: .7, delay: d }); tone(95 - i * 8, .16, { slide: .6, vol: .22 - i * .05, delay: d, wet: .05 }); }); },
 };
+
+/** an arcade around you: a low room tone, and now and then a machine somewhere else in the room plays a jingle, a pew,
+ *  a bell or a coin rattle, panned left or right and muffled by the distance (pass false to fade it all out) */
+let arcade = null;
+export function arcadeBed(on) {
+  if (!ctx) return;
+  if (!on) { if (arcade) { const a = arcade; arcade = null; clearInterval(a.iv); a.g.gain.setTargetAtTime(0, ctx.currentTime, .4); a.far.gain.setTargetAtTime(0, ctx.currentTime, .4); setTimeout(() => { try { a.src.stop(); } catch { /* stopped */ } }, 2500); } return; }
+  if (arcade) return;
+  const len = Math.floor(ctx.sampleRate * 4), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0), fade = Math.floor(ctx.sampleRate * .2);
+  let b = 0; for (let i = 0; i < len; i++) { b = .985 * b + (Math.random() * 2 - 1) * .06; d[i] = b * .6 * Math.min(1, i / fade, (len - i) / fade); }
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
+  const g = ctx.createGain(); g.gain.value = 0; g.gain.setTargetAtTime(.09, ctx.currentTime, 1.5);
+  src.connect(lp); lp.connect(g); g.connect(master); src.start();
+  const far = ctx.createGain(); far.gain.value = .55; const muff = ctx.createBiquadFilter(); muff.type = 'lowpass'; muff.frequency.value = 2200;
+  far.connect(muff); muff.connect(master); const room = ctx.createGain(); room.gain.value = .7; muff.connect(room); room.connect(reverbIn);
+  const blip = () => {
+    const pan = ctx.createStereoPanner(); pan.pan.value = (Math.random() < .5 ? -1 : 1) * (.4 + Math.random() * .55); pan.connect(far);
+    const o = { out: pan, wet: 0 }, k = Math.floor(Math.random() * 5), root = 523.25 * Math.pow(2, Math.floor(Math.random() * 5) / 12);
+    if (k === 0) [0, 4, 7, 12, 16].forEach((n, i) => tone(root * Math.pow(2, n / 12), .1, { ...o, type: 'square', vol: .035, delay: i * .085 }));
+    else if (k === 1) tone(root * 2, .25, { ...o, type: 'square', vol: .03, slide: .3 });
+    else if (k === 2) [0, .22].forEach((dl) => tone(1760, .5, { ...o, vol: .05, delay: dl }));
+    else if (k === 3) for (let i = 0; i < 7; i++) noise(.03, { out: pan, vol: .05, from: 5000, to: 3000, q: 3, delay: i * .06 + Math.random() * .02 });
+    else [12, 7, 4, 0].forEach((n, i) => tone(root * Math.pow(2, n / 12), .12, { ...o, type: 'triangle', vol: .04, delay: i * .11 }));
+    setTimeout(() => pan.disconnect(), 3000);
+  };
+  const iv = setInterval(() => { if (Math.random() < .45 && ctx.state === 'running') blip(); }, 1300);
+  arcade = { src, g, far, iv };
+}
 
 /** the claw machine's motors: a low electric whine while something moves (level 0 = silent); pitch rises a little with speed */
 let motorNodes = null;

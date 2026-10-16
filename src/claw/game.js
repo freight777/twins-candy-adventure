@@ -14,7 +14,7 @@ import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { createPipeline } from '../engine/pipeline.js';
 import { Q } from '../engine/quality.js';
 import { Timers, ease, lerp, clamp } from '../util.js';
-import { unlock, playMusic, stopMusic, sfx, voice, say, motor } from '../audio.js';
+import { unlock, playMusic, sfx, voice, say, motor, arcadeBed } from '../audio.js';
 import { buildMachine, DIM, CLAW } from './machine.js';
 import { createPhysics } from './physics.js';
 import { makeToy, plushMaterials, setFurLayers, forgetToy, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } from './plush.js';
@@ -151,7 +151,7 @@ function showTitle() {
   document.querySelectorAll('#pickTheme .choice').forEach((b) => b.classList.toggle('picked', b.dataset.theme === S.theme));
 }
 async function chooseTheme(theme) {
-  if (S.busy) return; S.busy = true; unlock(); sfx.pop(); playMusic('arcade');
+  if (S.busy) return; S.busy = true; unlock(); sfx.pop(); playMusic('arcade'); arcadeBed(true);
   store.set('clawTheme', theme);
   if (theme !== S.theme) {
     S.theme = theme; machine.setTheme(theme);
@@ -171,7 +171,7 @@ function dealPlan() {
   return Array.from({ length: TRIES }, (_, i) => idx.includes(i));
 }
 async function start() {
-  S.state = 'starting'; playMusic('arcade');
+  S.state = 'starting'; playMusic('arcade'); arcadeBed(true);
   if (S.toys.length < TOYS) await rainIn(TOYS - S.toys.length);
   S.plan = dealPlan(); S.try = 0; S.results = []; S.won = []; S.endView = 0;
   show('#hud'); setHud();
@@ -301,7 +301,7 @@ function drop(intoChute = false) {
 }
 /** a toy fell all the way down the chute */
 function caught(t) {
-  phys.remove(t); t.visible = false; S.toys = S.toys.filter((x) => x !== t); sfx.chute();
+  phys.remove(t); t.visible = false; S.toys = S.toys.filter((x) => x !== t); sfx.chute(); timers.after(.45, () => { sfx.door(); sfx.bell(); });
   S.catchResolve?.(t);
 }
 
