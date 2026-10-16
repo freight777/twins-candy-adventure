@@ -337,7 +337,7 @@ export function unicorn(seed) {
     const w = new THREE.Shape(); w.moveTo(0, 0); w.bezierCurveTo(.02, .03, .05, .045, .062, .04); w.bezierCurveTo(.05, .028, .052, .02, .042, .014); w.bezierCurveTo(.046, .006, .04, -.004, .03, -.002); w.bezierCurveTo(.03, -.01, .016, -.012, 0, 0);
     T.add(place(puffGeo(w, .002, .004, { seg: 3, curve: 16 }), [s * .036, .08, -.05], [0, -s * 1.2, s * .5], [s, 1, 1]), 'satin', r() < .5 ? '#fff8f0' : pal.hoof);
   }
-  return T.finish(1.32);
+  return T.finish(1.12);
 }
 
 export function mermaid(seed) {

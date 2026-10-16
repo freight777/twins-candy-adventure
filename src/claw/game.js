@@ -115,15 +115,25 @@ async function rainIn(n) {
   await sleep(1.8);
 }
 /** anything that rolled into the chute when no one was playing goes back on top of the pile */
-function keepInside(silent) {
+function keepInside(silent, dt = 0) {
   for (const t of S.toys) {
     const b = phys.bodyOf(t); if (!b || b.userData.held || b.world == null) continue;
     if (b.position.y < -.1 || !Number.isFinite(b.position.y)) {
       if (S.catchResolve && inChute(b.position) && !silent) { caught(t); continue; }      // a lucky extra only counts while the claw is letting go over the chute
-      b.position.copy(dropPoint(.6)); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.wakeUp();
+      backOnPile(b); continue;
     }
+    // a toy that has come to rest in the chute (wedged in the hole, or sitting on the chute side of the guard) would block
+    // the next prize: after a moment it goes back on the pile
+    if (overChute(b.position) && b.position.y < .5 && b.velocity.lengthSquared() < .04) {
+      b.userData.stuck = (b.userData.stuck || 0) + dt;
+      if (b.userData.stuck > .8) { backOnPile(b); sfx.pop(); }
+    } else b.userData.stuck = 0;
   }
 }
+function backOnPile(b) { b.position.copy(dropPoint(.6)); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.userData.stuck = 0; b.wakeUp(); }
+/** before a prize goes down, anything in the chute is moved out of its way */
+function clearChute() { for (const t of S.toys) { const b = phys.bodyOf(t); if (b && !b.userData.held && b.world && overChute(b.position) && b.position.y > -.1 && b.position.y < .55) backOnPile(b); } }
+const overChute = (p) => p.x < DIM.chute.x1 && p.z > DIM.chute.z0;
 const inChute = (p) => p.x < DIM.chute.x1 + .02 && p.z > DIM.chute.z0 - .02;
 
 // ---------------------------------------------------------------- boot
@@ -306,6 +316,7 @@ async function grab(shouldWin) {
   S.catchWait = new Promise((r) => (S.catchResolve = r));
   const a0 = C.angle ?? -.1; sfx.click(); await anim(.3, (k) => { C.angle = lerp(a0, .62, k); });
   if (S.held && win) {
+    clearChute();
     // a winning toy goes straight down the hole (its body stays out of the world, so it can't catch on the guard)
     const t = S.held.toy, y0 = t.position.y, sx = (Math.random() - .5) * 5, sz = (Math.random() - .5) * 5; S.held = null; sfx.click();
     t.position.x += (DIM.home.x - t.position.x) * .5; t.position.z += (DIM.home.z - t.position.z) * .5;
@@ -495,7 +506,7 @@ function update(dt) {
   if (S.state === 'aim') { const h = phys.probe(C.x, C.z, C.y - .02); _p.set(C.x, h.y, C.z); machine.setLaser(_p, t); } else machine.setLaser(null);   // (where the claw will come down: under the carriage)
   if (C.angle != null) machine.setProngAngle(C.angle); else machine.setOpen(C.open);
   // physics, then the toy in the claw's grip (it settles into a hanging pose, swings a little, slides when the grip gives)
-  phys.step(dt); phys.sync(); keepInside(false);
+  phys.step(dt); phys.sync(); keepInside(false, dt);
   const H = S.held;
   if (H) {
     H.k = Math.min(1, H.k + dt * 1.6); const e = ease.inOut(H.k);
