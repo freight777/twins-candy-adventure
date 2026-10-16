@@ -98,6 +98,32 @@ function addFur(mesh) {
 /** a toy that's gone for good: forget its fur too */
 export function forgetToy(toy) { toy.traverse((o) => { if (o.userData.fur) furMeshes.delete(o); }); }
 
+/** the printed satin label sewn into every toy: a red heart, a tiny brand line and the washing-care rows */
+function tagTexture() {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 96; const g = c.getContext('2d');
+  g.fillStyle = '#fbf8f2'; g.fillRect(0, 0, 64, 96);
+  g.fillStyle = '#e8304f'; g.beginPath(); g.moveTo(32, 40); g.bezierCurveTo(14, 28, 18, 12, 32, 22); g.bezierCurveTo(46, 12, 50, 28, 32, 40); g.fill();
+  g.fillStyle = '#7a6a80'; g.font = '700 11px sans-serif'; g.textAlign = 'center'; g.fillText('A&E', 32, 56);
+  g.fillStyle = 'rgba(90,80,100,.45)'; for (let i = 0; i < 4; i++) g.fillRect(12, 64 + i * 7, 40 - (i % 2) * 12, 2);
+  g.strokeStyle = 'rgba(0,0,0,.08)'; for (let y = 0; y < 96; y += 3) { g.beginPath(); g.moveTo(0, y); g.lineTo(64, y); g.stroke(); }   // the satin weave
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+/** a care label sticking out of a seam at p, turned by rot (a thin satin card, folded where it's sewn in) */
+function tag(T, p, rot = [0, 0, 0]) {
+  const g = new THREE.BoxGeometry(.017, .026, .0012); g.translate(0, -.013, 0);
+  T.add(place(g, p, rot), 'tag', '#ffffff');
+}
+/** the piped seam where a pillow's front and back are sewn together: a little welt around its widest edge */
+function edgeSeam(T, shape, out, color) {
+  const pts = shape.getSpacedPoints(140); pts.pop(); const cw = THREE.ShapeUtils.isClockWise(pts), P3 = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[(i - 1 + pts.length) % pts.length], b = pts[(i + 1) % pts.length], tx = b.x - a.x, ty = b.y - a.y, l = Math.hypot(tx, ty) || 1;
+    const nx = (cw ? -ty : ty) / l, ny = (cw ? tx : -tx) / l; P3.push(new THREE.Vector3(pts[i].x + nx * out, pts[i].y + ny * out, 0));
+  }
+  T.add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(P3, true), 220, .0016, 5, true), 'felt', color);
+  let low = P3[0]; for (const q of P3) if (q.y < low.y) low = q; return low;
+}
+
 let MATS = null;
 export function plushMaterials() {
   if (MATS) return MATS;
@@ -110,6 +136,7 @@ export function plushMaterials() {
     sequin: fabricify(P({ vertexColors: true, metalness: .35, roughness: .3, iridescence: .8, iridescenceIOR: 1.45, iridescenceThicknessRange: [260, 520], clearcoat: .4, envMapIntensity: 1.2 }), { kind: 'sequin', bump: .9, tone: 0, seq: [40, 22] }),
     gold: fabricify(P({ color: 0xf0c060, metalness: .92, roughness: .32, envMapIntensity: 1.2 }), { freq: 420, bump: .8, tone: .04 }),
     eye: P({ color: 0x060606, roughness: .06, clearcoat: 1, clearcoatRoughness: .02, envMapIntensity: 1.6 }),
+    tag: P({ vertexColors: true, map: tagTexture(), roughness: .32, sheen: .6, sheenRoughness: .3, sheenColor: new THREE.Color(1, 1, 1), side: THREE.DoubleSide }),
     pearl: P({ color: 0xfff4ee, roughness: .14, clearcoat: 1, iridescence: .9, iridescenceIOR: 1.6, sheen: .4, envMapIntensity: 1.4 }),
   };
   return MATS;
@@ -303,6 +330,7 @@ export function unicorn(seed) {
     T.add(tubeGeo([[s * .05, .02, -.005], [s * .054, .016, .03], [s * .056, .015, .046]], .016, .015, { seg: 8, rad: 12 }), 'fabric', pal.body);
     T.ell([.017, .011, .017], [s * .056, .015, .058], pal.hoof, { mat: 'felt', rot: [-1.3, 0, 0], seg: 14, occ: false });
   }
+  tag(T, [.026, .035, -.075], [.35, .6, -.15]);
   for (const s of [-1, 1]) T.cols.push({ c: new THREE.Vector3(s * .031, .016, .086), r: .016 }, { c: new THREE.Vector3(s * .055, .016, .05), r: .016 });   // hooves, so legs don't poke through the glass
   T.cols.push({ c: new THREE.Vector3(0, .03, -.104), r: .02 }, { c: new THREE.Vector3(0, .172, .04), r: .018 });                                       // tail, horn
   if (r() < .45) for (const s of [-1, 1]) {                                                            // some have little felt wings
@@ -324,6 +352,7 @@ export function mermaid(seed) {
     const f = new THREE.Shape(); f.moveTo(0, 0); f.bezierCurveTo(.01, -.012, .03, -.03, .052, -.034); f.quadraticCurveTo(.046, -.026, .05, -.018); f.quadraticCurveTo(.04, -.016, .043, -.006); f.quadraticCurveTo(.03, -.004, .03, .006); f.bezierCurveTo(.018, .006, .006, .004, 0, 0);
     T.add(place(puffGeo(f, .003, .007, { seg: 4, curve: 18 }), [0, -.1, -.012], [0, 0, 0], [s * 1.3, 1.3, 1]), 'satin', fin);
   }
+  tag(T, [.03, .0, .0], [0, Math.PI / 2 - .2, .15]);
   T.ell([.032, .042, .026], [0, .092, 0], skin, { col: true });                                          // torso
   for (const s of [-1, 1]) {                                                                            // shell top: two ribbed satin scallops
     const g = new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), p = g.attributes.position;
@@ -358,6 +387,9 @@ function facePillow(kind, seed, shape, color, { depth = .022, puff = .018, face 
   const r = rng(seed), T = new Toy(kind, seed), z = depth / 2 + puff * .96;
   T.add(puffGeo(shape, depth, puff, { seg: 6 }), 'fabric', null, { paint: dots ? (p) => dots(p) : null });
   if (!dots) T.parts[T.parts.length - 1].color = new THREE.Color(color);
+  const seamCol = new THREE.Color(color || '#ffffff'); if (dots) seamCol.copy(dots(new THREE.Vector3(9, 9, 9))); seamCol.multiplyScalar(.82);
+  const low = edgeSeam(T, shape, puff * .8 + .0004, seamCol);
+  tag(T, [low.x + .012, low.y + .004, 0], [0, 0, .5]);
   const [fx, fy] = face, er = .0075;
   for (const s of [-1, 1]) T.add(ellGeo([er, er, er * .75], [fx + s * .017, fy + .008, z + .0015], [0, 0, 0], { seg: 14, lump: 0 }), 'eye', null);
   for (const s of [-1, 1]) T.add(ellGeo([.008, .006, .0025], [fx + s * .028, fy - .006, z + .0012], [0, 0, 0], { seg: 12, lump: 0 }), 'felt', '#ff8fb0');
@@ -381,6 +413,7 @@ export function rainbow(seed) {
     T.cols.push({ c: new THREE.Vector3(s * .058, -.008, 0), r: .024 });
   }
   T.cols.push({ c: new THREE.Vector3(0, .05, 0), r: .02 }, { c: new THREE.Vector3(-.035, .035, 0), r: .016 }, { c: new THREE.Vector3(.035, .035, 0), r: .016 });
+  tag(T, [-.058, -.03, 0], [0, 0, .3]);
   const side = r() < .5 ? .058 : -.058;
   for (const s of [-1, 1]) T.add(ellGeo([.0048, .0048, .0035], [side + s * .0065, -.006, .0215], [0, 0, 0], { seg: 10, lump: 0 }), 'eye', null);
   smile(T, [side, -.0135, .0222], .0045);
@@ -410,6 +443,7 @@ export function fish(seed) {
     T.add(ellGeo([er, er, er * .55], at, [0, s * .9, 0], { seg: 14, lump: 0 }), 'eye', null);
     T.add(ellGeo([.008, .006, .002], [.04, -.012, s * .023], [0, s * .9, 0], { seg: 12, lump: 0 }), 'felt', '#ff8fb0');
   }
+  tag(T, [-.03, -.04, .0], [0, 0, -.25]);
   T.cols.push({ c: new THREE.Vector3(.03, 0, 0), r: .036 }, { c: new THREE.Vector3(-.03, 0, 0), r: .034 }, { c: new THREE.Vector3(-.075, 0, 0), r: .022 });
   return T.finish(1.4);
 }
