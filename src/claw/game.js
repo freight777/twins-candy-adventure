@@ -568,10 +568,10 @@ addEventListener('keyup', (e) => { const k = KEYS[e.key]; if (k && S.keys[k[0]] 
 addEventListener('pointerdown', (e) => { if (S.skipReveal && !e.target.closest('#home')) S.skipReveal(); });
 document.querySelectorAll('#pickTheme .choice').forEach((b) => b.addEventListener('click', () => chooseTheme(b.dataset.theme)));
 document.querySelectorAll('#pickLevel .choice').forEach((b) => b.addEventListener('click', () => chooseLevel(b.dataset.level)));
-$('#backTheme').addEventListener('click', () => { sfx.pop(); show('#pickLevel', false); show('#pickTheme'); });
+$('#backTheme').addEventListener('click', () => { if (S.busy) return; sfx.pop(); show('#pickLevel', false); show('#pickTheme'); });
 document.querySelectorAll('#pickWho .choice').forEach((b) => b.addEventListener('click', () => chooseWho(b.dataset.who)));
-$('#backWho').addEventListener('click', () => { sfx.pop(); showTitle('who'); });
-$('#shelfBtn').addEventListener('click', () => openShelf());
+$('#backWho').addEventListener('click', () => { if (S.busy) return; sfx.pop(); showTitle('who'); });
+$('#shelfBtn').addEventListener('click', () => { if (!S.busy) openShelf(); });
 $('#shelfOlder').addEventListener('click', () => { sfx.swoosh(); openShelf(S.shelfWho, { page: S.shelfPage + 1 }); });
 $('#shelfNewer').addEventListener('click', () => { sfx.swoosh(); openShelf(S.shelfWho, { page: S.shelfPage - 1 }); });
 document.querySelectorAll('#shelfWho button').forEach((b) => b.addEventListener('click', () => { if (S.shelfWho !== b.dataset.shelf) { sfx.pop(); openShelf(b.dataset.shelf); } }));
