@@ -15,7 +15,7 @@ import { createPipeline } from '../engine/pipeline.js';
 import { Q } from '../engine/quality.js';
 import { Timers, ease, lerp, clamp } from '../util.js';
 import { unlock, playMusic, sfx, voice, say, motor, arcadeBed } from '../audio.js';
-import { buildMachine, DIM, CLAW } from './machine.js';
+import { buildMachine, buildShelf, DIM, CLAW } from './machine.js';
 import { createPhysics } from './physics.js';
 import { makeToy, plushMaterials, setFurLayers, forgetToy, makeGolden, twinkle, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } from './plush.js';
 
@@ -51,7 +51,7 @@ const collectDepthSkip = () => { depthSkip.length = 0; scene.traverse((o) => { c
 const pipe = createPipeline(canvas, { toneMapping: THREE.ACESFilmicToneMapping, exposure: .95, bloom: { strength: .18, radius: .5, threshold: 1.25 }, gradePass: grade, extraPasses: [gtao, bokeh] });
 const renderer = pipe.renderer;
 pipe.setScene(scene, camera);
-let machine = null, phys = null;
+let machine = null, phys = null, shelf = null;
 const view = { fov: 38, aspect: 1 };
 pipe.onTier = (q) => {
   // ambient occlusion and depth of field on every tier but the lowest (the iPad included); the automatic quality steps down if it's slow
@@ -76,7 +76,7 @@ const timers = new Timers();
 const sleep = (s) => new Promise((r) => timers.after(s, r));
 const anim = (dur, fn, e = ease.inOut) => new Promise((r) => timers.tween(dur, fn, { ease: e, done: r }));
 const S = {
-  state: 'boot', theme: store.get('clawTheme', 'unicorn'), level: store.get('clawLevel', 'easy'), toys: [], plan: [], try: 0, results: [], won: [],
+  state: 'boot', who: store.get('clawWho', null), theme: store.get('clawTheme', 'unicorn'), level: store.get('clawLevel', 'easy'), toys: [], plan: [], try: 0, results: [], won: [],
   claw: { x: DIM.home.x, y: DIM.top, z: DIM.home.z, open: .15, angle: null, vx: 0, vz: 0, mvx: 0, mvz: 0, pvx: 0, pvz: 0, bob: 0, sw: { x: 0, z: 0, vx: 0, vz: 0 } }, stick: { x: 0, z: 0 }, keys: { x: 0, z: 0 }, button: 0,
   held: null, catchWait: null, time: 0, cam: { k: 0, push: 0, goalP: new THREE.Vector3(), goalL: new THREE.Vector3() }, hinted: false, moved: 0, reveal: null, endView: 0, seed: (Math.random() * 1e9) | 0,
 };
@@ -133,7 +133,7 @@ async function boot() {
   machine = buildMachine(scene, renderer, S.theme); tick();
   scene.environment = machine.env; scene.environmentIntensity = .6; scene.background = new THREE.Color(0x07060c); scene.fog = new THREE.Fog(0x07060c, 3.5, 7);
   plushMaterials(); tick();
-  phys = createPhysics(); fillNow(); tick();
+  phys = createPhysics(); fillNow(); shelf = buildShelf(scene); tick();
   pipe.applyTier(); collectDepthSkip();
   placeCamera(1);
   try { await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 5000))]); } catch { /* compiles on the first frame instead */ }
@@ -155,9 +155,42 @@ const controls = (on) => { show('#stick', on); show('#drop', on); show('#peek', 
 /** look down from up high (like standing on tiptoe at a real machine to see how far back the claw is), or back to normal */
 function setPeek(on) { S.peek = on; $('#peek').classList.toggle('on', on); }
 
-function showTitle() {
-  controls(false); show('#hud', false); show('#over', false); show('#title'); show('#pickTheme'); show('#pickLevel', false);
+function showTitle(step = 'who') {
+  controls(false); show('#hud', false); show('#over', false); show('#shelfUI', false); show('#title');
+  show('#pickWho', step === 'who'); show('#pickTheme', step === 'theme'); show('#pickLevel', false);
+  document.querySelectorAll('#pickWho .choice').forEach((b) => b.classList.toggle('picked', b.dataset.who === S.who));
   document.querySelectorAll('#pickTheme .choice').forEach((b) => b.classList.toggle('picked', b.dataset.theme === S.theme));
+}
+function chooseWho(who) { unlock(); sfx.pop(); playMusic('arcade'); arcadeBed(true); S.who = who; store.set('clawWho', who); showTitle('theme'); }
+
+// ---------------------------------------------------------------- each girl's toy shelf: every toy she has ever won, kept on this iPad
+const PLAYERS = { adalyn: { name: "Adalyn's toys", color: '#ff8a1f' }, esmae: { name: "Esmae's toys", color: '#ff4fa3' } };
+const KINDS = { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish };
+const collection = (who) => store.get(`clawShelf:${who}`, []);
+function keepToys(who, toys) { if (!who || !toys.length) return; const all = collection(who); toys.forEach((t) => all.push({ k: t.userData.toy.kind, s: t.userData.toy.seed, g: !!t.userData.golden })); store.set(`clawShelf:${who}`, all.slice(-500)); }
+const shelfToys = [];
+async function openShelf() {
+  if (!S.who || S.state === 'shelf') return;
+  sfx.pop(); S.state = 'shelf'; show('#title', false); show('#over', false);
+  const all = collection(S.who), list = all.slice(-shelf.slots.length);
+  shelf.setName(PLAYERS[S.who].name, PLAYERS[S.who].color);
+  list.forEach((r, i) => {
+    const make = KINDS[r.k]; if (!make) return;
+    const t = make(r.s); if (r.g) makeGolden(t);
+    t.quaternion.setFromEuler(_e.set(0, (Math.random() - .5) * .5, 0)); t.scale.setScalar(.86); t.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(t), slot = shelf.slots[i];
+    t.position.set(slot.x + (Math.random() - .5) * .02, slot.y - (box.min.y - t.position.y), slot.z);
+    scene.add(t); shelfToys.push(t);
+  });
+  $('#shelfCount').textContent = `\u{1F9F8} ${all.length}`; show('#shelfUI');
+  anim(1, (k) => { shelf.light.intensity = 7 * k; shelf.fill.intensity = .8 * k; });
+  if (all.length) { await sleep(.9); voice(`n_${Math.min(30, all.length)}`, { priority: 1 }); }
+}
+async function closeShelf() {
+  sfx.pop(); show('#shelfUI', false); S.state = 'title';
+  await anim(.6, (k) => { shelf.light.intensity = 7 * (1 - k); shelf.fill.intensity = .8 * (1 - k); });
+  for (const t of shelfToys) { forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); } shelfToys.length = 0;
+  showTitle('theme');
 }
 async function chooseTheme(theme) {
   if (S.busy) return; S.busy = true; unlock(); sfx.pop(); playMusic('arcade'); arcadeBed(true);
@@ -382,7 +415,8 @@ async function gameOver() {
       await voice(`n_${i + 1}`, { priority: 2, minMs: 520 });
     }
   }
-  const key = `clawBest:${S.theme}:${S.level}`, best = store.get(key, 0);
+  keepToys(S.who, S.won);
+  const key = `clawBest:${S.who}:${S.theme}:${S.level}`, best = store.get(key, 0);
   if (best && n > best) await voice(n === best + 1 ? 'one_more_than_last' : 'new_best', { priority: 2 });
   if (n > best) store.set(key, n);
   else if (n) await voice('well_done', { priority: 2 });
@@ -394,7 +428,7 @@ async function again(changeTheme) {
   for (const t of S.won) { t.visible = false; forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); }
   S.won = []; S.results = [];
   await anim(1.1, (k) => { S.endView = 1 - k; machine.counterLight.intensity = 6 * (1 - k); });
-  if (changeTheme) { S.state = 'title'; showTitle(); return; }
+  if (changeTheme) { S.state = 'title'; showTitle(changeTheme === 'shelf' ? 'theme' : 'who'); if (changeTheme === 'shelf') openShelf(); return; }
   start();
 }
 
@@ -420,6 +454,11 @@ addEventListener('pointerdown', (e) => { if (S.skipReveal && !e.target.closest('
 document.querySelectorAll('#pickTheme .choice').forEach((b) => b.addEventListener('click', () => chooseTheme(b.dataset.theme)));
 document.querySelectorAll('#pickLevel .choice').forEach((b) => b.addEventListener('click', () => chooseLevel(b.dataset.level)));
 $('#backTheme').addEventListener('click', () => { sfx.pop(); show('#pickLevel', false); show('#pickTheme'); });
+document.querySelectorAll('#pickWho .choice').forEach((b) => b.addEventListener('click', () => chooseWho(b.dataset.who)));
+$('#backWho').addEventListener('click', () => { sfx.pop(); showTitle('who'); });
+$('#shelfBtn').addEventListener('click', openShelf);
+$('#shelfBack').addEventListener('click', closeShelf);
+$('#overShelf').addEventListener('click', () => again('shelf'));
 $('#again').addEventListener('click', () => again(false));
 $('#change').addEventListener('click', () => again(true));
 
@@ -504,6 +543,8 @@ function placeCamera(dt) {
     const e = ease.inOut(clamp(S.cam.door, 0, 1)), d = machine.door.at;
     _p.lerp(_end1.set(d.x + .1, d.y + .26, d.z + .62), e); _l.lerp(_end2.set(d.x + .02, d.y - .01, d.z + .06), e);
   }
+  S.cam.shelf = (S.cam.shelf || 0) + ((S.state === 'shelf' ? 1 : 0) - (S.cam.shelf || 0)) * (1 - Math.exp(-2.4 * dt));
+  if (S.cam.shelf > .001 && shelf) { const e = ease.inOut(clamp(S.cam.shelf, 0, 1)); _p.lerp(shelf.view.p, e); _l.lerp(shelf.view.l, e); }
   if (S.endView > 0) {
     const e = ease.inOut(S.endView), cp = machine.counter.position;
     _p.lerp(_end1.set(cp.x - .06, cp.y + .52, cp.z + 1.12), e); _l.lerp(_end2.set(cp.x, cp.y - .03, cp.z), e);
@@ -514,10 +555,10 @@ function placeCamera(dt) {
   camera.lookAt(S.cam.look);
   const fov = view.fov * (1 - .1 * S.cam.push) * (S.endView > 0 ? lerp(1, .9, S.endView) : 1);
   if (Math.abs(camera.fov - fov) > .01) { camera.fov = fov; camera.updateProjectionMatrix(); }
-  const focusAt = S.cam.door > .3 ? machine.door.at : S.reveal ? S.reveal.t.position : S.endView > .5 ? machine.counter.position : machine.laser.visible ? machine.laser.position : machine.claw.position;
+  const focusAt = S.cam.shelf > .5 ? shelf.view.l : S.cam.door > .3 ? machine.door.at : S.reveal ? S.reveal.t.position : S.endView > .5 ? machine.counter.position : machine.laser.visible ? machine.laser.position : machine.claw.position;
   bokeh.uniforms.focus.value = lerp(bokeh.uniforms.focus.value, camera.position.distanceTo(focusAt), 1 - Math.exp(-6 * Math.min(dt, .1)));
 }
 
 pipe.start((dt) => { if (!machine || !phys) return false; update(dt); });
-window.claw = { S, scene, camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } };
+window.claw = { S, scene, openShelf, keepToys, camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } };
 boot().catch((e) => { console.error(e); loading.fail(); });

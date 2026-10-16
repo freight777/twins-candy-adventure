@@ -239,7 +239,7 @@ class Toy {
     }
     const spheres = this.cols.map((c) => ({ p: c.c.clone().sub(cm).multiplyScalar(scale), r: c.r * scale }));
     let R = 0; root.children.forEach((m) => { if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere(); R = Math.max(R, m.geometry.boundingSphere.center.length() + m.geometry.boundingSphere.radius); });
-    root.userData.toy = { kind: this.kind, spheres, radius: R, emoji: EMOJI[this.kind] || '\u{1F381}' };
+    root.userData.toy = { kind: this.kind, seed: this.seed, spheres, radius: R, emoji: EMOJI[this.kind] || '\u{1F381}' };
     return root;
   }
 }

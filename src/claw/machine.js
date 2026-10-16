@@ -130,6 +130,31 @@ function arcadeEnv(renderer) {
   return t;
 }
 
+// ---------------------------------------------------------------- the toy shelf: a wooden bookcase in a corner of the arcade where each girl's toys are kept
+export function buildShelf(scene) {
+  const g = new THREE.Group(); g.position.set(0, -.92, 4.3); scene.add(g);
+  const wood = new THREE.MeshPhysicalMaterial({ map: tex(woodCanvas(), { repeat: [2, 1] }), roughness: .5, clearcoat: .4, clearcoatRoughness: .25 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x3a2418, roughness: .8 });
+  const box = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, .008), mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  const W = 1.5, rows = [.06, .4, .74, 1.08], top = 1.42;
+  box(W + .08, top + .04, .03, dark, 0, top / 2, -.19);
+  for (const s of [-1, 1]) box(.04, top + .04, .4, wood, s * (W / 2 + .02), top / 2, 0);
+  for (const y of [...rows.map((r) => r - .02), top]) box(W + .04, .035, .4, wood, 0, y, 0);
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(6, 4), new THREE.MeshStandardMaterial({ color: 0x2b1a33, roughness: .95 })); wall.position.set(0, 1.5, -.22); g.add(wall);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(.7, .14), new THREE.MeshBasicMaterial({ transparent: true })); sign.position.set(0, top + .13, -.15); g.add(sign);
+  const light = new THREE.SpotLight(0xffe6cc, 0, 4, .62, .7, 1.2); light.position.set(.5, 2.3, 1.7); light.target.position.set(0, .6, 0); g.add(light, light.target);
+  const fill = new THREE.PointLight(0xffd9ef, 0, 3, 1.5); fill.position.set(-.6, .8, 1.1); g.add(fill);
+  const slots = []; for (let r = rows.length - 1; r >= 0; r--) for (let c = 0; c < 6; c++) slots.push(new THREE.Vector3(-.6 + c * .24, rows[r], .02).add(g.position));
+  return {
+    group: g, slots, light, fill,
+    setName(name, color) {
+      const c = canvas(512, 100, (x, w, h) => { x.font = '700 64px Fredoka, "Arial Rounded MT Bold", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = color; x.shadowBlur = 18; x.fillStyle = '#fff'; x.fillText(name, w / 2, h / 2 + 4); });
+      sign.material.map?.dispose(); sign.material.map = tex(c); sign.material.needsUpdate = true;
+    },
+    view: { p: new THREE.Vector3(0, .02, 6.75), l: new THREE.Vector3(0, -.13, 4.3) },
+  };
+}
+
 // ---------------------------------------------------------------- the machine
 export function buildMachine(scene, renderer, theme) {
   RectAreaLightUniformsLib.init();

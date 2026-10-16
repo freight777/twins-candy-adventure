@@ -35,9 +35,15 @@
 
     <div id="title" class="hidden">
       <div class="logo"><div class="logo-small">&#10024; Adalyn &amp; Esmae's &#10024;</div><div class="logo-big">Claw Machine</div></div>
-      <div id="pickTheme" class="choices">
+      <div id="pickWho" class="choices">
+        <button class="choice ada" data-who="adalyn"><span class="em initial">A</span><b>Adalyn</b></button>
+        <button class="choice esm" data-who="esmae"><span class="em initial">E</span><b>Esmae</b></button>
+      </div>
+      <div id="pickTheme" class="choices hidden">
+        <button id="backWho" class="back" aria-label="Back">&#11013;&#65039;</button>
         <button class="choice uni" data-theme="unicorn"><span class="em">&#129412;</span><b>Unicorns</b></button>
         <button class="choice mer" data-theme="mermaid"><span class="em">&#129500;&#8205;&#9792;&#65039;</span><b>Mermaids</b></button>
+        <button id="shelfBtn" class="back shelf" aria-label="My toys">&#129528;</button>
       </div>
       <div id="pickLevel" class="choices hidden">
         <button id="backTheme" class="back" aria-label="Back">&#11013;&#65039;</button>
@@ -50,8 +56,9 @@
     <div id="over" class="hidden card">
       <div class="big"><span id="final">0</span> <small>&#127873;</small></div>
       <div class="toys"></div>
-      <div class="row"><button id="again" class="pill green">&#128257; Again</button><button id="change" class="pill">&#129412; &#129500;&#8205;&#9792;&#65039;</button></div>
+      <div class="row"><button id="again" class="pill green">&#128257; Again</button><button id="change" class="pill">&#129412; &#129500;&#8205;&#9792;&#65039;</button><button id="overShelf" class="pill">&#129528;</button></div>
     </div>
+    <div id="shelfUI" class="hidden"><button id="shelfBack" class="back" aria-label="Back">&#11013;&#65039;</button><div id="shelfCount"></div></div>
   </div>
   <script type="module" src="/src/claw/game.js"></script>
 </body>
