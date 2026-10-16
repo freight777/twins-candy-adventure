@@ -151,7 +151,9 @@ function setHud() {
   }).join('');
   $('#count').textContent = S.won.length;
 }
-const controls = (on) => { show('#stick', on); show('#drop', on); document.body.classList.toggle('aiming', on); };
+const controls = (on) => { show('#stick', on); show('#drop', on); show('#peek', on); document.body.classList.toggle('aiming', on); };
+/** look down from up high (like standing on tiptoe at a real machine to see how far back the claw is), or back to normal */
+function setPeek(on) { S.peek = on; $('#peek').classList.toggle('on', on); }
 
 function showTitle() {
   controls(false); show('#hud', false); show('#over', false); show('#title'); show('#pickTheme'); show('#pickLevel', false);
@@ -188,7 +190,7 @@ async function start() {
 }
 
 async function oneTry() {
-  S.state = 'aim'; S.moved = 0; setHud(); sfx.coin();
+  S.state = 'aim'; S.moved = 0; setHud(); sfx.coin(); setPeek(false);
   controls(true);
   if (!S.hinted) $('#stick').classList.add('hint');
   await new Promise((r) => (S.dropNow = r));
@@ -410,6 +412,7 @@ const stickUp = (e) => { if (e.pointerId !== stickId) return; stickId = null; S.
 stickEl.addEventListener('pointerup', stickUp); stickEl.addEventListener('pointercancel', stickUp); stickEl.addEventListener('lostpointercapture', stickUp);
 const pressDrop = () => { if (S.state === 'aim' && S.dropNow) { sfx.pop(); S.dropNow(); } };
 $('#drop').addEventListener('pointerdown', (e) => { e.preventDefault(); unlock(); pressDrop(); });
+$('#peek').addEventListener('pointerdown', (e) => { e.preventDefault(); unlock(); if (S.state !== 'aim') return; sfx.swoosh(); setPeek(!S.peek); });
 const KEYS = { ArrowLeft: ['x', -1], ArrowRight: ['x', 1], ArrowUp: ['z', -1], ArrowDown: ['z', 1], a: ['x', -1], d: ['x', 1], w: ['z', -1], s: ['z', 1] };
 addEventListener('keydown', (e) => { const k = KEYS[e.key]; if (k) { S.keys[k[0]] = k[1]; e.preventDefault(); } if (e.key === ' ' || e.key === 'Enter') { pressDrop(); if (S.skipReveal) S.skipReveal(); } });
 addEventListener('keyup', (e) => { const k = KEYS[e.key]; if (k && S.keys[k[0]] === k[1]) S.keys[k[0]] = 0; });
@@ -489,6 +492,12 @@ function placeCamera(dt) {
   _p.set(lx * .45 + Math.sin(t * .31) * .012, .88 + Math.sin(t * .23) * .008 - S.cam.push * .05, 1.62 + .42 - S.cam.push * .16);
   _l.set(lx, ly, lerp(0, C.z, S.cam.push * .5));
   _p.y += wd * .2; _p.z += wd * .62; _l.y += wd * .2;
+  // the tiptoe view: up high, looking down through the front glass, so how far back the claw is shows plainly
+  S.cam.peek = (S.cam.peek || 0) + (((S.peek && ['aim', 'try'].includes(S.state)) ? 1 : 0) - (S.cam.peek || 0)) * (1 - Math.exp(-2.6 * dt));
+  if (S.cam.peek > .001) {
+    const e = ease.inOut(clamp(S.cam.peek, 0, 1)), lx2 = C.x * .55, lz2 = C.z * .55;
+    _p.lerp(_end1.set(lx2 * .8, 1.14, 1.12), e); _l.lerp(_end2.set(lx2, .4, lz2 - .05), e);
+  }
   S.cam.door = (S.cam.door || 0) + ((S.cam.doorWant ? 1 : 0) - (S.cam.door || 0)) * (1 - Math.exp(-3 * dt));
   S.cam.goalP.copy(_p); S.cam.goalL.copy(_l);                                               // where the camera wants to be in play (the reveal aims from here)
   if (S.cam.door > .001) {
