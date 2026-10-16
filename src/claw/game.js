@@ -214,7 +214,7 @@ async function grab(shouldWin) {
   const downDur = (DIM.top - stopY) / .42;
   motor(.8, .75); anim(.4, (k) => { C.open = lerp(.15, 1, k); });
   await anim(downDur, (k) => { C.y = lerp(DIM.top, stopY, k); }, motorEase);
-  motor(0); sfx.clunk(); phys.nudge(x, stopY - .1, z, .12, .006); S.cam.shake = .5; C.bob = 1;
+  motor(0); sfx.clunk(); phys.nudge(x, stopY - .1, z, .12, .006); S.cam.shake = .5; C.bob = 1; machine.flash(.6);
   await sleep(.3);
   // 2. close
   const target = targetOf(stopY, hits);
@@ -320,7 +320,7 @@ async function reveal(t) {
   rim.position.copy(at).addScaledVector(dir, .35).addScaledVector(up, .25);
   S.reveal = { t, spin: 0, at };
   anim(.4, (k) => { hero.intensity = 3 * k; rim.intensity = 1 * k; });
-  sfx.fanfare(); voice(['you_got_it', 'wow', 'yes_great'][S.won.length % 3], { priority: 2 });
+  machine.flash(1); sfx.fanfare(); voice(['you_got_it', 'wow', 'yes_great'][S.won.length % 3], { priority: 2 });
   import('../engine/celebrate.js').then((m) => m.confetti(scene, camera));
   banner(`<span class="em">${t.userData.toy.emoji}</span><span>You got it!</span>`, 'good', 2.4);
   await anim(.75, (k) => { t.position.lerpVectors(from, at, k); }, ease.outBack);
@@ -441,7 +441,7 @@ function update(dt) {
     _q.slerpQuaternions(H.q0, H.up, e * .85); H.toy.quaternion.copy(_q).premultiply(_q2.setFromEuler(_e.set(-H.swingZ * .6, 0, H.swing * .6)));
   }
   if (S.reveal) { const R = S.reveal; R.spin += dt; R.t.quaternion.setFromEuler(_e.set(.12 + Math.sin(t * 1.3) * .05, Math.sin(R.spin * 1.1) * .9, Math.sin(t * .9) * .05)); }
-  machine.lights(t, S.state === 'reveal' ? 'win' : S.state === 'title' || S.state === 'boot' ? 'attract' : 'play');
+  machine.lights(t, S.state === 'reveal' ? 'win' : ['title', 'boot', 'over'].includes(S.state) ? 'attract' : 'play');
   grade.uniforms.time.value = t;
   placeCamera(dt);
 }

@@ -271,7 +271,7 @@ export function buildMachine(scene, renderer, theme) {
   const laserTex = tex(canvas(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.12, 'rgba(255,80,80,1)'); r.addColorStop(.35, 'rgba(255,0,0,.35)'); r.addColorStop(1, 'rgba(255,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }));
   const laser = new THREE.Sprite(new THREE.SpriteMaterial({ map: laserTex, color: new THREE.Color(9, .5, .45), transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending }));
   laser.scale.setScalar(.026); laser.renderOrder = 20; laser.visible = false; G.add(laser);
-  const _bulb = new THREE.Color();
+  const _bulb = new THREE.Color(), _led = new THREE.Color(), _base = new THREE.Color(); let flash = 0, lastT = 0;
   const api = {
     group: G, laser, env, claw, prongs, carriage, bridge, cable, clawLed, ledRing, roof, area, sign, bulbs, stickTop, btnCap, counter, counterLight, neighbours, look,
     clawPos: new THREE.Vector3(DIM.home.x, DIM.top, DIM.home.z),
@@ -299,7 +299,20 @@ export function buildMachine(scene, renderer, theme) {
       clawLed.color.set(look.led); area.color.set(look.led); ledBar.material.color.set(look.led).multiplyScalar(2); ledRing.material.color.set(look.led).multiplyScalar(4);
     },
     /** bulbs chase around the sign; mode 'attract' (title), 'play', 'win' (all flashing) */
+    /** a quick bright pulse of every light in the cabinet (the claw landing, a win) */
+    flash(k = 1) { flash = Math.max(flash, k); },
     lights(t, mode) {
+      // the LED strip, the light it throws and the claw's ring: the theme's colour while playing, a slow rainbow drift on the
+      // title screen, a fast rainbow chase on a win; everything flares for a moment on a flash
+      const dt = Math.min(.1, Math.max(0, t - lastT)); lastT = t; flash *= Math.exp(-4 * dt);
+      _base.set(look.led);
+      if (mode === 'attract') _led.setHSL((t * .06) % 1, .55, .78).lerp(_base, .35);
+      else if (mode === 'win') _led.setHSL((t * 1.6) % 1, .9, .62);
+      else _led.copy(_base);
+      const boost = 1 + flash * 1.5 + (mode === 'win' ? .6 * (Math.sin(t * 18) > 0 ? 1 : 0) : 0);
+      ledBar.material.color.copy(_led).multiplyScalar(2 * boost); area.color.copy(_led); area.intensity = 2.5 * boost;
+      ledRing.material.color.copy(_led).multiplyScalar(4 * boost); clawLed.color.copy(_led);
+      roof.intensity = 5 * (1 + flash * .35); sign.material.color.setScalar(2.2 * (mode === 'win' ? .75 + .5 * (Math.sin(t * 9) > 0 ? 1 : 0) : 1 + flash * .4));
       for (let i = 0; i < moteN; i++) {                                         // a lazy curl of air: each speck wanders and sinks a little, then comes back round
         const k = moteSeed[i], j = i * 3;
         motePos[j] += Math.sin(t * .23 + k) * .00012; motePos[j + 1] += Math.sin(t * .17 + k * 1.7) * .0001 - .00004; motePos[j + 2] += Math.cos(t * .19 + k * .7) * .00012;
