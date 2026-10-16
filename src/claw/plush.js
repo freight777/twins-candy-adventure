@@ -448,6 +448,39 @@ export function fish(seed) {
   return T.finish(1.4);
 }
 
+// ---------------------------------------------------------------- the golden one: one rare toy per machine
+const GOLD = new THREE.Color('#ffb21f'), twinklers = new Set();
+let GOLDMAT = null, sparkTex = null;
+/** turn a toy golden: its cloth (and fur) shimmers gold, its yarn turns champagne, and a few sparkles circle it */
+export function makeGolden(toy) {
+  if (toy.userData.golden) return toy;
+  toy.userData.golden = true; toy.userData.toy.emoji = '\u{1F31F}';
+  if (!GOLDMAT) GOLDMAT = fabricify(new THREE.MeshPhysicalMaterial({ vertexColors: true, metalness: .82, roughness: .3, sheen: 1, sheenRoughness: .3, sheenColor: new THREE.Color(1, .8, .35), iridescence: .25, iridescenceIOR: 1.5, envMapIntensity: 2.4, emissive: new THREE.Color(.16, .09, 0) }), { freq: 390, bump: .9, tone: .05 });
+  const M = plushMaterials(), g3 = GOLD.toArray();
+  toy.traverse((o) => {
+    if (o.userData.fur) { furMeshes.delete(o); o.visible = false; return; }        // gold lamé is short and shiny: no pile
+    if (!o.isMesh || o.isInstancedMesh) return;
+    const tint = o.material === M.fabric ? .92 : o.material === M.hair || o.material === M.felt ? .45 : 0; if (!tint) return;
+    const c = o.geometry.attributes.color;
+    for (let i = 0; i < c.count; i++) { const v = [c.getX(i), c.getY(i), c.getZ(i)], ao = Math.min(1, Math.max(...v) * 1.15); c.setXYZ(i, ...v.map((x, k) => THREE.MathUtils.lerp(x, g3[k] * ao, tint))); }
+    c.needsUpdate = true; if (o.material === M.fabric) o.material = GOLDMAT;
+  });
+  if (!sparkTex) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.2, 'rgba(255,240,180,.6)'); gr.addColorStop(1, 'rgba(255,220,120,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#fff'; g.beginPath(); g.moveTo(32, 0); g.quadraticCurveTo(34, 30, 64, 32); g.quadraticCurveTo(34, 34, 32, 64); g.quadraticCurveTo(30, 34, 0, 32); g.quadraticCurveTo(30, 30, 32, 0); g.fill();
+    sparkTex = new THREE.CanvasTexture(cv); sparkTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  const R = toy.userData.toy.radius * .8, n = 12, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(R * (.7 + Math.random() * .4)); pos.set(v.toArray(), i * 3); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const sp = new THREE.Points(geo, new THREE.PointsMaterial({ map: sparkTex, size: .045, color: new THREE.Color(4, 3.2, 1.8), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  sp.userData.spark = true; sp.frustumCulled = false; toy.add(sp); twinklers.add(sp);
+  return toy;
+}
+/** the golden toys' sparkles turn and twinkle (call every frame) */
+export function twinkle(t) { for (const sp of twinklers) { if (!sp.parent) { twinklers.delete(sp); continue; } sp.rotation.y = t * .7; sp.rotation.x = Math.sin(t * .5) * .3; sp.material.size = .03 + .025 * Math.abs(Math.sin(t * 5.3)); sp.material.opacity = .6 + .4 * Math.sin(t * 7.1); } }
+
 /** what goes in each machine: mostly the hero toys, plus friends */
 export const THEMES = {
   unicorn: { hero: unicorn, friends: [star, heart, rainbow], heroShare: .68 },

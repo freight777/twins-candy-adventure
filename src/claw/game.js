@@ -17,7 +17,7 @@ import { Timers, ease, lerp, clamp } from '../util.js';
 import { unlock, playMusic, sfx, voice, say, motor, arcadeBed } from '../audio.js';
 import { buildMachine, DIM, CLAW } from './machine.js';
 import { createPhysics } from './physics.js';
-import { makeToy, plushMaterials, setFurLayers, forgetToy, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } from './plush.js';
+import { makeToy, plushMaterials, setFurLayers, forgetToy, makeGolden, twinkle, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } from './plush.js';
 
 const $ = (s) => document.querySelector(s);
 homeGate();
@@ -89,7 +89,13 @@ function removeToy(t) { forgetToy(t); phys.remove(t); scene.remove(t); t.travers
 /** a full machine, already settled (behind the loading screen) */
 function fillNow() {
   for (let i = 0; i < TOYS; i++) { phys.add(newToy(i), dropPoint(.62), randQuat()); phys.settle(.14); }
-  phys.settle(2.5); phys.sync(); keepInside(true);
+  phys.settle(2.5); phys.sync(); keepInside(true); ensureGolden();
+}
+/** there is always exactly one golden toy in the machine, somewhere you can see it (on top, not buried) */
+function ensureGolden() {
+  if (S.toys.some((t) => t.userData.golden)) return;
+  const top = [...S.toys].sort((a, b) => b.position.y - a.position.y).slice(0, 10).filter((t) => t.position.z > -.15 && t.position.z < .22);
+  const pick = top[Math.floor(Math.random() * top.length)] || S.toys[0]; if (pick) makeGolden(pick);
 }
 /** somewhere over the bed (not over the chute guard), anywhere from wall to wall */
 function dropPoint(y) {
@@ -104,7 +110,8 @@ function dropPoint(y) {
 }
 /** toys rain in from the top, one after another (choosing a theme, refilling after a game) */
 async function rainIn(n) {
-  for (let i = 0; i < n; i++) { const t = newToy(i), p = dropPoint(.68); t.position.copy(p); phys.add(t, p, randQuat()); if (i % 3 === 0) sfx.thud(.5); await sleep(.07); }
+  const gold = S.toys.some((t) => t.userData.golden) ? -1 : Math.floor(n * (.6 + Math.random() * .35));   // the golden one lands near the top
+  for (let i = 0; i < n; i++) { const t = newToy(i), p = dropPoint(.68); if (i === gold) makeGolden(t); t.position.copy(p); phys.add(t, p, randQuat()); if (i % 3 === 0) sfx.thud(.5); await sleep(.07); }
   await sleep(1.8);
 }
 /** anything that rolled into the chute when no one was playing goes back on top of the pile */
@@ -173,6 +180,7 @@ function dealPlan() {
 async function start() {
   S.state = 'starting'; playMusic('arcade'); arcadeBed(true);
   if (S.toys.length < TOYS) await rainIn(TOYS - S.toys.length);
+  ensureGolden();
   S.plan = dealPlan(); S.try = 0; S.results = []; S.won = []; S.endView = 0;
   show('#hud'); setHud();
   while (S.try < TRIES) await oneTry();
@@ -320,9 +328,11 @@ async function reveal(t) {
   rim.position.copy(at).addScaledVector(dir, .35).addScaledVector(up, .25);
   S.reveal = { t, spin: 0, at };
   anim(.4, (k) => { hero.intensity = 3 * k; rim.intensity = 1 * k; });
-  machine.flash(1); sfx.fanfare(); voice(['you_got_it', 'wow', 'yes_great'][S.won.length % 3], { priority: 2 });
-  import('../engine/celebrate.js').then((m) => m.confetti(scene, camera));
-  banner(`<span class="em">${t.userData.toy.emoji}</span><span>You got it!</span>`, 'good', 2.4);
+  const gold = !!t.userData.golden;
+  machine.flash(1); sfx.fanfare(); voice(gold ? 'wow' : ['you_got_it', 'wow', 'yes_great'][S.won.length % 3], { priority: 2 });
+  import('../engine/celebrate.js').then((m) => { m.confetti(scene, camera); if (gold) { m.fireworks(scene, camera, 5); timers.after(.6, () => m.confetti(scene, camera)); } });
+  if (gold) { sfx.magic(); timers.after(.8, () => voice('you_got_it', { priority: 2 })); store.set('clawGolden', store.get('clawGolden', 0) + 1); }
+  banner(`<span class="em">${t.userData.toy.emoji}</span><span>${gold ? 'Golden!' : 'You got it!'}</span>`, gold ? 'good gold' : 'good', gold ? 3 : 2.4);
   await anim(.75, (k) => { t.position.lerpVectors(from, at, k); }, ease.outBack);
   await Promise.race([sleep(2.1), new Promise((r) => (S.skipReveal = r))]); S.skipReveal = null;
   // fly to the prize counter in the corner
@@ -440,6 +450,7 @@ function update(dt) {
     const hp = machine.clawPos; H.toy.position.set(hp.x + _p.x - H.swing * .05, hp.y + _p.y, hp.z + _p.z - H.swingZ * .05);
     _q.slerpQuaternions(H.q0, H.up, e * .85); H.toy.quaternion.copy(_q).premultiply(_q2.setFromEuler(_e.set(-H.swingZ * .6, 0, H.swing * .6)));
   }
+  twinkle(t);
   if (S.reveal) { const R = S.reveal; R.spin += dt; R.t.quaternion.setFromEuler(_e.set(.12 + Math.sin(t * 1.3) * .05, Math.sin(R.spin * 1.1) * .9, Math.sin(t * .9) * .05)); }
   machine.lights(t, S.state === 'reveal' ? 'win' : ['title', 'boot', 'over'].includes(S.state) ? 'attract' : 'play');
   grade.uniforms.time.value = t;
