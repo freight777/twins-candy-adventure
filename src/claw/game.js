@@ -13,7 +13,7 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { createPipeline } from '../engine/pipeline.js';
 import { Q } from '../engine/quality.js';
-import { Timers, ease, lerp, clamp } from '../util.js';
+import { Timers, Fx, ease, lerp, clamp } from '../util.js';
 import { unlock, playMusic, sfx, voice, say, motor, arcadeBed } from '../audio.js';
 import { buildMachine, buildShelf, DIM, CLAW } from './machine.js';
 import { createPhysics } from './physics.js';
@@ -72,7 +72,7 @@ pipe.applyTier();
 // ---------------------------------------------------------------- state
 const TRIES = 10, TOYS = 26;
 const LEVELS = { easy: [4, 5, 5, 6], medium: [2, 2, 2, 1, 3], hard: [1] };
-const timers = new Timers();
+const timers = new Timers(), fx = new Fx(scene, 400);
 const sleep = (s) => new Promise((r) => timers.after(s, r));
 const anim = (dur, fn, e = ease.inOut) => new Promise((r) => timers.tween(dur, fn, { ease: e, done: r }));
 const S = {
@@ -182,9 +182,10 @@ const KINDS = { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, b
 const collection = (who) => store.get(`clawShelf:${who}`, []);
 function keepToys(who, toys) { if (!who || !toys.length) return; const all = collection(who); toys.forEach((t) => all.push({ k: t.userData.toy.kind, s: t.userData.toy.seed, g: !!t.userData.golden })); store.set(`clawShelf:${who}`, all.slice(-500)); }
 const shelfToys = [];
-async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn') {
+/** fresh: how many of the newest toys pop onto the shelf one by one (the end of a game); ui: show the back / A / E buttons */
+async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn', { fresh = 0, ui = true } = {}) {
   if (!S.who) return;
-  if (S.state === 'shelf') clearShelf(); else sfx.pop();
+  if (S.state === 'shelf') clearShelf(); else if (!fresh) sfx.pop();
   S.state = 'shelf'; S.shelfWho = who; show('#title', false); show('#over', false);
   document.querySelectorAll('#shelfWho button').forEach((b) => b.classList.toggle('on', b.dataset.shelf === who));
   const all = collection(who), list = all.slice(-shelf.slots.length);
@@ -195,11 +196,21 @@ async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn') {
     t.quaternion.setFromEuler(_e.set(0, (Math.random() - .5) * .5, 0)); t.scale.setScalar(.86); t.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(t), slot = shelf.slots[i];
     t.position.set(slot.x + (Math.random() - .5) * .02, slot.y - (box.min.y - t.position.y), slot.z);
+    if (i >= list.length - fresh) { t.userData.base = t.scale.x; t.scale.setScalar(.001); t.userData.fresh = true; }
     scene.add(t); shelfToys.push(t);
   });
-  $('#shelfCount').textContent = `\u{1F9F8} ${all.length}`; show('#shelfUI');
+  $('#shelfCount').textContent = `\u{1F9F8} ${all.length - fresh}`; show('#shelfUI', ui);
   anim(1, (k) => { shelf.light.intensity = 7 * k; shelf.fill.intensity = .8 * k; });
-  if (all.length) { await sleep(.9); voice(`n_${Math.min(30, all.length)}`, { priority: 1 }); }
+  if (fresh) {                                                               // the new ones arrive: each pops in with a sparkle and a chime
+    await sleep(1.2); let n = all.length - fresh;
+    for (const t of shelfToys.filter((x) => x.userData.fresh)) {
+      const s0 = t.userData.base; t.userData.fresh = false; sfx.collect(n % 6); if (t.userData.golden) sfx.sparkle(); else sfx.plush(.8);
+      fx.burst(t.position, { count: 26, colors: [0xffffff, 0xffe9a8, 0xffb3e6], speed: .5, gravity: -.3, life: .8, size: .9 });
+      anim(.5, (k) => t.scale.setScalar(Math.max(.001, s0 * ease.outBack(k))));
+      $('#shelfCount').textContent = `\u{1F9F8} ${++n}`; await sleep(.45);
+    }
+    await sleep(.8);
+  } else if (all.length) { await sleep(.9); voice(`n_${Math.min(30, all.length)}`, { priority: 1 }); }
 }
 const _tapP = new THREE.Vector3();
 canvas.addEventListener('pointerdown', (e) => {
@@ -459,6 +470,11 @@ async function gameOver() {
   if (best && n > best) await voice(n === best + 1 ? 'one_more_than_last' : 'new_best', { priority: 2 });
   if (n > best) store.set(key, n);
   else if (n) await voice('well_done', { priority: 2 });
+  // then home they go: over to each winner's shelf, where the new toys pop into place
+  for (const w of ['adalyn', 'esmae']) {
+    const k = S.won.filter((t) => t.userData.owner === w).length; if (!k) continue;
+    S.endView = 0; await openShelf(w, { fresh: k, ui: false });
+  }
   $('#final').textContent = n;
   const row = (list) => list.map((t) => `<span>${t.userData.toy.emoji}</span>`).join('');
   $('#over .toys').innerHTML = S.who === 'both' ? ['adalyn', 'esmae'].map((w) => `<div class="mine"><i class="initial ${w[0]}">${w[0].toUpperCase()}</i>${row(S.won.filter((t) => t.userData.owner === w)) || ''}</div>`).join('') : row(S.won) || '<span>\u{1F9F8}</span>';
@@ -466,6 +482,7 @@ async function gameOver() {
 }
 async function again(changeTheme) {
   sfx.pop(); show('#over', false);
+  if (S.state === 'shelf') { clearShelf(); shelf.light.intensity = shelf.fill.intensity = 0; S.state = 'over'; }
   for (const t of S.won) { t.visible = false; forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); }
   S.won = []; S.results = [];
   await anim(1.1, (k) => { S.endView = 1 - k; machine.counterLight.intensity = 6 * (1 - k); });
@@ -509,7 +526,7 @@ const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _p = new THREE.
 let attract = { x: DIM.home.x, z: DIM.home.z, t: 0 };
 function update(dt) {
   S.time += dt; const t = S.time, C = S.claw;
-  timers.update(dt);
+  timers.update(dt); fx.update(dt);
   // the claw: joystick while aiming, a lazy wander on the title screen
   const px = C.x, pz = C.z;
   if (S.state === 'aim') {
