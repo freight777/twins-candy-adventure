@@ -339,6 +339,7 @@ export function unicorn(seed) {
     const w = new THREE.Shape(); w.moveTo(0, 0); w.bezierCurveTo(.02, .03, .05, .045, .062, .04); w.bezierCurveTo(.05, .028, .052, .02, .042, .014); w.bezierCurveTo(.046, .006, .04, -.004, .03, -.002); w.bezierCurveTo(.03, -.01, .016, -.012, 0, 0);
     T.add(place(puffGeo(w, .002, .004, { seg: 3, curve: 16 }), [s * .036, .08, -.05], [0, -s * 1.2, s * .5], [s, 1, 1]), 'satin', r() < .5 ? '#fff8f0' : pal.hoof);
   }
+  accessorize(T, r, { top: [0, .172, .02], side: [.04, .165, .0], r: .04, tilt: -.25 });
   return T.finish(1.12);
 }
 
@@ -381,6 +382,7 @@ export function mermaid(seed) {
     }
     if (r() < .6) T.add(place(puffGeo(starShape(.014, .007, 5, .3), .002, .003, { seg: 2, curve: 6 }), [.036, .205, .022], [0, .5, .3]), 'felt', '#ffd84d');
   }
+  accessorize(T, r, { top: [0, .205, .006], side: [.045, .19, .0], r: .042, tilt: -.45, tiara: true });
   return T.finish(1.0);
 }
 
@@ -484,6 +486,47 @@ export function makeGolden(toy) {
 export function twinkle(t) { for (const sp of twinklers) { if (!sp.parent) { twinklers.delete(sp); continue; } sp.rotation.y = t * .7; sp.rotation.x = Math.sin(t * .5) * .3; sp.material.size = .03 + .025 * Math.abs(Math.sin(t * 5.3)); sp.material.opacity = .6 + .4 * Math.sin(t * 7.1); } }
 
 /** what goes in each machine: mostly the hero toys, plus friends */
+// ---------------------------------------------------------------- accessories: some toys come with a bow, a tiara or a flower crown
+const BOWS = ['#ff5f8f', '#ff9ccb', '#b48cff', '#5fc8ff', '#ffd84d', '#ff6b6b'];
+/** a satin bow: two puffy loops, two tails and a knot */
+function bow(T, p, rot, color, k = 1) {
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(...p), new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot)), new THREE.Vector3(k, k, k));
+  const parts = [];
+  for (const s of [-1, 1]) {
+    parts.push(ellGeo([.016, .011, .006], [s * .015, .002, 0], [0, 0, s * .35], { seg: 16, lump: .02 }));
+    parts.push(ellGeo([.004, .012, .003], [s * .006, -.012, -.001], [0, 0, s * .4], { seg: 10, lump: 0 }));
+  }
+  parts.push(ellGeo([.006, .007, .006], [0, 0, .002], [0, 0, 0], { seg: 12, lump: 0 }));
+  parts.forEach((g) => g.applyMatrix4(m)); T.add(parts, 'satin', color);
+}
+/** a little gold tiara: a curved band, three points and a pink pearl in the middle */
+function tiara(T, c, r, tilt) {
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(...c), new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt, 0, 0)), new THREE.Vector3(1, 1, 1)), parts = [];
+  parts.push(new THREE.TorusGeometry(r * .9, .0042, 8, 30, Math.PI * .9).rotateZ(Math.PI * .05).rotateX(Math.PI / 2 - .35));
+  for (const a of [-.5, 0, .5]) { const h = a ? .022 : .032; parts.push(new THREE.ConeGeometry(.006, h, 8).translate(Math.sin(a) * r * .9, h / 2 + .002, Math.cos(a) * r * .9 * .94)); }
+  parts.forEach((g) => g.applyMatrix4(m)); T.add(parts, 'gold', null);
+  T.add(place(new THREE.SphereGeometry(.008, 14, 10), [0, .026, r * .85]).applyMatrix4(m), 'pearl', null);
+}
+/** a crown of little felt flowers around the top of the head */
+function flowerCrown(T, c, r, tilt, rr) {
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(...c), new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt, 0, 0)), new THREE.Vector3(1, 1, 1));
+  const cols = [pickR(rr, ['#ff8fb8', '#ffffff', '#c9a8ff', '#ffb36b']), pickR(rr, ['#fff3a0', '#9fd8ff', '#ff9fd0'])];
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 5 - .5) * 2.4, fx = Math.sin(a) * r, fz = Math.cos(a) * r, col = cols[i % 2], petals = [];
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(fx, r * .6, fz).normalize()), fm = new THREE.Matrix4().compose(new THREE.Vector3(fx, 0, fz), q, new THREE.Vector3(1, 1, 1));
+    for (let k = 0; k < 5; k++) { const b = k / 5 * Math.PI * 2; petals.push(ellGeo([.0095, .006, .0026], [Math.cos(b) * .0105, Math.sin(b) * .0105, 0], [0, 0, b], { seg: 8, lump: 0 })); }
+    petals.forEach((g) => g.applyMatrix4(fm).applyMatrix4(m)); T.add(petals, 'felt', col);
+    T.add(ellGeo([.005, .005, .0035], [0, 0, .002], [0, 0, 0], { seg: 8, lump: 0 }).applyMatrix4(fm).applyMatrix4(m), 'felt', '#ffd84d');
+  }
+}
+/** about a third of the dolls and animals wear something */
+function accessorize(T, r, { top, side, r: hr, tilt, tiara: canTiara = false }) {
+  const x = r(); if (x > .36) return;
+  if (x < .14) bow(T, side, [0, .3, -.5], pickR(r, BOWS), 1.75);
+  else if (x < .25 && canTiara) tiara(T, top, hr * .68, tilt);
+  else flowerCrown(T, top, hr * .72, tilt, r);
+}
+
 // ---------------------------------------------------------------- more friends: a bunny and a kitty (unicorn machine), a seahorse and an octopus (mermaid machine)
 /** a sitting bunny: round body and head, tall ears with pink felt insides, a cotton tail, big feet */
 export function bunny(seed) {
@@ -502,6 +545,7 @@ export function bunny(seed) {
   }
   T.ell([.02, .02, .02], [0, .04, -.07], '#ffffff', { mat: 'hair', seg: 16 });                                  // cotton tail
   tag(T, [.03, .03, -.06], [.3, .6, -.1]);
+  accessorize(T, r, { top: [0, .158, .022], side: [.03, .16, .02], r: .034, tilt: -.2 });
   return T.finish(1.15);
 }
 /** a sitting kitty: pointy ears, whiskers, a long curling tail, tabby stripes on some */
@@ -524,6 +568,7 @@ export function kitty(seed) {
   T.parts[T.parts.length - 1].paint = tabby;
   T.cols.push({ c: new THREE.Vector3(.05, .06, -.085), r: .018 });
   tag(T, [-.03, .03, -.06], [.3, -.6, .1]);
+  accessorize(T, r, { top: [0, .158, .02], side: [.034, .15, .02], r: .036, tilt: -.25 });   // (a kitty can wear a bow or flowers too)
   return T.finish(1.15);
 }
 /** a seahorse: an S-shaped body that curls into its tail, a snout, a little crest and a fin on its back */
