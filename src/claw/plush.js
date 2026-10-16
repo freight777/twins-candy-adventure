@@ -474,6 +474,17 @@ export function fish(seed) {
 // ---------------------------------------------------------------- the golden one: one rare toy per machine
 const GOLD = new THREE.Color('#ffb21f'), twinklers = new Set();
 let GOLDMAT = null, sparkTex = null;
+/** the four-pointed sparkle picture the rare toys' twinkles use (made once) */
+function sparkTexture() {
+  if (sparkTex) return sparkTex;
+  {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.2, 'rgba(255,240,180,.6)'); gr.addColorStop(1, 'rgba(255,220,120,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#fff'; g.beginPath(); g.moveTo(32, 0); g.quadraticCurveTo(34, 30, 64, 32); g.quadraticCurveTo(34, 34, 32, 64); g.quadraticCurveTo(30, 34, 0, 32); g.quadraticCurveTo(30, 30, 32, 0); g.fill();
+    sparkTex = new THREE.CanvasTexture(cv); sparkTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  return sparkTex;
+}
 /** turn a toy golden: its cloth (and fur) shimmers gold, its yarn turns champagne, and a few sparkles circle it */
 export function makeGolden(toy) {
   if (toy.userData.golden) return toy;
@@ -488,16 +499,34 @@ export function makeGolden(toy) {
     for (let i = 0; i < c.count; i++) { const v = [c.getX(i), c.getY(i), c.getZ(i)], ao = Math.min(1, Math.max(...v) * 1.15); c.setXYZ(i, ...v.map((x, k) => THREE.MathUtils.lerp(x, g3[k] * ao, tint))); }
     c.needsUpdate = true; if (o.material === M.fabric) o.material = GOLDMAT;
   });
-  if (!sparkTex) {
-    const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.2, 'rgba(255,240,180,.6)'); gr.addColorStop(1, 'rgba(255,220,120,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
-    g.fillStyle = '#fff'; g.beginPath(); g.moveTo(32, 0); g.quadraticCurveTo(34, 30, 64, 32); g.quadraticCurveTo(34, 34, 32, 64); g.quadraticCurveTo(30, 34, 0, 32); g.quadraticCurveTo(30, 30, 32, 0); g.fill();
-    sparkTex = new THREE.CanvasTexture(cv); sparkTex.colorSpace = THREE.SRGBColorSpace;
-  }
+  sparkTexture();
   const R = toy.userData.toy.radius * .8, n = 12, pos = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(R * (.7 + Math.random() * .4)); pos.set(v.toArray(), i * 3); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const sp = new THREE.Points(geo, new THREE.PointsMaterial({ map: sparkTex, size: .045, color: new THREE.Color(4, 3.2, 1.8), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  sp.userData.spark = true; sp.frustumCulled = false; toy.add(sp); twinklers.add(sp);
+  return toy;
+}
+/** the ultra-rare sparkly one: holographic pearly cloth that shifts through every colour as it turns, and rainbow sparkles */
+let HOLOMAT = null;
+export function makeSparkly(toy) {
+  if (toy.userData.golden || toy.userData.sparkly) return toy;
+  toy.userData.sparkly = true; toy.userData.toy.emoji = '\u{1F48E}';
+  if (!HOLOMAT) HOLOMAT = fabricify(new THREE.MeshPhysicalMaterial({ vertexColors: true, metalness: .3, roughness: .28, iridescence: 1, iridescenceIOR: 2.1, iridescenceThicknessRange: [180, 820], sheen: 1, sheenRoughness: .3, sheenColor: new THREE.Color(.9, .85, 1), clearcoat: .6, envMapIntensity: 1.8 }), { freq: 390, bump: .7, tone: .03 });
+  const M = plushMaterials(), pearl = new THREE.Color('#f4f0ff');
+  toy.traverse((o) => {
+    if (o.userData.fur) { furMeshes.delete(o); o.visible = false; return; }
+    if (!o.isMesh || o.isInstancedMesh) return;
+    const tint = o.material === M.fabric ? .8 : o.material === M.hair || o.material === M.felt ? .35 : 0; if (!tint) return;
+    const c = o.geometry.attributes.color, g3 = pearl.toArray();
+    for (let i = 0; i < c.count; i++) { const v = [c.getX(i), c.getY(i), c.getZ(i)], ao = Math.min(1, Math.max(...v) * 1.1); c.setXYZ(i, ...v.map((x, k) => THREE.MathUtils.lerp(x, g3[k] * ao, tint))); }
+    c.needsUpdate = true; if (o.material === M.fabric) o.material = HOLOMAT;
+  });
+  sparkTexture();
+  const R = toy.userData.toy.radius * .8, n = 16, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), hue = new THREE.Color();
+  for (let i = 0; i < n; i++) { pos.set(new THREE.Vector3().randomDirection().multiplyScalar(R * (.7 + Math.random() * .4)).toArray(), i * 3); hue.setHSL(i / n, 1, .65); col.set([hue.r * 3, hue.g * 3, hue.b * 3], i * 3); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const sp = new THREE.Points(geo, new THREE.PointsMaterial({ map: sparkTex, size: .045, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   sp.userData.spark = true; sp.frustumCulled = false; toy.add(sp); twinklers.add(sp);
   return toy;
 }

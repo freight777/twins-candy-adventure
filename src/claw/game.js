@@ -17,7 +17,7 @@ import { Timers, Fx, ease, lerp, clamp } from '../util.js';
 import { unlock, playMusic, sfx, voice, say, motor, arcadeBed } from '../audio.js';
 import { buildMachine, buildShelf, DIM, CLAW } from './machine.js';
 import { createPhysics } from './physics.js';
-import { makeToy, plushMaterials, setFurLayers, furShown, forgetToy, makeGolden, twinkle, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus, dragon, turtle } from './plush.js';
+import { makeToy, plushMaterials, setFurLayers, furShown, forgetToy, makeGolden, makeSparkly, twinkle, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus, dragon, turtle } from './plush.js';
 
 const $ = (s) => document.querySelector(s);
 homeGate();
@@ -98,6 +98,7 @@ function fillNow() {
 }
 /** there is always exactly one golden toy in the machine, somewhere you can see it (on top, not buried) */
 function ensureGolden() {
+  if (!S.toys.some((t) => t.userData.sparkly) && Math.random() < .085) { const c = S.toys.filter((t) => !t.userData.golden && t.position.z > -.2); const p = c[Math.floor(Math.random() * c.length)]; if (p) makeSparkly(p); }   // the ultra-rare one
   if (S.toys.some((t) => t.userData.golden)) return;
   const top = [...S.toys].sort((a, b) => b.position.y - a.position.y).slice(0, 10).filter((t) => t.position.z > -.15 && t.position.z < .22);
   const pick = top[Math.floor(Math.random() * top.length)] || S.toys[0]; if (pick) makeGolden(pick);
@@ -186,7 +187,7 @@ const ownerOf = (i) => (S.who === 'both' ? (i % 2 ? 'esmae' : 'adalyn') : S.who)
 const PLAYERS = { adalyn: { name: "Adalyn's toys", color: '#ff8a1f' }, esmae: { name: "Esmae's toys", color: '#ff4fa3' } };
 const KINDS = { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus, dragon, turtle };
 const collection = (who) => store.get(`clawShelf:${who}`, []);
-function keepToys(who, toys) { if (!who || !toys.length) return; const all = collection(who); toys.forEach((t) => all.push({ k: t.userData.toy.kind, s: t.userData.toy.seed, g: !!t.userData.golden })); store.set(`clawShelf:${who}`, all.slice(-500)); }
+function keepToys(who, toys) { if (!who || !toys.length) return; const all = collection(who); toys.forEach((t) => all.push({ k: t.userData.toy.kind, s: t.userData.toy.seed, g: !!t.userData.golden, ...(t.userData.sparkly ? { h: true } : {}) })); store.set(`clawShelf:${who}`, all.slice(-500)); }
 const shelfToys = [], shelfExtras = [];
 let _ped = null;
 /** a round pedestal with a gold rim and a warm glow on top (shared geometry and materials) */
@@ -207,7 +208,7 @@ async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn', { fresh =
   shelf.setName(PLAYERS[who].name, PLAYERS[who].color);
   list.forEach((r, i) => {
     const make = KINDS[r.k]; if (!make) return;
-    const t = make(r.s); if (r.g) makeGolden(t);
+    const t = make(r.s); if (r.g) makeGolden(t); if (r.h) makeSparkly(t);
     t.quaternion.setFromEuler(_e.set(0, (Math.random() - .5) * .5, 0)); t.scale.setScalar(.86); t.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(t), slot = shelf.slots[i];
     t.position.set(slot.x + (Math.random() - .5) * .02, slot.y - (box.min.y - t.position.y) + (r.g ? .024 : 0), slot.z);
@@ -230,9 +231,9 @@ async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn', { fresh =
 }
 /** the collection: one badge per kind of toy (and the golden one), lit once she has won one; new ones bounce */
 const SET = [['unicorn', '\u{1F984}'], ['star', '⭐'], ['heart', '\u{1F496}'], ['rainbow', '\u{1F308}'], ['bunny', '\u{1F430}'], ['kitty', '\u{1F431}'], ['dragon', '\u{1F409}'],
-  ['mermaid', '\u{1F9DC}‍♀️'], ['starfish', '\u{1F31F}'], ['shell', '\u{1F41A}'], ['fish', '\u{1F420}'], ['seahorse', '\u{1F40E}'], ['octopus', '\u{1F419}'], ['turtle', '\u{1F422}'], ['golden', '\u{1F3C6}']];
+  ['mermaid', '\u{1F9DC}‍♀️'], ['starfish', '\u{1F31F}'], ['shell', '\u{1F41A}'], ['fish', '\u{1F420}'], ['seahorse', '\u{1F40E}'], ['octopus', '\u{1F419}'], ['turtle', '\u{1F422}'], ['golden', '\u{1F3C6}'], ['sparkly', '\u{1F48E}']];
 function setCollection(all, fresh = 0) {
-  const has = (list, k) => (k === 'golden' ? list.some((r) => r.g) : list.some((r) => r.k === k)), before = all.slice(0, all.length - fresh);
+  const has = (list, k) => (k === 'golden' ? list.some((r) => r.g) : k === 'sparkly' ? list.some((r) => r.h) : list.some((r) => r.k === k)), before = all.slice(0, all.length - fresh);
   $('#shelfSet').innerHTML = SET.map(([k, e]) => `<i class="${has(all, k) ? 'got' : ''}${has(all, k) && !has(before, k) ? ' new' : ''}">${e}</i>`).join('');
   show('#shelfSet', true);
 }
@@ -523,18 +524,18 @@ async function reveal(t) {
   rim.position.copy(at).addScaledVector(dir, .35).addScaledVector(up, .25);
   S.reveal = { t, spin: 0, at };
   anim(.4, (k) => { hero.intensity = 3 * k; rim.intensity = 1 * k; });
-  const gold = !!t.userData.golden;
+  const gold = !!t.userData.golden || !!t.userData.sparkly, sparkly = !!t.userData.sparkly;
   machine.flash(1); sfx.fanfare(); voice(gold ? 'wow' : ['you_got_it', 'wow', 'yes_great'][S.won.length % 3], { priority: 2 });
   import('../engine/celebrate.js').then((m) => { m.confetti(scene, camera); if (gold) { m.fireworks(scene, camera, 5); timers.after(.6, () => m.confetti(scene, camera)); } });
   if (gold) { sfx.magic(); timers.after(.8, () => voice('you_got_it', { priority: 2 })); store.set('clawGolden', store.get('clawGolden', 0) + 1); }
   // a kind she has never had before is "New!" (and the last missing kind finishes the whole collection)
-  const owner = t.userData.owner, mine = owner ? collection(owner).concat(S.won.filter((x) => x !== t && x.userData.owner === owner).map((x) => ({ k: x.userData.toy.kind, g: !!x.userData.golden }))) : null;
+  const owner = t.userData.owner, mine = owner ? collection(owner).concat(S.won.filter((x) => x !== t && x.userData.owner === owner).map((x) => ({ k: x.userData.toy.kind, g: !!x.userData.golden, h: !!x.userData.sparkly }))) : null;
   const isNew = mine && !mine.some((r) => r.k === t.userData.toy.kind);
-  const after = mine ? mine.concat([{ k: t.userData.toy.kind, g: gold }]) : null, done = (list) => list && SET.every(([k]) => (k === 'golden' ? list.some((r) => r.g) : list.some((r) => r.k === k)));
+  const after = mine ? mine.concat([{ k: t.userData.toy.kind, g: !!t.userData.golden }]) : null, done = (list) => list && SET.every(([k]) => (k === 'sparkly' ? true : k === 'golden' ? list.some((r) => r.g) : list.some((r) => r.k === k)));
   const complete = after && done(after) && !done(mine);
   if (isNew && !gold) { timers.after(.5, () => sfx.magic()); }
   if (complete) { timers.after(1.2, () => { sfx.fanfare(); import('../engine/celebrate.js').then((m) => m.fireworks(scene, camera, 8)); }); }
-  banner(`<span class="em">${complete ? '\u{1F3C6}' : t.userData.toy.emoji}</span><span>${complete ? 'All of them!' : gold ? 'Golden!' : isNew ? 'New!' : 'You got it!'}</span>`, gold || complete ? 'good gold' : 'good', gold || complete ? 3.2 : 2.4);
+  banner(`<span class="em">${complete ? '\u{1F3C6}' : t.userData.toy.emoji}</span><span>${complete ? 'All of them!' : sparkly ? 'Sparkly!' : gold ? 'Golden!' : isNew ? 'New!' : 'You got it!'}</span>`, gold || complete ? 'good gold' : 'good', gold || complete ? 3.2 : 2.4);
   await anim(1.0, (k) => { const e = ease.inOut(k); t.position.lerpVectors(from, at, e); t.position.z += Math.sin(k * Math.PI) * .1; t.scale.setScalar(lerp(s0, 1, ease.out(k))); });
   sfx.plush(); anim(.8, (k) => { const h = Math.abs(Math.sin(k * Math.PI * 2)) * (1 - k * .4), sq = Math.sin(k * Math.PI * 4) * .07 * (1 - k); t.position.y = at.y + h * .035; t.scale.set(1 + sq, 1 - sq, 1 + sq); }, ease.linear).then(() => t.scale.setScalar(1));   // a happy hop
   await Promise.race([sleep(2.1), new Promise((r) => (S.skipReveal = r))]); S.skipReveal = null;
@@ -750,5 +751,5 @@ function renderClawCam() {
 }
 let frameNo = 0; renderer.shadowMap.autoUpdate = false;
 pipe.start((dt, raw) => { if (!machine || !phys) return false; update(dt); renderer.shadowMap.needsUpdate = (frameNo++ & 1) === 0 || Q.name === 'high'; pipe.render(raw); renderClawCam(); return false; });   // shadows: every other frame on the iPad
-window.claw = { S, scene, openShelf, keepToys, THREE, renderClawCam: () => renderClawCam(), camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus, dragon, turtle } };
+window.claw = { S, scene, openShelf, keepToys, THREE, renderClawCam: () => renderClawCam(), camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, sparkly: makeSparkly, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus, dragon, turtle } };
 boot().catch((e) => { console.error(e); loading.fail(); });
