@@ -250,11 +250,17 @@ const EMOJI = { dragon: '\u{1F409}', turtle: '\u{1F422}', bunny: '\u{1F430}', ki
 
 // ---------------------------------------------------------------- faces
 /** glossy black safety eyes set into a head (ellipsoid centre c, radii r), looking along dir; with two tiny lashes */
-function eyes(T, r, c, { y = .18, x = .5, size = .18, lashes = true, lash = 0x2a1a22 } = {}) {
+function eyes(T, r, c, { y = .18, x = .5, size = .18, lashes = true, lash = 0x2a1a22, closed = false } = {}) {
   for (const s of [-1, 1]) {
     const d = new THREE.Vector3(s * x, y, 1).normalize(), at = new THREE.Vector3(...c).add(d.clone().multiply(new THREE.Vector3(...r)).multiplyScalar(1.0));
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), d), e = new THREE.Euler().setFromQuaternion(q);
     const er = r[0] * size;
+    if (closed) {                                                          // embroidered sleepy eyes: a curved stitch with three little lashes under it
+      const P = (u, v) => at.clone().add(new THREE.Vector3(u * er, v * er, er * .15).applyQuaternion(q));
+      T.add(tubeGeo([P(-1, .15), P(-.5, -.3), P(0, -.42), P(.5, -.3), P(1, .15)].map((v) => v.toArray()), er * .19, er * .19, { seg: 12, rad: 5 }), 'felt', lash);
+      for (const u of [-.5, 0, .5]) T.add(tubeGeo([P(u, -.36), P(u * 1.3, -.75)].map((v) => v.toArray()), er * .09, er * .06, { seg: 3, rad: 4, ends: false }), 'felt', lash);
+      continue;
+    }
     T.add(ellGeo([er, er, er * .62], at.toArray(), [e.x, e.y, e.z], { seg: 16, lump: 0 }), 'eye', null);
     if (lashes) for (const k of [0, 1]) {
       const base = at.clone().add(new THREE.Vector3(s * er * (.55 + k * .35), er * (.75 - k * .35), 0));
@@ -300,7 +306,7 @@ export function unicorn(seed) {
     const x = s * .011, y = .104, z = .0975;
     T.add(tubeGeo([[x - s * .003, y + .003, z - .002], [x + s * .001, y, z], [x - s * .001, y - .004, z - .002]], .0012, .0012, { seg: 6, rad: 4 }), 'felt', '#9a5470');
   }
-  eyes(T, ...head, { y: .42, x: .5, size: .17 });
+  eyes(T, ...head, { y: .42, x: .5, size: .17, closed: r() < .16 });
   cheeks(T, ...head, '#ff9fbf', { y: .05, x: .86 });
   for (const s of [-1, 1]) {                                                                            // ears: an outer cone with a pink inside
     const ear = new THREE.LatheGeometry([[0, 0], [.016, .002], [.014, .016], [.006, .028], [0, .032]].map(([x, y]) => new THREE.Vector2(x, y)), 14);
@@ -368,7 +374,7 @@ export function mermaid(seed) {
   }
   T.ell([.014, .014, .014], [0, .125, 0], skin, { occ: false, seg: 14 });                                // neck
   T.ell(...head, skin, { col: true });                                                                  // head
-  eyes(T, ...head, { y: .05, x: .4, size: .17 });
+  eyes(T, ...head, { y: .05, x: .4, size: .17, closed: r() < .16 });
   cheeks(T, ...head, '#ff98ad', { y: -.22, x: .74 });
   smile(T, [0, .145, .0495], .0075);
   {                                                                                                      // hair: a yarn cap, bangs, long locks down the back
@@ -549,7 +555,7 @@ export function bunny(seed) {
   T.ell(...head, body, { col: true });
   T.ell([.022, .016, .016], [0, .106, .064], body, {});                                                  // muzzle
   T.ell([.006, .0045, .004], [0, .114, .079], '#ff8fae', { mat: 'felt', occ: false, seg: 12, lump: 0 });  // nose
-  eyes(T, ...head, { y: .3, x: .45, size: .17 }); cheeks(T, ...head, '#ffa8c0', { y: -.05, x: .82 }); smile(T, [0, .099, .078], .006);
+  eyes(T, ...head, { y: .3, x: .45, size: .17, closed: r() < .16 }); cheeks(T, ...head, '#ffa8c0', { y: -.05, x: .82 }); smile(T, [0, .099, .078], .006);
   for (const s of [-1, 1]) {
     T.ell([.016, .052, .011], [s * .02, .19, .012], body, { rot: [-.15, 0, -s * .22], col: true });
     T.ell([.009, .038, .004], [s * .021, .19, .023], inner, { mat: 'felt', rot: [-.15, 0, -s * .22], occ: false });
@@ -570,7 +576,7 @@ export function kitty(seed) {
   T.ell(...head, null, { col: true, paint: tabby });
   T.ell([.02, .014, .014], [0, .103, .062], '#fff6ee', {});
   T.ell([.006, .004, .004], [0, .11, .074], '#ff8fae', { mat: 'felt', occ: false, seg: 12, lump: 0 });
-  eyes(T, ...head, { y: .25, x: .5, size: .19, lash: base === '#3a3440' ? 0xfff0f0 : 0x2a1a22 }); cheeks(T, ...head, '#ffa8c0', { y: -.08, x: .82 });
+  eyes(T, ...head, { y: .25, x: .5, size: .19, lash: base === '#3a3440' ? 0xfff0f0 : 0x2a1a22, closed: r() < .16 }); cheeks(T, ...head, '#ffa8c0', { y: -.08, x: .82 });
   for (const s of [-1, 1]) {
     const ear = new THREE.LatheGeometry([[0, 0], [.018, .001], [.012, .02], [.004, .03], [0, .032]].map(([x, y]) => new THREE.Vector2(x, y)), 4);
     T.add(place(ear, [s * .03, .148, .012], [-.1, Math.PI / 4, -s * .3], [1, 1, .6]), 'fabric', base);
@@ -627,7 +633,7 @@ export function dragon(seed) {
   T.ell([.03, .019, .022], [0, .1, .058], c, {});                                                        // a little snout
   for (const s of [-1, 1]) T.ell([.0025, .0035, .0015], [s * .01, .105, .079], '#5a3a4a', { mat: 'felt', occ: false, seg: 8, lump: 0 });
   for (let i = 0; i < 3; i++) T.ell([.004, .01, .007], [0, .165 - i * .006, .02 - i * .022], tum, { mat: 'felt', rot: [-.3 - i * .4, 0, 0], occ: false, seg: 10 });   // head spikes
-  eyes(T, ...head, { y: .25, x: .52, size: .18 }); cheeks(T, ...head, '#ff9fb8', { y: -.12, x: .84 }); smile(T, [0, .094, .079], .007);
+  eyes(T, ...head, { y: .25, x: .52, size: .18, closed: r() < .16 }); cheeks(T, ...head, '#ff9fb8', { y: -.12, x: .84 }); smile(T, [0, .094, .079], .007);
   for (const s of [-1, 1]) {
     T.add(tubeGeo([[s * .024, .148, .01], [s * .03, .168, .0], [s * .036, .18, -.016]], .0075, .0025, { seg: 8, rad: 8 }), 'felt', horn);   // curved horns
     const w = new THREE.Shape(); w.moveTo(0, 0); w.quadraticCurveTo(.02, .05, .055, .045); w.quadraticCurveTo(.045, .03, .05, .018); w.quadraticCurveTo(.035, .018, .036, .006); w.quadraticCurveTo(.02, .008, 0, 0);
