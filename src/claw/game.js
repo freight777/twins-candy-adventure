@@ -248,6 +248,7 @@ function clearShelf() { for (const t of shelfToys) { forgetToy(t); scene.remove(
 }
 async function chooseTheme(theme) {
   if (S.busy) return; S.busy = true; unlock(); sfx.pop(); playMusic('arcade'); arcadeBed(true);
+  if (S.demo) await S.demo;
   store.set('clawTheme', theme);
   if (theme !== S.theme) {
     S.theme = theme; machine.setTheme(theme);
@@ -276,6 +277,7 @@ function dealPlan() {
 }
 async function start() {
   S.state = 'starting'; playMusic('arcade'); arcadeBed(true);
+  if (S.demo) await S.demo;                                               // (let the attract demo put its toy down first)
   if (S.toys.length < TOYS) await rainIn(TOYS - S.toys.length);
   ensureGolden();
   S.plan = dealPlan(); S.try = 0; S.results = []; S.won = []; S.endView = 0;
@@ -396,6 +398,35 @@ async function grab(shouldWin) {
   if (target) { say('Oops! Next time!', 'narrator'); banner('<span>So close!</span>', 'soft', 1.6); } else { voice('hmm_try_again', { priority: 1 }); banner('<span>Oops!</span>', 'soft', 1.4); }
   sfx.soft();
   return { type: 'miss' };
+}
+/** attract mode: on the title screen the machine plays itself now and then, like a real one in an arcade: it glides over to
+ *  a toy, drops, grabs it, lifts it a little and lets it slip back, then goes home. Wraps up quickly the moment anyone taps. */
+async function demoGrab() {
+  const C = S.claw, stop = () => S.state !== 'title' || S.busy;
+  const tops = S.toys.filter((t) => t.position.z < .2 && t.position.x > DIM.chute.x1 + .05).sort((a, b) => b.position.y - a.position.y).slice(0, 6);
+  const t0 = tops[Math.floor(Math.random() * tops.length)]; if (!t0) return;
+  const tx = clamp(t0.position.x, DIM.bounds.x0, DIM.bounds.x1), tz = clamp(t0.position.z, DIM.bounds.z0, DIM.bounds.z1), x0 = C.x, z0 = C.z;
+  const quietly = async (dur, fn, e) => { if (!stop()) await anim(dur, fn, e); };
+  motor(.35, .9); await quietly(Math.max(.8, Math.hypot(tx - x0, tz - z0) / .25), (k) => { C.x = lerp(x0, tx, k); C.z = lerp(z0, tz, k); }); motor(0);
+  let held = null, stopY = DIM.top;
+  if (!stop()) {
+    const L = landing(C.x, C.z); stopY = L.y;
+    anim(.4, (k) => { C.open = lerp(.15, 1, k); });
+    motor(.35, .75); await quietly((DIM.top - stopY) / .42, (k) => { C.y = lerp(DIM.top, stopY, k); }, motorEase); motor(0);
+    if (!stop()) {
+      const target = targetOf(stopY, L.hits); sfx.clunk(); C.bob = 1;
+      await quietly(.5, (k) => { C.angle = lerp(.62, target ? .05 : -.1, k); });
+      if (target && !stop()) { phys.hold(target); held = target; S.held = { toy: target, off0: target.position.clone().sub(clawVec()), q0: target.quaternion.clone(), up: uprightOf(target.quaternion), k: 0, slide: 0 }; }
+      motor(.35, .7); const y0 = C.y; await quietly(.9, (k) => { C.y = lerp(y0, y0 + (DIM.top - y0) * .35, k); }); motor(0);
+      if (held && !stop()) await loosen(.4);
+    }
+  }
+  if (held) drop();
+  // home, briskly if someone is waiting
+  const fast = stop() ? .35 : 1, y1 = C.y, a1 = C.angle ?? lerp(-.1, .62, C.open), x1 = C.x, z1 = C.z;
+  motor(.3, 1); await anim(1.1 * fast, (k) => { C.y = lerp(y1, DIM.top, k); C.angle = lerp(a1, lerp(-.1, .62, .15), k); });
+  C.angle = null; C.open = .15; motor(0); S.recentDrop = false;
+  if (!stop()) { await anim(1.2, (k) => { C.x = lerp(x1, DIM.home.x, k); C.z = lerp(z1, DIM.home.z, k); }); }
 }
 /** a motor's speed curve: a quick spin-up, a steady run, a quick stop */
 const motorEase = (t) => { const a = .12, d = 2 * a * (1 - a); return t < a ? t * t / d : t > 1 - a ? 1 - (1 - t) * (1 - t) / d : (t - a / 2) / (1 - a); };
@@ -571,7 +602,9 @@ function update(dt) {
     motor(m > .03 ? Math.min(1, m) : 0, .8 + m * .3); S.moved += Math.hypot(C.x - px, C.z - pz);
     if (S.moved > .05 && !S.hinted) { $('#stick').classList.remove('hint'); $('#drop').classList.add('hint'); }
     machine.setStick(rx, rz);
-  } else if (S.state === 'title') {
+  } else if (S.state === 'title' && !S.demo) {
+    S.demoT = (S.demoT ?? 6) - dt;
+    if (S.demoT <= 0 && !S.busy) { S.demoT = 9 + Math.random() * 5; S.demo = demoGrab().finally(() => { S.demo = null; }); }
     attract.t -= dt; if (attract.t <= 0) { attract = { x: lerp(DIM.bounds.x0, DIM.bounds.x1, Math.random()), z: lerp(DIM.bounds.z0, DIM.bounds.z1, Math.random()), t: 2.5 + Math.random() * 2 }; }
     C.x += (attract.x - C.x) * (1 - Math.exp(-.8 * dt)); C.z += (attract.z - C.z) * (1 - Math.exp(-.8 * dt));
     machine.setStick(0, 0);
