@@ -83,7 +83,12 @@ const S = {
 if (!['unicorn', 'mermaid'].includes(S.theme)) S.theme = 'unicorn';
 
 // ---------------------------------------------------------------- the pile
-const randQuat = () => new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3));
+/** how a toy goes into the machine: mostly sitting up facing you or lying on its back face-up (faces show, like a stocked machine), sometimes any old way */
+const randQuat = () => {
+  const r = Math.random(), j = () => (Math.random() - .5);
+  const e = r < .6 ? new THREE.Euler(j() * .4, j() * 1.6, j() * .4, 'YXZ') : r < .88 ? new THREE.Euler(-.85 + j() * .5, j() * 1.2, j() * .8, 'YXZ') : new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3);
+  return new THREE.Quaternion().setFromEuler(e);
+};
 function newToy(i) { const t = makeToy(S.theme, i, S.seed++); scene.add(t); S.toys.push(t); return t; }
 function removeToy(t) { forgetToy(t); phys.remove(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); S.toys = S.toys.filter((x) => x !== t); }
 /** a full machine, already settled (behind the loading screen) */
