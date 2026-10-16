@@ -20,6 +20,16 @@ const label = (id) => { const [k, v] = id.split(':'); return (LABEL[k] || ((x) =
 const ago = (t) => { if (!t) return 'not yet'; const m = Math.round((Date.now() - t) / 60000); return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
 const dots = (hist) => hist.map((h) => (h ? '●' : '○')).join(' ') || '–';
 
+/** the Claw Machine's toy shelf for one child (kept on this device by src/claw/game.js) */
+function clawLine(who) {
+  let all = [], best = [];
+  try { all = JSON.parse(localStorage.getItem(`clawShelf:${who}`) || '[]'); } catch { /* none */ }
+  for (const th of ['unicorn', 'mermaid']) for (const lv of ['easy', 'medium', 'hard']) { const v = +(localStorage.getItem(`clawBest:${who}:${th}:${lv}`) || 0); if (v) best.push(`${th} ${lv} ${v}`); }
+  if (!all.length && !best.length) return '';
+  const kinds = new Set(all.map((r) => r.k)).size, gold = all.filter((r) => r.g).length;
+  return `<p class="meta"><b>Claw Machine:</b> ${all.length} toys on the shelf &middot; ${kinds} of 12 kinds &middot; ${gold} golden${best.length ? ` &middot; best games: ${best.join(', ')}` : ''}</p>`;
+}
+
 function kidCard(who, k) {
   const items = Object.entries(k.items);
   const working = items.filter(([, it]) => it.seen > 0 && it.box < 3).sort((a, b) => a[1].box - b[1].box || b[1].seen - a[1].seen).slice(0, 10);
@@ -32,6 +42,7 @@ function kidCard(who, k) {
       <div><b>Reading</b> level ${k.reading.level} of ${MAX.reading}<br><span>${unitLabel(k.reading.level)}</span><br><small>last answers: ${dots(k.reading.hist)}</small></div>
       <div><b>Math</b> level ${k.math.level} of ${MAX.math}<br><span>${MATH[k.math.level]}</span><br><small>last answers: ${dots(k.math.hist)}</small></div>
     </div>
+    ${clawLine(who)}
     <div class="cols"><div><h3>Working on</h3>${list(working, 'Nothing yet.')}</div><div><h3>Recently mastered</h3>${list(mastered, 'Keep playing!')}</div></div>
     <button class="reset" type="button">Hold to reset ${NAMES[who] || who}</button>`;
   holdGate(el.querySelector('.reset'), () => { resetKid(who); render(); });
