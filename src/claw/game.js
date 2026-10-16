@@ -527,7 +527,14 @@ async function reveal(t) {
   machine.flash(1); sfx.fanfare(); voice(gold ? 'wow' : ['you_got_it', 'wow', 'yes_great'][S.won.length % 3], { priority: 2 });
   import('../engine/celebrate.js').then((m) => { m.confetti(scene, camera); if (gold) { m.fireworks(scene, camera, 5); timers.after(.6, () => m.confetti(scene, camera)); } });
   if (gold) { sfx.magic(); timers.after(.8, () => voice('you_got_it', { priority: 2 })); store.set('clawGolden', store.get('clawGolden', 0) + 1); }
-  banner(`<span class="em">${t.userData.toy.emoji}</span><span>${gold ? 'Golden!' : 'You got it!'}</span>`, gold ? 'good gold' : 'good', gold ? 3 : 2.4);
+  // a kind she has never had before is "New!" (and the last missing kind finishes the whole collection)
+  const owner = t.userData.owner, mine = owner ? collection(owner).concat(S.won.filter((x) => x !== t && x.userData.owner === owner).map((x) => ({ k: x.userData.toy.kind, g: !!x.userData.golden }))) : null;
+  const isNew = mine && !mine.some((r) => r.k === t.userData.toy.kind);
+  const after = mine ? mine.concat([{ k: t.userData.toy.kind, g: gold }]) : null, done = (list) => list && SET.every(([k]) => (k === 'golden' ? list.some((r) => r.g) : list.some((r) => r.k === k)));
+  const complete = after && done(after) && !done(mine);
+  if (isNew && !gold) { timers.after(.5, () => sfx.magic()); }
+  if (complete) { timers.after(1.2, () => { sfx.fanfare(); import('../engine/celebrate.js').then((m) => m.fireworks(scene, camera, 8)); }); }
+  banner(`<span class="em">${complete ? '\u{1F3C6}' : t.userData.toy.emoji}</span><span>${complete ? 'All of them!' : gold ? 'Golden!' : isNew ? 'New!' : 'You got it!'}</span>`, gold || complete ? 'good gold' : 'good', gold || complete ? 3.2 : 2.4);
   await anim(1.0, (k) => { const e = ease.inOut(k); t.position.lerpVectors(from, at, e); t.position.z += Math.sin(k * Math.PI) * .1; t.scale.setScalar(lerp(s0, 1, ease.out(k))); });
   sfx.plush(); anim(.8, (k) => { const h = Math.abs(Math.sin(k * Math.PI * 2)) * (1 - k * .4), sq = Math.sin(k * Math.PI * 4) * .07 * (1 - k); t.position.y = at.y + h * .035; t.scale.set(1 + sq, 1 - sq, 1 + sq); }, ease.linear).then(() => t.scale.setScalar(1));   // a happy hop
   await Promise.race([sleep(2.1), new Promise((r) => (S.skipReveal = r))]); S.skipReveal = null;
