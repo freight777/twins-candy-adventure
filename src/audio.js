@@ -300,7 +300,28 @@ export const sfx = {
   strike: () => { tone(220, .22, { type: 'sawtooth', slide: .6, vol: .2 }); noise(.12, { vol: .3, from: 1500, to: 500 }); },
   swoosh: () => noise(.18, { vol: .3, from: 600, to: 3500, q: .8 }),
   collect: (i = 0) => tone(784 * Math.pow(1.122, i % 6), 0.3, { vol: 0.22, type: 'triangle', wet: .3 }),
+  // the claw machine: a token dropping in, the claw's solenoid, metal stopping, a plush toy landing, a prize rattling down the chute
+  coin: () => { tone(2350, .09, { type: 'square', vol: .05, wet: .1 }); tone(3100, .35, { vol: .1, delay: .05, wet: .2 }); noise(.12, { vol: .08, from: 5000, to: 2500, q: 2, delay: .16 }); noise(.1, { vol: .06, from: 4000, to: 2000, q: 2, delay: .3 }); },
+  clunk: () => { noise(.07, { vol: .3, from: 1400, to: 300, q: .9 }); tone(110, .12, { type: 'square', slide: .6, vol: .12, wet: .05 }); },
+  click: () => { noise(.035, { vol: .35, from: 6000, to: 3000, type: 'highpass', q: .6 }); tone(620, .05, { type: 'square', slide: .7, vol: .06, wet: .05 }); },
+  thud: (v = 1) => { noise(.14, { vol: .22 * v, from: 500, to: 140, q: .7 }); tone(85, .14, { slide: .6, vol: .22 * v, wet: .05 }); },
+  chute: () => { [0, .16, .34].forEach((d, i) => { noise(.16, { vol: .3 - i * .07, from: 700, to: 160, q: .7, delay: d }); tone(95 - i * 8, .16, { slide: .6, vol: .22 - i * .05, delay: d, wet: .05 }); }); },
 };
+
+/** the claw machine's motors: a low electric whine while something moves (level 0 = silent); pitch rises a little with speed */
+let motorNodes = null;
+export function motor(level = 0, pitch = 1) {
+  if (!ctx) return;
+  if (!motorNodes) {
+    const o = ctx.createOscillator(), o2 = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth'; o2.type = 'square'; o.frequency.value = 92; o2.frequency.value = 184.6; f.type = 'lowpass'; f.frequency.value = 700; f.Q.value = 2; g.gain.value = 0;
+    const g2 = ctx.createGain(); g2.gain.value = .25; o2.connect(g2); g2.connect(f); o.connect(f); f.connect(g); g.connect(master); o.start(); o2.start();
+    motorNodes = { o, o2, f, g };
+  }
+  const t = ctx.currentTime, m = motorNodes;
+  m.g.gain.setTargetAtTime(level * .05, t, .06);
+  m.o.frequency.setTargetAtTime(92 * pitch, t, .1); m.o2.frequency.setTargetAtTime(184.6 * pitch, t, .1); m.f.frequency.setTargetAtTime(500 + 500 * pitch * level, t, .1);
+}
 
 /** a steady murmur of a big crowd under the game (pass false to fade it out) */
 let ambience = null;
@@ -335,6 +356,7 @@ const SONGS = {
   forest: { bpm: 108, swing: .06, chords: [[52, MAJ], [48, MAJ], [45, MIN], [50, MAJ], [52, MAJ], [43, MAJ], [45, MIN], [48, MAJ]], scale: PENT(76), lead: 'bell', drums: 1, pad: .08 },
   ocean: { bpm: 86, swing: .04, chords: [[50, MAJ7], [47, MIN7], [43, MAJ7], [45, DOM7], [50, MAJ7], [47, MIN7], [52, MIN7], [45, DOM7]], scale: PENT(74), lead: 'bell', drums: 0, pad: .1 },
   park: { bpm: 112, swing: .05, chords: [[48, MAJ], [53, MAJ], [55, MAJ], [48, MAJ]], scale: PENT(72), lead: 'pluck', drums: 1, pad: .05 },
+  arcade: { bpm: 112, swing: .06, chords: [[53, MAJ7], [50, MIN7], [46, MAJ7], [48, DOM7]], scale: PENT(77), lead: 'bell', drums: 1, pad: .05 },
   castle: { bpm: 100, swing: 0,   chords: [[48, MAJ], [41, MAJ], [43, MAJ], [48, MAJ]], scale: PENT(60), lead: 'bell', drums: 0, pad: .1 },
 };
 let cur = null, timer = null, nextT = 0, step = 0, phrase = [], phraseOld = [], lastIdx = 3;

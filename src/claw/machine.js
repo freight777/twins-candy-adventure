@@ -1,0 +1,302 @@
+// The claw machine and the arcade around it, built at real size (metres): a lacquered cabinet with chrome trim, glass you
+// can see the room reflected in, a lit marquee with chasing bulbs, a printed backdrop, the prize chute behind its acrylic
+// guard, the gantry rails, and the claw itself (a chrome solenoid housing with three hooked prongs and an LED ring that
+// shines where it will land). Lighting is an "arcade room" made into a reflection map, a shadow-casting light in the
+// machine's roof, an LED bar along the front, and the neon of the machines next door.
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+/** the inside of the machine (metres). The prize chute is the front-left corner, behind a low acrylic guard. */
+export const DIM = {
+  W: .43, D: .375, H: .97,
+  chute: { x0: -.43, x1: -.155, z0: .095, z1: .375 },
+  guardH: .17,
+  home: { x: -.292, z: .236 },
+  top: .735,                                  // the claw hub's height when it is all the way up
+  bounds: { x0: -.355, x1: .355, z0: -.29, z1: .285 },
+};
+/** the claw is modelled at 1:1 and scaled: s, the cap's height above the hub, the prongs' reach below it and how far out the open tips are */
+export const CLAW = { s: 1.25, cap: .094 * 1.25, reach: .1 * 1.25, hub: .045 * 1.25, tipR: .052 * 1.25, len: .135 * 1.25 };
+export const THEME_LOOK = {
+  unicorn: { paint: 0xe58fc4, paint2: 0x8f6ad8, floor: 0x5a2f6e, sign: 'UNICORN', signCol: ['#ff8fd8', '#c9a2ff'], led: 0xffd6f0 },
+  mermaid: { paint: 0x2fb9c9, paint2: 0x2f6fd0, floor: 0x123f5e, sign: 'MERMAID', signCol: ['#6ff3ff', '#8fb4ff'], led: 0xd6fbff },
+};
+
+function canvas(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); return c; }
+function tex(c, { srgb = true, repeat = null } = {}) {
+  const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat); }
+  return t;
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+// ---------------------------------------------------------------- printed and painted surfaces
+function backdropCanvas(theme) {
+  return canvas(1024, 1024, (g, w, h) => {
+    if (theme === 'unicorn') {
+      const sky = g.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#8fb6ff'); sky.addColorStop(.5, '#e8c8ff'); sky.addColorStop(1, '#ffd6ea'); g.fillStyle = sky; g.fillRect(0, 0, w, h);
+      const cols = ['#ff7b8a', '#ffb070', '#ffe27a', '#8fe39a', '#7cc4ff', '#b79cff'];
+      cols.forEach((c, i) => { g.strokeStyle = c; g.globalAlpha = .75; g.lineWidth = 46; g.beginPath(); g.arc(w / 2, h * .95, 440 - i * 44, Math.PI, 0); g.stroke(); });
+      g.globalAlpha = 1;
+      const cloud = (x, y, s) => { g.fillStyle = '#fff'; [[0, 0, 1], [-.9, .25, .7], [.9, .2, .75], [-.35, -.35, .7], [.4, -.3, .65]].forEach(([dx, dy, r]) => { g.beginPath(); g.arc(x + dx * s, y + dy * s, r * s, 0, 7); g.fill(); }); };
+      cloud(200, 800, 70); cloud(830, 790, 80); cloud(520, 900, 90); cloud(150, 260, 40); cloud(860, 200, 46);
+      for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(255,255,255,${rnd(.4, .95)})`; const x = rnd(0, w), y = rnd(0, h * .7), r = rnd(2, 6); g.beginPath(); g.moveTo(x, y - r * 2.4); g.lineTo(x + r * .5, y - r * .5); g.lineTo(x + r * 2.4, y); g.lineTo(x + r * .5, y + r * .5); g.lineTo(x, y + r * 2.4); g.lineTo(x - r * .5, y + r * .5); g.lineTo(x - r * 2.4, y); g.lineTo(x - r * .5, y - r * .5); g.fill(); }
+    } else {
+      const sea = g.createLinearGradient(0, 0, 0, h); sea.addColorStop(0, '#5fd4ff'); sea.addColorStop(.55, '#1f7fc0'); sea.addColorStop(1, '#0d3f74'); g.fillStyle = sea; g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 9; i++) { const x = rnd(0, w), gr = g.createLinearGradient(x, 0, x + 120, h); gr.addColorStop(0, 'rgba(255,255,255,.22)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(x - 30, 0); g.lineTo(x + 40, 0); g.lineTo(x + 260, h); g.lineTo(x + 120, h); g.fill(); }
+      g.globalCompositeOperation = 'source-over';
+      for (let i = 0; i < 16; i++) { const x = rnd(0, w), hh = rnd(200, 460); g.strokeStyle = ['#2fae7a', '#3cc48a', '#1f8f6a'][i % 3]; g.lineWidth = rnd(14, 26); g.lineCap = 'round'; g.beginPath(); g.moveTo(x, h); for (let k = 1; k <= 8; k++) g.lineTo(x + Math.sin(k * 1.3 + i) * 26, h - hh * k / 8); g.stroke(); }
+      for (let i = 0; i < 7; i++) { const x = rnd(0, w), r = rnd(40, 90); g.fillStyle = ['#ff7fa8', '#ffa36b', '#c58bff'][i % 3]; g.beginPath(); g.ellipse(x, h - r * .4, r, r * .7, 0, Math.PI, 0); g.fill(); }
+      for (let i = 0; i < 60; i++) { const x = rnd(0, w), y = rnd(0, h), r = rnd(4, 16); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2.5; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke(); g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.arc(x - r * .35, y - r * .35, r * .25, 0, 7); g.fill(); }
+    }
+    // a printed panel: a little paper grain and a soft hot spot from the light above
+    const v = g.createRadialGradient(w / 2, 0, 50, w / 2, h * .3, w); v.addColorStop(0, 'rgba(255,255,255,.05)'); v.addColorStop(1, 'rgba(0,0,0,.3)'); g.fillStyle = v; g.fillRect(0, 0, w, h);
+  });
+}
+function signCanvas(look) {
+  return canvas(1024, 256, (g, w, h) => {
+    g.fillStyle = '#0a0612'; g.fillRect(0, 0, w, h);
+    const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, look.signCol[0]); gr.addColorStop(1, look.signCol[1]);
+    g.font = '700 120px Fredoka, "Arial Rounded MT Bold", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const [blur, a] of [[40, .9], [18, 1], [6, 1]]) { g.shadowColor = look.signCol[0]; g.shadowBlur = blur; g.globalAlpha = a; g.fillStyle = gr; g.fillText(`${look.sign} CLAW`, w / 2, h / 2 + 6); }
+    g.shadowBlur = 0; g.globalAlpha = 1; g.fillStyle = 'rgba(255,255,255,.85)'; g.font = '700 116px Fredoka, "Arial Rounded MT Bold", sans-serif'; g.fillText(`${look.sign} CLAW`, w / 2, h / 2 + 6);
+  });
+}
+function carpetCanvas() {
+  return canvas(512, 512, (g, w, h) => {
+    g.fillStyle = '#0d0b24'; g.fillRect(0, 0, w, h);
+    const cols = ['#ff3fa4', '#2ee6ff', '#ffd23f', '#8c5bff', '#46ff8f'];
+    for (let i = 0; i < 70; i++) {
+      g.strokeStyle = cols[i % cols.length]; g.fillStyle = cols[(i + 2) % cols.length]; g.lineWidth = 5; const x = rnd(0, w), y = rnd(0, h), s = rnd(8, 22);
+      const k = i % 4; g.beginPath();
+      if (k === 0) { g.arc(x, y, s, 0, 7); g.stroke(); } else if (k === 1) { g.moveTo(x - s, y); for (let j = 0; j < 5; j++) g.lineTo(x - s + j * s / 2, y + (j % 2 ? -s / 2 : s / 2)); g.stroke(); }
+      else if (k === 2) { g.arc(x, y, s / 3, 0, 7); g.fill(); } else { g.moveTo(x, y - s); g.lineTo(x + s * .8, y + s * .6); g.lineTo(x - s * .8, y + s * .6); g.closePath(); g.stroke(); }
+    }
+    const id = g.getImageData(0, 0, w, h), d = id.data; for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - .5) * 26; d[i] += n; d[i + 1] += n; d[i + 2] += n; } g.putImageData(id, 0, 0);
+  });
+}
+/** fingerprints and wipe marks on the glass, as a roughness map (only visible where the glass catches a reflection) */
+function smudgeCanvas() {
+  return canvas(512, 512, (g, w, h) => {
+    g.fillStyle = '#0d0d0d'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 26; i++) { const x = rnd(0, w), y = rnd(h * .35, h), r = rnd(10, 22); const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(120,120,120,.55)'); gr.addColorStop(1, 'rgba(120,120,120,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r * .8, r, rnd(-.6, .6), 0, 7); g.fill(); }
+    g.strokeStyle = 'rgba(90,90,90,.35)'; for (let i = 0; i < 6; i++) { g.lineWidth = rnd(20, 50); g.beginPath(); const y = rnd(0, h); g.moveTo(0, y); g.bezierCurveTo(w * .3, y + rnd(-60, 60), w * .6, y + rnd(-60, 60), w, y + rnd(-60, 60)); g.stroke(); }
+  });
+}
+function panelCanvas(look) {
+  return canvas(1024, 256, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#1a1426'); gr.addColorStop(1, '#0c0912'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.strokeStyle = look.signCol[0]; g.lineWidth = 6; g.globalAlpha = .8;
+    const ring = (x) => { g.beginPath(); g.arc(x, h / 2, 92, 0, 7); g.stroke(); };
+    ring(w * .3); ring(w * .7);
+    g.fillStyle = look.signCol[1]; const arrow = (x, y, a) => { g.save(); g.translate(x, y); g.rotate(a); g.beginPath(); g.moveTo(0, -16); g.lineTo(14, 8); g.lineTo(-14, 8); g.closePath(); g.fill(); g.restore(); };
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; arrow(w * .3 + Math.sin(a) * 112, h / 2 - Math.cos(a) * 112, a); }
+    g.globalAlpha = 1;
+  });
+}
+/** the attract screens of the machines next door (always a little out of focus behind the glass) */
+function gameScreen(i) {
+  return canvas(256, 192, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, i ? '#2a0f3a' : '#061a3a'); gr.addColorStop(1, i ? '#7a1f5a' : '#0d4a7a'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    const cols = i ? ['#ffd36e', '#ff6fb5', '#ffffff'] : ['#7ae8ff', '#8cff9a', '#ffffff'];
+    for (let k = 0; k < 18; k++) { g.fillStyle = cols[k % 3]; g.globalAlpha = .9; const x = rnd(10, w - 10), y = rnd(10, h - 40); g.fillRect(x, y, rnd(8, 20), rnd(8, 20)); }
+    g.globalAlpha = 1; g.fillStyle = cols[0]; g.fillRect(20, h - 26, w - 40, 10);
+  });
+}
+function woodCanvas() {
+  return canvas(512, 512, (g, w, h) => {
+    g.fillStyle = '#6b3e22'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 2) { const t = Math.sin(y * .05 + Math.sin(y * .013) * 4) * .5 + .5; g.fillStyle = `rgba(${40 + t * 40},${20 + t * 20},${10},${.25 + t * .2})`; g.fillRect(0, y, w, 2); }
+    for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(30,14,6,.25)'; g.fillRect(rnd(0, w), rnd(0, h), rnd(20, 120), 1); }
+  });
+}
+
+// ---------------------------------------------------------------- the arcade as a reflection map
+function arcadeEnv(renderer) {
+  const s = new THREE.Scene(), box = new THREE.Mesh(new THREE.BoxGeometry(12, 5, 12), new THREE.MeshBasicMaterial({ color: 0x0b0a14, side: THREE.BackSide }));
+  box.position.y = 1.5; s.add(box);
+  const panel = (w, h, col, k, pos, look = [0, 0, 0]) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(k), side: THREE.DoubleSide })); m.position.set(...pos); m.lookAt(...look); s.add(m); };
+  panel(1.4, .5, 0xfff2e0, 5, [0, 3.9, 0], [0, 0, 0]);                                    // ceiling lights
+  panel(1.2, .4, 0xfff2e0, 3.5, [2.5, 3.9, 2], [2.5, 0, 2]); panel(1.2, .4, 0xfff2e0, 3.5, [-2.5, 3.9, -1.5], [-2.5, 0, -1.5]); panel(1.2, .4, 0xfff2e0, 3, [0, 3.9, 3.5], [0, 0, 3.5]);
+  panel(4, .08, 0xff3fa4, 9, [0, 1.6, -5.9]); panel(.08, 3, 0x2ee6ff, 8, [-5.9, 1.5, 0], [0, 1.5, 0]); panel(.08, 3, 0x8c5bff, 8, [5.9, 1.5, 1], [0, 1.5, 1]);   // neon strips on the walls
+  panel(2.4, .9, 0xffe8f6, .9, [-1.5, 1.6, 5.9], [0, 1.4, 0]);                              // the arcade behind the player
+  panel(1.2, 1.6, 0x3f8cff, 2, [-3, 1.1, 5.5], [0, 1, 0]); panel(1.2, 1.6, 0xff6fb5, 2, [3, 1.1, 5.5], [0, 1, 0]);
+  panel(2, .3, 0xffffff, 6, [0, 1.15, .2], [0, 0, .2]);                                    // the machine's own roof light, just above
+  const pm = new THREE.PMREMGenerator(renderer), t = pm.fromScene(s, .035).texture; pm.dispose();
+  s.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
+  return t;
+}
+
+// ---------------------------------------------------------------- the machine
+export function buildMachine(scene, renderer, theme) {
+  RectAreaLightUniformsLib.init();
+  const look = { ...THEME_LOOK[theme] }, G = new THREE.Group(); scene.add(G);
+  const env = arcadeEnv(renderer);
+  const paint = new THREE.MeshPhysicalMaterial({ color: look.paint, metalness: .35, roughness: .32, clearcoat: 1, clearcoatRoughness: .06, iridescence: .25, iridescenceIOR: 1.4 });
+  const paint2 = new THREE.MeshPhysicalMaterial({ color: look.paint2, metalness: .35, roughness: .32, clearcoat: 1, clearcoatRoughness: .06 });
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xf4f6fa, metalness: 1, roughness: .07 });
+  const satinMetal = new THREE.MeshStandardMaterial({ color: 0xc9ced6, metalness: 1, roughness: .32 });
+  const darkMetal = new THREE.MeshStandardMaterial({ color: 0x2a2c33, metalness: .8, roughness: .45 });
+  const blackPlastic = new THREE.MeshPhysicalMaterial({ color: 0x0c0c10, roughness: .42, clearcoat: .5, clearcoatRoughness: .3 });
+  const smudge = tex(smudgeCanvas(), { srgb: false });
+  // glass: only its reflection is drawn (added on top), so you see straight through it but the room shows in it at an angle
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x000000, roughness: .03, roughnessMap: smudge, metalness: 0, specularIntensity: 1, envMapIntensity: .9, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const acrylic = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .05, transparent: true, opacity: .1, envMapIntensity: 2, depthWrite: false, side: THREE.DoubleSide });
+  const rb = (w, h, d, r = .012, seg = 3) => new RoundedBoxGeometry(w, h, d, seg, r);
+  const add = (geo, mat, pos, { cast = true, recv = true, parent = G, rot = null } = {}) => { const m = new THREE.Mesh(geo, mat); m.position.set(...pos); if (rot) m.rotation.set(...rot); m.castShadow = cast; m.receiveShadow = recv; parent.add(m); return m; };
+
+  // ---- the cabinet: base, corner posts, roof box, and the trim between them
+  const W = .98, D = .84;
+  add(rb(W, .92, D, .02), paint, [0, -.47, 0]);                                              // lower cabinet
+  add(rb(W + .01, .04, D + .01, .012), chrome, [0, -.005, 0]);                                // chrome band under the glass
+  add(rb(W + .02, .05, D + .02, .02), blackPlastic, [0, -.915, 0]);                            // kick plate
+  for (const x of [-1, 1]) for (const z of [-1, 1]) add(rb(.05, 1.02, .05, .012), z > 0 ? paint2 : paint, [x * (W / 2 - .025), .5, z * (D / 2 - .025)]);   // posts
+  for (const x of [-1, 1]) add(rb(.012, 1.0, .012, .005), chrome, [x * (W / 2 - .052), .5, D / 2 - .006]);   // chrome edge on the front posts
+  add(rb(W + .01, .3, D + .01, .02), paint2, [0, 1.15, 0]);                                     // roof box
+  add(rb(W + .02, .03, D + .02, .012), chrome, [0, 1.0, 0]);
+  add(rb(W + .02, .025, D + .02, .01), chrome, [0, 1.305, 0]);
+  // ---- the marquee: a lit sign with a ring of chasing bulbs
+  const signTex = tex(signCanvas(look));
+  const sign = add(new THREE.PlaneGeometry(.78, .195), new THREE.MeshBasicMaterial({ map: signTex, color: new THREE.Color(2.2, 2.2, 2.2) }), [0, 1.15, D / 2 + .012], { cast: false, recv: false });
+  const bulbN = 34, bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(.0085, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 4.2, 3.2) }), bulbN);
+  const bulbPos = []; { const w = .84, h = .25; for (let i = 0; i < bulbN; i++) { const t = i / bulbN, per = 2 * (w + h), d = t * per; let x, y; if (d < w) { x = -w / 2 + d; y = h / 2; } else if (d < w + h) { x = w / 2; y = h / 2 - (d - w); } else if (d < 2 * w + h) { x = w / 2 - (d - w - h); y = -h / 2; } else { x = -w / 2; y = -h / 2 + (d - 2 * w - h); } bulbPos.push([x, 1.15 + y, D / 2 + .016]); } }
+  const _mm = new THREE.Matrix4(); bulbPos.forEach((p, i) => { bulbs.setMatrixAt(i, _mm.makeTranslation(...p)); bulbs.setColorAt(i, new THREE.Color(1, 1, 1)); });
+  G.add(bulbs);
+  // ---- inside: the floor the toys lie on (velvet), the printed backdrop, the chute and its guard
+  const velvet = new THREE.MeshPhysicalMaterial({ color: look.floor, roughness: .95, sheen: 1, sheenRoughness: .5, sheenColor: new THREE.Color(.5, .4, .6) });
+  const floorGeo = mergeGeometries([new THREE.BoxGeometry(2 * DIM.W, .02, DIM.chute.z0 + DIM.D).translate(0, -.01, (DIM.chute.z0 - DIM.D) / 2), new THREE.BoxGeometry(DIM.W - DIM.chute.x1, .02, DIM.D - DIM.chute.z0).translate((DIM.W + DIM.chute.x1) / 2, -.01, (DIM.D + DIM.chute.z0) / 2)]);
+  const floor = add(floorGeo, velvet, [0, 0, 0], { cast: false });
+  const backTex = tex(backdropCanvas(theme));
+  const backMat = new THREE.MeshStandardMaterial({ map: backTex, roughness: .55, emissive: 0xffffff, emissiveMap: backTex, emissiveIntensity: .06 });
+  const back = add(new THREE.PlaneGeometry(2 * DIM.W + .02, DIM.H), backMat, [0, DIM.H / 2, -DIM.D - .002], { cast: false });
+  for (const x of [-1, 1]) add(new THREE.PlaneGeometry(2 * DIM.D, DIM.H), glass, [x * (DIM.W + .012), DIM.H / 2, 0], { cast: false, recv: false, rot: [0, Math.PI / 2, 0] });
+  const front = add(new THREE.PlaneGeometry(W - .1, 1.0), glass, [0, .5, D / 2 - .012], { cast: false, recv: false }); front.renderOrder = 5;
+  // chute: a dark shaft, a chrome lip, a clear guard on its two inner sides
+  const cx = (DIM.chute.x0 + DIM.chute.x1) / 2, cz = (DIM.chute.z0 + DIM.chute.z1) / 2, cw = DIM.chute.x1 - DIM.chute.x0, cd = DIM.chute.z1 - DIM.chute.z0;
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(cw, .5, cd), new THREE.MeshStandardMaterial({ color: 0x050407, roughness: .9, side: THREE.BackSide })); shaft.position.set(cx, -.25, cz); G.add(shaft);
+  add(rb(cw + .012, .012, .012, .004), chrome, [cx, .003, DIM.chute.z0]); add(rb(.012, .012, cd + .012, .004), chrome, [DIM.chute.x1, .003, cz]);
+  const g1 = add(new THREE.PlaneGeometry(cw, DIM.guardH), acrylic, [cx, DIM.guardH / 2, DIM.chute.z0], { cast: false, recv: false }); g1.renderOrder = 4;
+  const g2 = add(new THREE.PlaneGeometry(cd, DIM.guardH), acrylic, [DIM.chute.x1, DIM.guardH / 2, cz], { cast: false, recv: false, rot: [0, Math.PI / 2, 0] }); g2.renderOrder = 4;
+  add(new THREE.CylinderGeometry(.004, .004, cw, 8).rotateZ(Math.PI / 2), chrome, [cx, DIM.guardH, DIM.chute.z0]);
+  add(new THREE.CylinderGeometry(.004, .004, cd, 8).rotateX(Math.PI / 2), chrome, [DIM.chute.x1, DIM.guardH, cz]);
+  // ---- the gantry: two rails, a bridge that slides along them, a carriage that slides along the bridge
+  for (const x of [-1, 1]) add(rb(.026, .03, 2 * DIM.D, .004), satinMetal, [x * (DIM.W - .01), .935, 0]);
+  const bridge = add(rb(2 * DIM.W, .026, .03, .004), satinMetal, [0, .93, 0]);
+  const carriage = new THREE.Group(); G.add(carriage);
+  add(rb(.075, .045, .075, .008), darkMetal, [0, .9, 0], { parent: carriage });
+  add(new THREE.CylinderGeometry(.018, .018, .05, 20).rotateZ(Math.PI / 2), chrome, [0, .9, .05], { parent: carriage });
+  add(new THREE.CylinderGeometry(.012, .012, .02, 16), darkMetal, [0, .87, 0], { parent: carriage });
+  const cable = add(new THREE.CylinderGeometry(.0022, .0022, 1, 6).translate(0, -.5, 0), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: .6, roughness: .5 }), [0, .865, 0], { parent: carriage });
+  // ---- the claw
+  const claw = new THREE.Group(); claw.scale.setScalar(CLAW.s); G.add(claw);
+  add(new THREE.CylinderGeometry(.02, .027, .018, 28), chrome, [0, .085, 0], { parent: claw });
+  add(new THREE.CylinderGeometry(.03, .03, .055, 32), chrome, [0, .05, 0], { parent: claw });
+  add(new THREE.TorusGeometry(.031, .004, 8, 32).rotateX(Math.PI / 2), blackPlastic, [0, .035, 0], { parent: claw });
+  add(new THREE.CylinderGeometry(.03, .022, .02, 28), chrome, [0, .012, 0], { parent: claw });
+  const ledRing = add(new THREE.TorusGeometry(.019, .003, 8, 28).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(look.led).multiplyScalar(4) }), [0, 0, 0], { parent: claw, cast: false });
+  const prongGeo = mergeGeometries([
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3([[0, 0, 0], [.02, -.022, 0], [.04, -.06, 0], [.042, -.095, 0], [.03, -.122, 0], [.012, -.134, 0]].map((p) => new THREE.Vector3(...p))), 24, .0045, 8, false),
+    new THREE.SphereGeometry(.0045, 8, 6),
+    new THREE.SphereGeometry(.0065, 10, 8).scale(1, .7, 1.3).translate(.012, -.134, 0),
+    new THREE.BoxGeometry(.012, .02, .016).translate(.002, -.004, 0),
+  ]), prongs = [];
+  for (let i = 0; i < 3; i++) {
+    const arm = new THREE.Group(); arm.rotation.y = i * Math.PI * 2 / 3 + Math.PI / 2; claw.add(arm);
+    const pivot = new THREE.Group(); pivot.position.set(.018, 0, 0); arm.add(pivot);
+    add(prongGeo, chrome, [0, 0, 0], { parent: pivot });
+    add(new THREE.CylinderGeometry(.002, .002, .05, 6), darkMetal, [.012, .025, 0], { parent: arm, rot: [0, 0, -.5] });   // linkage
+    prongs.push(pivot);
+  }
+  const clawLed = new THREE.SpotLight(look.led, .5, 1.1, .3, .8, 1.4); clawLed.position.set(0, -.01, 0); claw.add(clawLed); claw.add(clawLed.target); clawLed.target.position.set(0, -1, 0);
+
+  // ---- the control panel: a ledge in front with a ball-top joystick and a big lit button
+  const ledge = add(rb(W, .07, .24, .015), paint2, [0, -.04, D / 2 + .1]);
+  const panelTex = tex(panelCanvas(look));
+  add(new THREE.PlaneGeometry(W - .06, .2), new THREE.MeshPhysicalMaterial({ map: panelTex, roughness: .3, clearcoat: 1 }), [0, -.004, D / 2 + .1], { rot: [-Math.PI / 2, 0, 0], cast: false });
+  const stick = new THREE.Group(); stick.position.set(-W * .2, -.004, D / 2 + .1); G.add(stick);
+  add(new THREE.CylinderGeometry(.024, .03, .008, 24), chrome, [0, .004, 0], { parent: stick });
+  const stickTop = new THREE.Group(); stick.add(stickTop);
+  add(new THREE.CylinderGeometry(.005, .006, .07, 12), chrome, [0, .035, 0], { parent: stickTop });
+  add(new THREE.SphereGeometry(.022, 28, 20), new THREE.MeshPhysicalMaterial({ color: 0xe8203a, roughness: .12, clearcoat: 1 }), [0, .078, 0], { parent: stickTop });
+  const button = new THREE.Group(); button.position.set(W * .2, -.004, D / 2 + .1); G.add(button);
+  add(new THREE.CylinderGeometry(.042, .046, .01, 32), chrome, [0, .005, 0], { parent: button });
+  const btnCap = add(new THREE.CylinderGeometry(.034, .036, .02, 32), new THREE.MeshPhysicalMaterial({ color: 0xff3048, roughness: .18, clearcoat: 1, transmission: 0, emissive: 0xff2040, emissiveIntensity: .6 }), [0, .016, 0], { parent: button });
+  // the prize door and coin slot on the lower cabinet
+  add(rb(.22, .2, .02, .01), blackPlastic, [-.27, -.45, D / 2 + .005]);
+  add(rb(.2, .14, .012, .008), new THREE.MeshPhysicalMaterial({ color: 0x1a1a22, roughness: .2, transparent: true, opacity: .85 }), [-.27, -.46, D / 2 + .016]);
+  add(rb(.07, .12, .02, .008), chrome, [.27, -.36, D / 2 + .005]);
+  add(new THREE.PlaneGeometry(.012, .05), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, .4, .3) }), [.27, -.36, D / 2 + .016], { cast: false });
+
+  // ---- the room: carpet, the machines next door with their glowing screens, a wall with neon
+  const carpetTex = tex(carpetCanvas(), { repeat: [6, 6] });
+  add(new THREE.PlaneGeometry(8, 8), new THREE.MeshStandardMaterial({ map: carpetTex, roughness: 1 }), [0, -.94, 1], { rot: [-Math.PI / 2, 0, 0], cast: false });
+  const neighbours = [];
+  for (const [x, col, scr, i] of [[-1.12, 0x232c66, 0x7ae8ff, 0], [1.12, 0x4a1a3e, 0xffd36e, 1]]) {
+    const n = new THREE.Group(); n.position.set(x, 0, -.15); G.add(n);
+    add(rb(.9, 2.2, .85, .03), new THREE.MeshPhysicalMaterial({ color: col, metalness: .4, roughness: .35, clearcoat: .8 }), [0, .18, 0], { parent: n });
+    add(rb(.8, .62, .1, .02), blackPlastic, [0, .55, .43], { parent: n });
+    const screen = add(new THREE.PlaneGeometry(.68, .5), new THREE.MeshBasicMaterial({ map: tex(gameScreen(i)), color: new THREE.Color(1, 1, 1) }), [0, .55, .485], { parent: n, cast: false });
+    add(new THREE.PlaneGeometry(.78, .16), new THREE.MeshBasicMaterial({ color: new THREE.Color(scr).multiplyScalar(2.2) }), [0, 1.12, .43], { parent: n, cast: false });
+    add(rb(.86, .06, .3, .02), new THREE.MeshPhysicalMaterial({ color: col, metalness: .4, roughness: .35, clearcoat: .8 }), [0, -.05, .55], { parent: n });
+    neighbours.push(screen);
+  }
+  add(new THREE.PlaneGeometry(9, 4), new THREE.MeshStandardMaterial({ color: 0x0c0a16, roughness: .9 }), [0, .9, -1.6], { cast: false });
+  for (const [x, y, w, c] of [[-2.1, 1.8, 1.4, 0xff3fa4], [2.2, 1.6, 1.1, 0x2ee6ff], [0, 2.1, 2.2, 0x8c5bff]]) add(new THREE.CylinderGeometry(.012, .012, w, 8).rotateZ(Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(6) }), [x, y, -1.58], { cast: false });
+  // the prize counter, off to the right, where the toys you win wait for you
+  const wood = tex(woodCanvas(), { repeat: [2, 1] });
+  const counter = new THREE.Group(); counter.position.set(1.0, -.36, .78); G.add(counter);
+  add(rb(.62, .04, .36, .01), new THREE.MeshPhysicalMaterial({ map: wood, roughness: .45, clearcoat: .6, clearcoatRoughness: .2 }), [0, 0, 0], { parent: counter });
+  add(rb(.58, .56, .32, .01), new THREE.MeshStandardMaterial({ color: 0x2a1a30, roughness: .7 }), [0, -.3, 0], { parent: counter });
+  const counterLight = new THREE.SpotLight(0xffe2c4, 0, 2.2, .6, .7, 1.4); counterLight.position.set(1.05, .9, 1.3); counterLight.target.position.set(1.0, -.34, .78); G.add(counterLight, counterLight.target);
+
+  // ---- lights inside the machine
+  const roof = new THREE.SpotLight(0xfff4ea, 5, 2.2, 1.0, .8, 1.3); roof.position.set(0, .965, .06); roof.target.position.set(0, 0, -.02); G.add(roof, roof.target);
+  roof.castShadow = true; roof.shadow.bias = -.0004; roof.shadow.normalBias = .006; roof.shadow.camera.near = .1; roof.shadow.camera.far = 1.6; roof.shadow.radius = 4;
+  const ledBar = add(rb(2 * DIM.W - .04, .012, .02, .004), new THREE.MeshBasicMaterial({ color: new THREE.Color(look.led).multiplyScalar(2) }), [0, .955, DIM.D - .03], { cast: false });
+  const area = new THREE.RectAreaLight(look.led, 2.5, 2 * DIM.W, .04); area.position.set(0, .95, DIM.D - .04); area.lookAt(0, 0, -.15); G.add(area);
+  const backLed = new THREE.RectAreaLight(0xffffff, 2.5, 2 * DIM.W, .03); backLed.position.set(0, .95, -DIM.D + .03); backLed.lookAt(0, 0, .1); G.add(backLed);
+  const roomKey = new THREE.SpotLight(0xffe8f2, 3, 6, .7, .9, 1.5); roomKey.position.set(.6, 2.6, 2.6); roomKey.target.position.set(0, .2, 0); G.add(roomKey, roomKey.target);
+
+  const api = {
+    group: G, env, claw, prongs, carriage, bridge, cable, clawLed, ledRing, roof, area, sign, bulbs, stickTop, btnCap, counter, counterLight, neighbours, look,
+    clawPos: new THREE.Vector3(DIM.home.x, DIM.top, DIM.home.z),
+    /** 0 = prongs shut, 1 = wide open; or an exact angle via setProngAngle */
+    setOpen(k) { const a = THREE.MathUtils.lerp(-.1, .62, k); prongs.forEach((p) => { p.rotation.z = a; }); },
+    setProngAngle(a) { prongs.forEach((p) => { p.rotation.z = a; }); },
+    setClaw(x, y, z) {
+      api.clawPos.set(x, y, z); claw.position.set(x, y, z);
+      bridge.position.z = z; carriage.position.set(x, 0, z);
+      cable.scale.y = Math.max(.01, .865 - (y + CLAW.cap));
+    },
+    /** joystick tilt (-1..1 each way) and the button pressed in (0..1) */
+    setStick(x, z) { stickTop.rotation.set(z * .35, 0, -x * .35); },
+    setButton(k) { btnCap.position.y = .016 - k * .008; btnCap.material.emissiveIntensity = .6 + k * 2.4; },
+    setTheme(t) {
+      Object.assign(look, THEME_LOOK[t]);
+      paint.color.set(look.paint); paint2.color.set(look.paint2); velvet.color.set(look.floor);
+      signTex.image = signCanvas(look); signTex.needsUpdate = true;
+      backTex.image = backdropCanvas(t); backTex.needsUpdate = true;
+      panelTex.image = panelCanvas(look); panelTex.needsUpdate = true;
+      clawLed.color.set(look.led); area.color.set(look.led); ledBar.material.color.set(look.led).multiplyScalar(2); ledRing.material.color.set(look.led).multiplyScalar(4);
+    },
+    /** bulbs chase around the sign; mode 'attract' (title), 'play', 'win' (all flashing) */
+    lights(t, mode) {
+      const c = new THREE.Color();
+      for (let i = 0; i < bulbN; i++) {
+        let k;
+        if (mode === 'win') k = (Math.floor(t * 8) % 2) ? 1 : .15;
+        else if (mode === 'attract') k = .25 + .75 * Math.pow(.5 + .5 * Math.sin(t * 5 - i * .55), 3);
+        else k = (i + Math.floor(t * 6)) % 3 === 0 ? 1 : .3;
+        bulbs.setColorAt(i, c.setScalar(k));
+      }
+      bulbs.instanceColor.needsUpdate = true;
+      neighbours.forEach((s, i) => s.material.color.setScalar(1.1 + .25 * Math.sin(t * (2.3 + i) + i)));
+    },
+    floor, back,
+  };
+  api.setClaw(DIM.home.x, DIM.top, DIM.home.z); api.setOpen(.15);
+  return api;
+}

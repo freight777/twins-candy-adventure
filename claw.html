@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="A&amp;E Games" />
+  <meta name="theme-color" content="#07060c" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon-ae.png" />
+  <link rel="icon" type="image/png" href="./icon-ae-192.png" />
+  <title>Claw Machine</title>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="loading" class="loading"><div class="bouncer">&#129528;</div><div class="l-text">Filling the claw machine...</div><div class="bar"><i></i></div></div>
+
+  <div id="ui">
+    <div id="hud" class="hidden">
+      <button id="home" aria-label="All games (hold)">&#127968;</button>
+      <div id="tries" aria-label="Tries"></div>
+      <div id="prizebox">&#127873; <span id="count">0</span></div>
+    </div>
+
+    <div id="stick" class="hidden" aria-label="Move the claw"><div class="ring"></div><div class="knob"></div></div>
+    <button id="drop" class="hidden" aria-label="Drop the claw">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 8v22" stroke="#fff" stroke-width="7" stroke-linecap="round"/><rect x="38" y="28" width="24" height="18" rx="5" fill="#fff"/>
+        <path d="M40 46 Q22 58 28 76 Q32 84 40 82" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/><path d="M60 46 Q78 58 72 76 Q68 84 60 82" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/><path d="M50 46 V80" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg>
+    </button>
+    <div id="bigtext" class="hidden"></div>
+
+    <div id="title" class="hidden">
+      <div class="logo"><div class="logo-small">&#10024; Adalyn &amp; Esmae's &#10024;</div><div class="logo-big">Claw Machine</div></div>
+      <div id="pickTheme" class="choices">
+        <button class="choice uni" data-theme="unicorn"><span class="em">&#129412;</span><b>Unicorns</b></button>
+        <button class="choice mer" data-theme="mermaid"><span class="em">&#129500;&#8205;&#9792;&#65039;</span><b>Mermaids</b></button>
+      </div>
+      <div id="pickLevel" class="choices hidden">
+        <button id="backTheme" class="back" aria-label="Back">&#11013;&#65039;</button>
+        <button class="choice easy" data-level="easy"><span class="em">&#11088;</span><b>Easy</b></button>
+        <button class="choice medium" data-level="medium"><span class="em">&#11088;&#11088;</span><b>Medium</b></button>
+        <button class="choice hard" data-level="hard"><span class="em">&#11088;&#11088;&#11088;</span><b>Hard</b></button>
+      </div>
+    </div>
+
+    <div id="over" class="hidden card">
+      <div class="big"><span id="final">0</span> <small>&#127873;</small></div>
+      <div class="toys"></div>
+      <div class="row"><button id="again" class="pill green">&#128257; Again</button><button id="change" class="pill">&#129412; &#129500;&#8205;&#9792;&#65039;</button></div>
+    </div>
+  </div>
+  <script type="module" src="/src/claw/game.js"></script>
+</body>
+</html>

@@ -20,3 +20,7 @@ The raw files are in public/assets/mocap/; tools/export-clips.cjs turns them int
   The uniforms, cap, helmet and name/number are made in code; the motion is the CMU data above.
 - Players' bodies and faces: Quaternius "Universal Base Characters" Superhero Male (CC0, https://quaternius.com/packs/universalbasecharacters.html), public/assets/derby/char/ubc/
   (textures resized for the web). The baseball uniforms, caps, helmet, hair and name/number are generated in code (src/derby/skinned.js).
+
+## Claw Machine
+- Toy physics: [cannon-es](https://github.com/pmndrs/cannon-es) (MIT).
+- The machine, the arcade, the plush toys and their fabric shading are all made in code (src/claw/); no downloaded art.
