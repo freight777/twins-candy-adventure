@@ -157,7 +157,7 @@ const show = (sel, on = true) => $(sel).classList.toggle('hidden', !on);
 const banner = (html, cls = '', sec = 2) => { const b = $('#bigtext'); b.innerHTML = html; b.className = cls; show('#bigtext'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; if (sec) timers.after(sec, () => show('#bigtext', false)); };
 function setHud() {
   $('#tries').innerHTML = Array.from({ length: TRIES }, (_, i) => {
-    const r = S.results[i]; const cls = r ? r.type : i === S.try && S.state !== 'over' ? 'now' : '';
+    const r = S.results[i]; const cls = r ? r.type : i === S.try && S.state !== 'over' ? (S.coinIn ? 'now spent' : 'now') : '';
     return `<i class="${cls}${S.who === 'both' ? (i % 2 ? ' pe' : ' pa') : ''}">${r && r.type === 'win' ? r.emoji : ''}</i>`;
   }).join('');
   $('#count').textContent = S.won.length;
@@ -270,7 +270,7 @@ async function start() {
 }
 
 async function oneTry() {
-  S.state = 'aim'; S.moved = 0; setHud(); sfx.coin(); setPeek(false);
+  S.state = 'aim'; S.moved = 0; S.coinIn = false; setHud(); insertCoin(); setPeek(false);
   if (S.who === 'both') { const w = ownerOf(S.try); banner(`<span class="initial ${w[0]}">${w[0].toUpperCase()}</span>`, 'turn', 1.4); say(w === 'adalyn' ? "Adalyn's turn!" : "Esmae's turn!", 'narrator'); }
   controls(true);
   if (!S.hinted) $('#stick').classList.add('hint');
@@ -282,6 +282,17 @@ async function oneTry() {
   await sleep(res.type === 'win' ? .2 : .5);
 }
 
+/** this try's token flips out of the bar and drops into the machine: a clink, the lights flare */
+function insertCoin() {
+  const tok = $('#tries i.now'); if (!tok) { sfx.coin(); return; }
+  const r = tok.getBoundingClientRect(), c = document.createElement('div'); c.className = 'coinfly';
+  c.style.left = `${r.left}px`; c.style.top = `${r.top}px`; c.style.width = `${r.width}px`; c.style.height = `${r.height}px`;
+  document.body.appendChild(c); void c.offsetWidth;
+  const dx = innerWidth / 2 - (r.left + r.width / 2), dy = innerHeight * .9 - (r.top + r.height / 2);
+  c.style.transform = `translate(${dx}px, ${dy}px) rotateY(1080deg) scale(1.3)`; c.style.opacity = '0';
+  tok.classList.add('spent'); S.coinIn = true;
+  setTimeout(() => { sfx.coin(); machine.flash(.45); }, 520); setTimeout(() => c.remove(), 800);
+}
 /** where the claw's prongs will touch first, straight below (x, z) */
 function landing(x, z) {
   const c = phys.probe(x, z), hits = [c];

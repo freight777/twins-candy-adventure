@@ -16,6 +16,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #07060c; fon
 #tries i { width: clamp(24px, 3.6vw, 40px); aspect-ratio: 1; border-radius: 50%; font-style: normal; display: flex; align-items: center; justify-content: center; font-size: clamp(16px, 2.6vw, 28px);
   background: radial-gradient(circle at 35% 30%, #fff8d0, #ffcf4a 55%, #c98a10); box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), 0 2px 4px rgba(0,0,0,.4); transition: background .3s, transform .3s; }
 #tries i.now { animation: pulse .9s ease-in-out infinite; box-shadow: 0 0 0 3px #fff, 0 0 18px rgba(255,220,120,.9); }
+#tries i.now.spent { background: transparent; box-shadow: 0 0 0 3px #fff, 0 0 18px rgba(255,220,120,.9), inset 0 0 8px rgba(255,220,120,.5); }
+.coinfly { position: fixed; z-index: 40; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 35% 30%, #fff8d0, #ffcf4a 55%, #c98a10); box-shadow: 0 3px 8px rgba(0,0,0,.4);
+  transition: transform .75s cubic-bezier(.45,-.25,.7,1), opacity .25s .55s; }
 #tries i.miss { background: radial-gradient(circle at 35% 30%, #6a6478, #3a3546); box-shadow: inset 0 2px 3px rgba(0,0,0,.5); }
 #tries i.win { background: radial-gradient(circle at 50% 40%, #fff, #ffd6f0 70%, #ff9fd6); box-shadow: 0 0 12px rgba(255,170,230,.9); }
 #prizebox { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); background: #fff; border-radius: 40px; padding: 4px 20px; font-size: clamp(28px, 5vw, 48px); font-weight: 700; color: #5a2a6b; box-shadow: 0 5px 0 rgba(0,0,0,.35); }
