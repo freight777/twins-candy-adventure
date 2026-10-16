@@ -246,7 +246,7 @@ class Toy {
   }
 }
 const WHITE = new THREE.Color(1, 1, 1);
-const EMOJI = { unicorn: '\u{1F984}', mermaid: '\u{1F9DC}‍♀️', star: '⭐', heart: '\u{1F496}', rainbow: '\u{1F308}', starfish: '\u{1F31F}', shell: '\u{1F41A}', fish: '\u{1F420}' };
+const EMOJI = { bunny: '\u{1F430}', kitty: '\u{1F431}', seahorse: '\u{1F420}', octopus: '\u{1F419}', unicorn: '\u{1F984}', mermaid: '\u{1F9DC}‍♀️', star: '⭐', heart: '\u{1F496}', rainbow: '\u{1F308}', starfish: '\u{1F31F}', shell: '\u{1F41A}', fish: '\u{1F420}' };
 
 // ---------------------------------------------------------------- faces
 /** glossy black safety eyes set into a head (ellipsoid centre c, radii r), looking along dir; with two tiny lashes */
@@ -484,9 +484,84 @@ export function makeGolden(toy) {
 export function twinkle(t) { for (const sp of twinklers) { if (!sp.parent) { twinklers.delete(sp); continue; } sp.rotation.y = t * .7; sp.rotation.x = Math.sin(t * .5) * .3; sp.material.size = .03 + .025 * Math.abs(Math.sin(t * 5.3)); sp.material.opacity = .6 + .4 * Math.sin(t * 7.1); } }
 
 /** what goes in each machine: mostly the hero toys, plus friends */
+// ---------------------------------------------------------------- more friends: a bunny and a kitty (unicorn machine), a seahorse and an octopus (mermaid machine)
+/** a sitting bunny: round body and head, tall ears with pink felt insides, a cotton tail, big feet */
+export function bunny(seed) {
+  const r = rng(seed), T = new Toy('bunny', seed), body = pickR(r, ['#fbf7f2', '#efe2d2', '#ffd9e6', '#ddd6ec', '#d9f2e6']), inner = '#ffb3c9';
+  const head = [[.048, .044, .045], [0, .118, .024]];
+  T.ell([.05, .05, .056], [0, .052, -.012], body, { col: true, lump: .04 });
+  T.ell(...head, body, { col: true });
+  T.ell([.022, .016, .016], [0, .106, .064], body, {});                                                  // muzzle
+  T.ell([.006, .0045, .004], [0, .114, .079], '#ff8fae', { mat: 'felt', occ: false, seg: 12, lump: 0 });  // nose
+  eyes(T, ...head, { y: .3, x: .45, size: .17 }); cheeks(T, ...head, '#ffa8c0', { y: -.05, x: .82 }); smile(T, [0, .099, .078], .006);
+  for (const s of [-1, 1]) {
+    T.ell([.016, .052, .011], [s * .02, .19, .012], body, { rot: [-.15, 0, -s * .22], col: true });
+    T.ell([.009, .038, .004], [s * .021, .19, .023], inner, { mat: 'felt', rot: [-.15, 0, -s * .22], occ: false });
+    T.ell([.018, .013, .032], [s * .028, .013, .045], body, {});                                             // big feet
+    T.ell([.014, .022, .014], [s * .035, .06, .035], body, { rot: [.4, 0, s * .3] });                         // arms
+  }
+  T.ell([.02, .02, .02], [0, .04, -.07], '#ffffff', { mat: 'hair', seg: 16 });                                  // cotton tail
+  tag(T, [.03, .03, -.06], [.3, .6, -.1]);
+  return T.finish(1.15);
+}
+/** a sitting kitty: pointy ears, whiskers, a long curling tail, tabby stripes on some */
+export function kitty(seed) {
+  const r = rng(seed), T = new Toy('kitty', seed), [base, stripe] = pickR(r, [['#ffb366', '#f08a2e'], ['#c9c4cf', '#9a93a3'], ['#fbf7f2', null], ['#3a3440', null], ['#ffd9b0', '#e8a868']]);
+  const A = new THREE.Color(base), B = stripe ? new THREE.Color(stripe) : A, tabby = (p) => (Math.sin(p.y * 260 + p.x * 40) > .45 ? B : A);
+  const head = [[.05, .045, .045], [0, .115, .022]];
+  T.ell([.048, .05, .055], [0, .052, -.012], null, { col: true, lump: .04, paint: tabby });
+  T.ell(...head, null, { col: true, paint: tabby });
+  T.ell([.02, .014, .014], [0, .103, .062], '#fff6ee', {});
+  T.ell([.006, .004, .004], [0, .11, .074], '#ff8fae', { mat: 'felt', occ: false, seg: 12, lump: 0 });
+  eyes(T, ...head, { y: .25, x: .5, size: .19, lash: base === '#3a3440' ? 0xfff0f0 : 0x2a1a22 }); cheeks(T, ...head, '#ffa8c0', { y: -.08, x: .82 });
+  for (const s of [-1, 1]) {
+    const ear = new THREE.LatheGeometry([[0, 0], [.018, .001], [.012, .02], [.004, .03], [0, .032]].map(([x, y]) => new THREE.Vector2(x, y)), 4);
+    T.add(place(ear, [s * .03, .148, .012], [-.1, Math.PI / 4, -s * .3], [1, 1, .6]), 'fabric', base);
+    for (const k of [-1, 0, 1]) T.add(tubeGeo([[s * .014, .104 + k * .004, .071], [s * .04, .106 + k * .009, .07], [s * .06, .108 + k * .015, .062]], .0009, .0007, { seg: 6, rad: 4 }), 'felt', base === '#3a3440' ? '#ffffff' : '#5a4a50');
+    T.ell([.017, .013, .03], [s * .026, .013, .045], null, { paint: tabby });
+  }
+  T.add(tubeGeo([[0, .03, -.06], [.03, .02, -.09], [.06, .05, -.09], [.065, .09, -.07], [.05, .1, -.05]], .011, .008, { seg: 18, rad: 10 }), 'fabric', null);
+  T.parts[T.parts.length - 1].paint = tabby;
+  T.cols.push({ c: new THREE.Vector3(.05, .06, -.085), r: .018 });
+  tag(T, [-.03, .03, -.06], [.3, -.6, .1]);
+  return T.finish(1.15);
+}
+/** a seahorse: an S-shaped body that curls into its tail, a snout, a little crest and a fin on its back */
+export function seahorse(seed) {
+  const r = rng(seed), T = new Toy('seahorse', seed), c = new THREE.Color(pickR(r, ['#ffc23a', '#ff7f6a', '#3fc4b8', '#a77fff', '#ff6fb8'])), belly = c.clone().lerp(new THREE.Color('#fff8e8'), .5);
+  const ring = c.clone().multiplyScalar(.82), paint = (p, n) => (n.z > .72 ? belly : Math.sin(p.y * 330) > .55 ? ring : c);   // a pale belly and the ridged rings seahorses have
+  T.ell([.03, .042, .03], [0, .052, .012], null, { col: true, paint });                                   // the potbelly
+  T.add(tubeGeo([[0, .085, .0], [-.002, .105, -.006], [0, .122, -.002]], .02, .017, { seg: 10, rad: 14 }), 'fabric', null, { paint });   // neck
+  const head = [[.026, .025, .03], [0, .132, .006]];
+  T.ell(...head, null, { col: true, rot: [.35, 0, 0], paint });
+  T.add(tubeGeo([[0, .127, .028], [0, .12, .048], [0, .114, .066]], .0095, .0078, { seg: 8, rad: 12 }), 'fabric', null, { paint: () => c });   // snout
+  T.add(tubeGeo([[0, .02, .004], [0, -.012, -.008], [-.004, -.04, -.012], [.004, -.06, -.004], [.016, -.06, .006], [.016, -.046, .01], [.006, -.042, .004]], .02, .006, { seg: 30, rad: 12 }), 'fabric', null, { paint });   // the curly tail
+  for (let i = 0; i < 4; i++) T.ell([.006, .013, .006], [0, .158 - i * .016, -.016 - i * .008], c, { mat: 'felt', rot: [-.6 - i * .2, 0, 0], occ: false, seg: 10 });   // crest
+  const f = new THREE.Shape(); f.moveTo(0, 0); f.quadraticCurveTo(-.032, .012, -.024, .042); f.lineTo(0, .034); f.closePath();
+  T.add(place(puffGeo(f, .002, .004, { seg: 3 }), [-.002, .036, -.016], [0, Math.PI / 2, 0]), 'satin', c.clone().lerp(new THREE.Color('#ffffff'), .3));
+  eyes(T, ...head, { y: .2, x: .66, size: .21 }); cheeks(T, ...head, '#ff9fb8', { y: -.2, x: .86 });
+  T.cols.push({ c: new THREE.Vector3(0, .1, 0), r: .022 }, { c: new THREE.Vector3(0, -.035, -.004), r: .02 });
+  tag(T, [-.016, .0, -.01], [0, -1.2, .2]);
+  return T.finish(1.35);
+}
+/** an octopus: a big soft dome of a head and eight curly legs with paler suckers underneath */
+export function octopus(seed) {
+  const r = rng(seed), T = new Toy('octopus', seed), c = new THREE.Color(pickR(r, ['#b48cff', '#ff8fb3', '#ff9a6b', '#6fd3e0', '#ff6f9a'])), pale = c.clone().lerp(new THREE.Color('#fff4ee'), .55);
+  const head = [[.046, .046, .043], [0, .068, 0]];
+  T.ell(...head, c, { col: true, lump: .05 });
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * Math.PI * 2 + .2, ca = Math.cos(a), sa = Math.sin(a), curl = (r() - .5) * .02;
+    T.add(tubeGeo([[ca * .028, .035, sa * .028], [ca * .058, .012, sa * .058], [ca * .085, .008, sa * .085 + curl], [ca * .095, .022, sa * .095], [ca * .085, .03, sa * .085]], .014, .005, { seg: 18, rad: 10 }), 'fabric', null, { paint: (p, n) => (n.y < -.4 ? pale : c) });
+  }
+  eyes(T, ...head, { y: .05, x: .42, size: .2 }); cheeks(T, ...head, '#ff9fb8', { y: -.22, x: .8 }); smile(T, [0, .048, .044], .008);
+  for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + .6; T.cols.push({ c: new THREE.Vector3(Math.cos(a) * .065, .015, Math.sin(a) * .065), r: .025 }); }
+  tag(T, [.04, .04, -.02], [0, 2.2, .2]);
+  return T.finish(1.2);
+}
+
 export const THEMES = {
-  unicorn: { hero: unicorn, friends: [star, heart, rainbow], heroShare: .68 },
-  mermaid: { hero: mermaid, friends: [starfish, shell, fish], heroShare: .62 },
+  unicorn: { hero: unicorn, friends: [star, heart, rainbow, bunny, kitty], heroShare: .6 },
+  mermaid: { hero: mermaid, friends: [starfish, shell, fish, seahorse, octopus], heroShare: .55 },
 };
 export function makeToy(theme, i, seed) {
   const th = THEMES[theme], r = rng(seed * 31 + 7);
