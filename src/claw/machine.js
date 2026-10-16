@@ -267,6 +267,8 @@ export function buildMachine(scene, renderer, theme) {
   let decor = buildDecor(theme); G.add(decor);
   for (const x of [-1, 1]) add(new THREE.PlaneGeometry(2 * DIM.D, DIM.H), glass, [x * (DIM.W + .012), DIM.H / 2, 0], { cast: false, recv: false, rot: [0, Math.PI / 2, 0] });
   const front = add(new THREE.PlaneGeometry(W - .1, 1.0), glass, [0, .5, D / 2 - .012], { cast: false, recv: false }); front.renderOrder = 5;
+  // fingerprints and wipe marks: a whisper of haze on the front glass, mostly low down where hands go
+  const prints = add(new THREE.PlaneGeometry(W - .1, 1.0), new THREE.MeshBasicMaterial({ color: 0xdfe6ff, alphaMap: smudge, transparent: true, opacity: .13, depthWrite: false, toneMapped: false }), [0, .5, D / 2 - .011], { cast: false, recv: false }); prints.renderOrder = 6;
   // chute: a dark shaft, a chrome lip, a clear guard on its two inner sides
   const cx = (DIM.chute.x0 + DIM.chute.x1) / 2, cz = (DIM.chute.z0 + DIM.chute.z1) / 2, cw = DIM.chute.x1 - DIM.chute.x0, cd = DIM.chute.z1 - DIM.chute.z0;
   const shaft = new THREE.Mesh(new THREE.BoxGeometry(cw, .5, cd), new THREE.MeshStandardMaterial({ color: 0x050407, roughness: .9, side: THREE.BackSide })); shaft.position.set(cx, -.25, cz); G.add(shaft);
