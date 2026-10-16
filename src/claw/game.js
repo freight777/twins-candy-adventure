@@ -299,15 +299,20 @@ async function oneTry() {
   S.state = 'aim'; S.moved = 0; S.coinIn = false; setHud(); insertCoin(); setPeek(false);
   if (S.who === 'both') { const w = ownerOf(S.try); banner(`<span class="initial ${w[0]}">${w[0].toUpperCase()}</span>`, 'turn', 1.4); say(w === 'adalyn' ? "Adalyn's turn!" : "Esmae's turn!", 'narrator'); }
   controls(true);
-  if (!S.hinted) $('#stick').classList.add('hint');
+  if (!S.hinted) { $('#stick').classList.add('hint'); handTo('#stick', 'drag'); }
   await new Promise((r) => (S.dropNow = r));
-  S.dropNow = null; controls(false); $('#stick').classList.remove('hint'); $('#drop').classList.remove('hint'); S.hinted = true;
+  S.dropNow = null; controls(false); $('#stick').classList.remove('hint'); $('#drop').classList.remove('hint'); S.hinted = true; show('#hand', false);
   S.state = 'try';
   const res = await grab(S.plan[S.try]);
   S.results[S.try] = res; S.try++; setHud();
   await sleep(res.type === 'win' ? .2 : .5);
 }
 
+/** the teaching hand goes to a control and shows what to do with it (drag the stick, tap the button) */
+function handTo(sel, how) {
+  const r = $(sel).getBoundingClientRect(), h = $('#hand');
+  h.style.left = `${r.left + r.width * .42}px`; h.style.top = `${r.top + r.height * .38}px`; h.className = how; show('#hand');
+}
 /** this try's token flips out of the bar and drops into the machine: a clink, the lights flare */
 function insertCoin() {
   const tok = $('#tries i.now'); if (!tok) { sfx.coin(); return; }
@@ -609,7 +614,7 @@ function update(dt) {
     if (bx !== C.x) C.mvx = 0; if (bz !== C.z) C.mvz = 0; C.x = bx; C.z = bz;
     const m = Math.hypot(C.mvx, C.mvz) / sp;
     motor(m > .03 ? Math.min(1, m) : 0, .8 + m * .3); S.moved += Math.hypot(C.x - px, C.z - pz);
-    if (S.moved > .05 && !S.hinted) { $('#stick').classList.remove('hint'); $('#drop').classList.add('hint'); }
+    if (S.moved > .05 && !S.hinted && !S.handOnDrop) { S.handOnDrop = true; $('#stick').classList.remove('hint'); $('#drop').classList.add('hint'); handTo('#drop', 'tap'); }
     machine.setStick(rx, rz);
   } else if (S.state === 'title' && !S.demo) {
     S.demoT = (S.demoT ?? 6) - dt;
