@@ -278,10 +278,12 @@ export function buildMachine(scene, renderer, theme) {
     /** 0 = prongs shut, 1 = wide open; or an exact angle via setProngAngle */
     setOpen(k) { const a = THREE.MathUtils.lerp(-.1, .62, k); prongs.forEach((p) => { p.rotation.z = a; }); },
     setProngAngle(a) { prongs.forEach((p) => { p.rotation.z = a; }); },
-    setClaw(x, y, z) {
-      api.clawPos.set(x, y, z); claw.position.set(x, y, z);
+    /** the carriage at (x, z), the claw hub at height y, swinging on its cable by (ax, az) radians */
+    setClaw(x, y, z, ax = 0, az = 0) {
+      const L = Math.max(.01, .865 - (y + CLAW.cap)), hx = x + Math.sin(ax) * L, hz = z + Math.sin(az) * L;
+      api.clawPos.set(hx, y, hz); claw.position.set(hx, y, hz); claw.rotation.set(-az, 0, ax);
       bridge.position.z = z; carriage.position.set(x, 0, z);
-      cable.scale.y = Math.max(.01, .865 - (y + CLAW.cap));
+      cable.scale.y = L; cable.rotation.set(-az, 0, ax);
     },
     /** the laser dot at a point (or hidden), flickering a little like a real diode */
     setLaser(p, t = 0) { laser.visible = !!p; if (p) { laser.position.set(p.x, p.y + .006, p.z); laser.scale.setScalar(.04 + .006 * Math.sin(t * 37) * Math.sin(t * 23)); } },

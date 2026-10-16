@@ -77,7 +77,7 @@ const sleep = (s) => new Promise((r) => timers.after(s, r));
 const anim = (dur, fn, e = ease.inOut) => new Promise((r) => timers.tween(dur, fn, { ease: e, done: r }));
 const S = {
   state: 'boot', theme: store.get('clawTheme', 'unicorn'), level: store.get('clawLevel', 'easy'), toys: [], plan: [], try: 0, results: [], won: [],
-  claw: { x: DIM.home.x, y: DIM.top, z: DIM.home.z, open: .15, angle: null, vx: 0, vz: 0 }, stick: { x: 0, z: 0 }, keys: { x: 0, z: 0 }, button: 0,
+  claw: { x: DIM.home.x, y: DIM.top, z: DIM.home.z, open: .15, angle: null, vx: 0, vz: 0, mvx: 0, mvz: 0, pvx: 0, pvz: 0, bob: 0, sw: { x: 0, z: 0, vx: 0, vz: 0 } }, stick: { x: 0, z: 0 }, keys: { x: 0, z: 0 }, button: 0,
   held: null, catchWait: null, time: 0, cam: { k: 0, push: 0 }, hinted: false, moved: 0, reveal: null, endView: 0, seed: (Math.random() * 1e9) | 0,
 };
 if (!['unicorn', 'mermaid'].includes(S.theme)) S.theme = 'unicorn';
@@ -214,7 +214,7 @@ async function grab(shouldWin) {
   const downDur = (DIM.top - stopY) / .42;
   motor(.8, .75); anim(.4, (k) => { C.open = lerp(.15, 1, k); });
   await anim(downDur, (k) => { C.y = lerp(DIM.top, stopY, k); }, motorEase);
-  motor(0); sfx.clunk(); phys.nudge(x, stopY - .1, z, .12, .006); S.cam.shake = .5;
+  motor(0); sfx.clunk(); phys.nudge(x, stopY - .1, z, .12, .006); S.cam.shake = .5; C.bob = 1;
   await sleep(.3);
   // 2. close
   const target = targetOf(stopY, hits);
@@ -284,7 +284,7 @@ const motorEase = (t) => { const a = .12, d = 2 * a * (1 - a); return t < a ? t 
 /** a planned win that couldn't happen moves to the next try that isn't already a win */
 function carryWin() { for (let i = S.try + 1; i < TRIES; i++) if (!S.plan[i]) { S.plan[i] = true; return; } }
 function pickFail() { const r = Math.random(); return r < .2 ? 'early' : r < .55 ? 'lift' : r < .78 ? 'top' : 'carry'; }
-const clawVec = () => new THREE.Vector3(S.claw.x, S.claw.y, S.claw.z);
+const clawVec = () => machine.clawPos.clone();
 /** the toy's rotation turned so it hangs the way a stuffed toy hangs from a claw: upright, keeping which way it faced */
 function uprightOf(q) {
   const f = new THREE.Vector3(0, 0, 1).applyQuaternion(q); f.y = 0; if (f.lengthSq() < 1e-4) f.set(0, 0, 1);
@@ -407,9 +407,15 @@ function update(dt) {
   // the claw: joystick while aiming, a lazy wander on the title screen
   const px = C.x, pz = C.z;
   if (S.state === 'aim') {
-    const ix = clamp(S.stick.x + S.keys.x, -1, 1), iz = clamp(S.stick.z + S.keys.z, -1, 1), m = Math.hypot(ix, iz), sp = .3;
-    C.x = clamp(C.x + ix * sp * dt, DIM.bounds.x0, DIM.bounds.x1); C.z = clamp(C.z + iz * sp * dt, DIM.bounds.z0, DIM.bounds.z1);
-    motor(m > .05 ? Math.min(1, m) : 0, .8 + m * .3); S.moved += Math.hypot(C.x - px, C.z - pz);
+    // the gantry's motors spin up and brake (no instant starts), and knock against the end stops at the walls
+    const ix = clamp(S.stick.x + S.keys.x, -1, 1), iz = clamp(S.stick.z + S.keys.z, -1, 1), sp = .3, acc = 1.5 * dt;
+    C.mvx += clamp(ix * sp - C.mvx, -acc, acc); C.mvz += clamp(iz * sp - C.mvz, -acc, acc);
+    C.x += C.mvx * dt; C.z += C.mvz * dt;
+    const bx = clamp(C.x, DIM.bounds.x0, DIM.bounds.x1), bz = clamp(C.z, DIM.bounds.z0, DIM.bounds.z1);
+    if ((bx !== C.x && Math.abs(C.mvx) > .12) || (bz !== C.z && Math.abs(C.mvz) > .12)) sfx.clunk();
+    if (bx !== C.x) C.mvx = 0; if (bz !== C.z) C.mvz = 0; C.x = bx; C.z = bz;
+    const m = Math.hypot(C.mvx, C.mvz) / sp;
+    motor(m > .03 ? Math.min(1, m) : 0, .8 + m * .3); S.moved += Math.hypot(C.x - px, C.z - pz);
     if (S.moved > .05 && !S.hinted) { $('#stick').classList.remove('hint'); $('#drop').classList.add('hint'); }
     machine.setStick(ix, iz);
   } else if (S.state === 'title') {
@@ -417,9 +423,12 @@ function update(dt) {
     C.x += (attract.x - C.x) * (1 - Math.exp(-.8 * dt)); C.z += (attract.z - C.z) * (1 - Math.exp(-.8 * dt));
     machine.setStick(0, 0);
   } else machine.setStick(0, 0);
+  if (S.state !== 'aim') C.mvx = C.mvz = 0;
   C.vx = (C.x - px) / Math.max(dt, 1e-4); C.vz = (C.z - pz) / Math.max(dt, 1e-4);
-  machine.setClaw(C.x, C.y, C.z);
-  if (S.state === 'aim') { const h = phys.probe(C.x, C.z, C.y - .02); _p.set(C.x, h.y, C.z); machine.setLaser(_p, t); } else machine.setLaser(null);
+  swingClaw(dt);
+  C.bob *= Math.exp(-5 * dt);
+  machine.setClaw(C.x, C.y - .007 * Math.sin(S.time * 26) * C.bob, C.z, C.sw.x, C.sw.z);
+  if (S.state === 'aim') { const h = phys.probe(C.x, C.z, C.y - .02); _p.set(C.x, h.y, C.z); machine.setLaser(_p, t); } else machine.setLaser(null);   // (where the claw will come down: under the carriage)
   if (C.angle != null) machine.setProngAngle(C.angle); else machine.setOpen(C.open);
   // physics, then the toy in the claw's grip (it settles into a hanging pose, swings a little, slides when the grip gives)
   phys.step(dt); phys.sync(); keepInside(false);
@@ -428,13 +437,22 @@ function update(dt) {
     H.k = Math.min(1, H.k + dt * 1.6); const e = ease.inOut(H.k);
     _p.copy(H.off0).lerp(_hang.set(0, -(.07 * CLAW.s + H.toy.userData.toy.radius * .42) - H.slide, 0), e);
     H.swing = (H.swing || 0) * Math.exp(-2.5 * dt) + clamp(C.vx, -1, 1) * dt * 2.2; H.swingZ = (H.swingZ || 0) * Math.exp(-2.5 * dt) + clamp(C.vz, -1, 1) * dt * 2.2;
-    H.toy.position.set(C.x + _p.x - H.swing * .05, C.y + _p.y, C.z + _p.z - H.swingZ * .05);
+    const hp = machine.clawPos; H.toy.position.set(hp.x + _p.x - H.swing * .05, hp.y + _p.y, hp.z + _p.z - H.swingZ * .05);
     _q.slerpQuaternions(H.q0, H.up, e * .85); H.toy.quaternion.copy(_q).premultiply(_q2.setFromEuler(_e.set(-H.swingZ * .6, 0, H.swing * .6)));
   }
   if (S.reveal) { const R = S.reveal; R.spin += dt; R.t.quaternion.setFromEuler(_e.set(.12 + Math.sin(t * 1.3) * .05, Math.sin(R.spin * 1.1) * .9, Math.sin(t * .9) * .05)); }
   machine.lights(t, S.state === 'reveal' ? 'win' : S.state === 'title' || S.state === 'boot' ? 'attract' : 'play');
   grade.uniforms.time.value = t;
   placeCamera(dt);
+}
+/** the claw hangs on its cable: a damped pendulum pushed by the carriage's acceleration (two small steps a frame for stability) */
+function swingClaw(dt) {
+  const C = S.claw, W = C.sw, L = Math.max(.08, .865 - (C.y + CLAW.cap)) + .04, h = dt / 2;
+  const ax = clamp((C.vx - C.pvx) / Math.max(dt, 1e-3), -5, 5) * .55, az = clamp((C.vz - C.pvz) / Math.max(dt, 1e-3), -5, 5) * .55; C.pvx = C.vx; C.pvz = C.vz;
+  for (let i = 0; i < 2; i++) {
+    W.vx += (-(9.8 / L) * Math.sin(W.x) - ax / L * Math.cos(W.x) - 4 * W.vx) * h; W.x = clamp(W.x + W.vx * h, -.35, .35);
+    W.vz += (-(9.8 / L) * Math.sin(W.z) - az / L * Math.cos(W.z) - 4 * W.vz) * h; W.z = clamp(W.z + W.vz * h, -.35, .35);
+  }
 }
 /** the camera: in front of the glass, drifting a little like a hand-held shot, leaning toward the claw, and over to the counter at the end */
 function placeCamera(dt) {
