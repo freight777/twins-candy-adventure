@@ -17,7 +17,7 @@ import { Timers, ease, lerp, clamp } from '../util.js';
 import { unlock, playMusic, sfx, voice, say, motor, arcadeBed } from '../audio.js';
 import { buildMachine, buildShelf, DIM, CLAW } from './machine.js';
 import { createPhysics } from './physics.js';
-import { makeToy, plushMaterials, setFurLayers, forgetToy, makeGolden, twinkle, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } from './plush.js';
+import { makeToy, plushMaterials, setFurLayers, furShown, forgetToy, makeGolden, twinkle, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } from './plush.js';
 
 const $ = (s) => document.querySelector(s);
 homeGate();
@@ -586,6 +586,19 @@ function placeCamera(dt) {
   bokeh.uniforms.focus.value = lerp(bokeh.uniforms.focus.value, camera.position.distanceTo(focusAt), 1 - Math.exp(-6 * Math.min(dt, .1)));
 }
 
-pipe.start((dt) => { if (!machine || !phys) return false; update(dt); });
-window.claw = { S, scene, openShelf, keepToys, THREE, camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } };
+// ---------------------------------------------------------------- the claw cam: a camera under the claw, drawn into the little frame after the main picture
+const clawCam = new THREE.PerspectiveCamera(58, 4 / 3, .01, 3), camEl = $('#clawcam');
+function renderClawCam() {
+  const on = ['aim', 'try'].includes(S.state) && Q.name !== 'low' && S.cam.peek < .5; camEl.classList.toggle('hidden', !on); if (!on) return;
+  const r = camEl.getBoundingClientRect(); if (r.width < 10) return;
+  const hp = machine.clawPos; clawCam.position.set(hp.x, hp.y - .03, hp.z); clawCam.up.set(0, 0, -1); clawCam.lookAt(hp.x, hp.y - 1, hp.z + .0001);
+  clawCam.aspect = r.width / r.height; clawCam.updateProjectionMatrix();
+  const au = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false;                       // (the shadows were just drawn for the main picture)
+  renderer.setRenderTarget(null); renderer.setScissorTest(true);
+  renderer.setViewport(r.left, innerHeight - r.bottom, r.width, r.height); renderer.setScissor(r.left, innerHeight - r.bottom, r.width, r.height);
+  const ex = renderer.toneMappingExposure; renderer.toneMappingExposure = ex * .62; furShown(false); renderer.render(scene, clawCam); furShown(true); renderer.toneMappingExposure = ex;
+  renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.shadowMap.autoUpdate = au;
+}
+pipe.start((dt, raw) => { if (!machine || !phys) return false; update(dt); pipe.render(raw); renderClawCam(); return false; });
+window.claw = { S, scene, openShelf, keepToys, THREE, renderClawCam: () => renderClawCam(), camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish } };
 boot().catch((e) => { console.error(e); loading.fail(); });

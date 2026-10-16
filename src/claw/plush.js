@@ -67,6 +67,8 @@ export const FUR = { max: 12, k: { value: 7 }, len: { value: .0028 } };
 /** how many shells to draw (0 = off): set from the graphics quality */
 export function setFurLayers(k) { FUR.k.value = Math.max(1, k); FUR.on = k > 0; furMeshes.forEach((m) => { m.count = k; m.visible = k > 0; }); }
 const furMeshes = new Set();
+/** hide or show every toy's fur for one render (the claw cam has no anti-aliasing for the fibres) */
+export function furShown(on) { if (FUR.on === false) return; furMeshes.forEach((m) => { m.visible = on; }); }
 let FURMAT = null;
 function furMaterial() {
   if (FURMAT) return FURMAT;
