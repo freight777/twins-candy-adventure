@@ -78,7 +78,7 @@ const anim = (dur, fn, e = ease.inOut) => new Promise((r) => timers.tween(dur, f
 const S = {
   state: 'boot', theme: store.get('clawTheme', 'unicorn'), level: store.get('clawLevel', 'easy'), toys: [], plan: [], try: 0, results: [], won: [],
   claw: { x: DIM.home.x, y: DIM.top, z: DIM.home.z, open: .15, angle: null, vx: 0, vz: 0, mvx: 0, mvz: 0, pvx: 0, pvz: 0, bob: 0, sw: { x: 0, z: 0, vx: 0, vz: 0 } }, stick: { x: 0, z: 0 }, keys: { x: 0, z: 0 }, button: 0,
-  held: null, catchWait: null, time: 0, cam: { k: 0, push: 0 }, hinted: false, moved: 0, reveal: null, endView: 0, seed: (Math.random() * 1e9) | 0,
+  held: null, catchWait: null, time: 0, cam: { k: 0, push: 0, goalP: new THREE.Vector3(), goalL: new THREE.Vector3() }, hinted: false, moved: 0, reveal: null, endView: 0, seed: (Math.random() * 1e9) | 0,
 };
 if (!['unicorn', 'mermaid'].includes(S.theme)) S.theme = 'unicorn';
 
@@ -318,13 +318,25 @@ const hero = new THREE.SpotLight(0xfff0f6, 0, 3.5, .45, .7, 1.2); hero.castShado
 const rim = new THREE.PointLight(0xff9fe0, 0, 2, 1.5); scene.add(rim);
 async function reveal(t) {
   S.state = 'reveal'; S.won.push(t); setHud();
-  await sleep(.35);
-  const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
-  const at = camera.position.clone().addScaledVector(dir, .9).addScaledVector(up, .035), from = at.clone().addScaledVector(up, -.55);
-  t.visible = true; t.position.copy(from); t.quaternion.identity(); t.scale.setScalar(1);
+  // 1. down at the prize door: the lamp comes on, the toy shoves the flap open and tumbles out toward you
+  const D = machine.door, d = D.at; S.cam.doorWant = true;
   t.traverse((o) => { if (o.isMesh) o.castShadow = false; });
-  hero.position.copy(camera.position).addScaledVector(up, .5).add(new THREE.Vector3(.35, 0, 0)); hero.target.position.copy(at);
+  t.visible = true; t.scale.setScalar(.55); t.quaternion.setFromEuler(_e.set(Math.random() - .5, Math.random() * 6.3, Math.random() - .5));
+  t.position.set(d.x, d.y - .01, d.z - .07);
+  anim(.4, (k) => { D.lamp.intensity = .8 * k; });
+  await sleep(.65);
+  sfx.door(); const q0 = t.quaternion.clone(), q1 = new THREE.Quaternion().setFromEuler(_e.set(-.35, (Math.random() - .5) * .8, 0));
+  await anim(.5, (k) => { D.flap.rotation.x = -1.15 * Math.sin(Math.min(1, k * 1.4) * Math.PI / 2); t.position.set(d.x, d.y - .01 + Math.sin(k * Math.PI) * .03, d.z - .07 + k * .17); t.quaternion.slerpQuaternions(q0, q1, k); }, ease.out);
+  anim(.6, (k) => { D.flap.rotation.x = -1.15 * (1 - k) + Math.sin(k * 9) * .06 * (1 - k); }, ease.inOut);
+  await sleep(.45);
+  // 2. back up: it rises into the light in front of the glass
+  S.cam.doorWant = false; anim(.8, (k) => { D.lamp.intensity = .8 * (1 - k); });
+  const G = S.cam.goalP, dir = S.cam.goalL.clone().sub(G).normalize(), side = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize(), up = new THREE.Vector3().crossVectors(side, dir);
+  const at = G.clone().addScaledVector(dir, .9).addScaledVector(up, .035), from = t.position.clone();
+  const s0 = t.scale.x;
+  await sleep(.4);
+  t.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+  hero.position.copy(G).addScaledVector(up, .5).addScaledVector(side, .35); hero.target.position.copy(at);
   rim.position.copy(at).addScaledVector(dir, .35).addScaledVector(up, .25);
   S.reveal = { t, spin: 0, at };
   anim(.4, (k) => { hero.intensity = 3 * k; rim.intensity = 1 * k; });
@@ -333,7 +345,7 @@ async function reveal(t) {
   import('../engine/celebrate.js').then((m) => { m.confetti(scene, camera); if (gold) { m.fireworks(scene, camera, 5); timers.after(.6, () => m.confetti(scene, camera)); } });
   if (gold) { sfx.magic(); timers.after(.8, () => voice('you_got_it', { priority: 2 })); store.set('clawGolden', store.get('clawGolden', 0) + 1); }
   banner(`<span class="em">${t.userData.toy.emoji}</span><span>${gold ? 'Golden!' : 'You got it!'}</span>`, gold ? 'good gold' : 'good', gold ? 3 : 2.4);
-  await anim(.75, (k) => { t.position.lerpVectors(from, at, k); }, ease.outBack);
+  await anim(1.0, (k) => { const e = ease.inOut(k); t.position.lerpVectors(from, at, e); t.position.z += Math.sin(k * Math.PI) * .1; t.scale.setScalar(lerp(s0, 1, ease.out(k))); });
   await Promise.race([sleep(2.1), new Promise((r) => (S.skipReveal = r))]); S.skipReveal = null;
   // fly to the prize counter in the corner
   const corner = new THREE.Vector3(.86, .78, .5).unproject(camera), p0 = t.position.clone();
@@ -477,6 +489,12 @@ function placeCamera(dt) {
   _p.set(lx * .45 + Math.sin(t * .31) * .012, .88 + Math.sin(t * .23) * .008 - S.cam.push * .05, 1.62 + .42 - S.cam.push * .16);
   _l.set(lx, ly, lerp(0, C.z, S.cam.push * .5));
   _p.y += wd * .2; _p.z += wd * .62; _l.y += wd * .2;
+  S.cam.door = (S.cam.door || 0) + ((S.cam.doorWant ? 1 : 0) - (S.cam.door || 0)) * (1 - Math.exp(-3 * dt));
+  S.cam.goalP.copy(_p); S.cam.goalL.copy(_l);                                               // where the camera wants to be in play (the reveal aims from here)
+  if (S.cam.door > .001) {
+    const e = ease.inOut(clamp(S.cam.door, 0, 1)), d = machine.door.at;
+    _p.lerp(_end1.set(d.x + .1, d.y + .26, d.z + .62), e); _l.lerp(_end2.set(d.x + .02, d.y - .01, d.z + .06), e);
+  }
   if (S.endView > 0) {
     const e = ease.inOut(S.endView), cp = machine.counter.position;
     _p.lerp(_end1.set(cp.x - .06, cp.y + .52, cp.z + 1.12), e); _l.lerp(_end2.set(cp.x, cp.y - .03, cp.z), e);
@@ -487,7 +505,7 @@ function placeCamera(dt) {
   camera.lookAt(S.cam.look);
   const fov = view.fov * (1 - .1 * S.cam.push) * (S.endView > 0 ? lerp(1, .9, S.endView) : 1);
   if (Math.abs(camera.fov - fov) > .01) { camera.fov = fov; camera.updateProjectionMatrix(); }
-  const focusAt = S.reveal ? S.reveal.t.position : S.endView > .5 ? machine.counter.position : machine.laser.visible ? machine.laser.position : machine.claw.position;
+  const focusAt = S.cam.door > .3 ? machine.door.at : S.reveal ? S.reveal.t.position : S.endView > .5 ? machine.counter.position : machine.laser.visible ? machine.laser.position : machine.claw.position;
   bokeh.uniforms.focus.value = lerp(bokeh.uniforms.focus.value, camera.position.distanceTo(focusAt), 1 - Math.exp(-6 * Math.min(dt, .1)));
 }
 

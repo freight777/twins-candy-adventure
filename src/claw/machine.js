@@ -225,8 +225,16 @@ export function buildMachine(scene, renderer, theme) {
   add(new THREE.CylinderGeometry(.042, .046, .01, 32), chrome, [0, .005, 0], { parent: button });
   const btnCap = add(new THREE.CylinderGeometry(.034, .036, .02, 32), new THREE.MeshPhysicalMaterial({ color: 0xff3048, roughness: .18, clearcoat: 1, transmission: 0, emissive: 0xff2040, emissiveIntensity: .6 }), [0, .016, 0], { parent: button });
   // the prize door and coin slot on the lower cabinet
-  add(rb(.22, .2, .02, .01), blackPlastic, [-.27, -.45, D / 2 + .005]);
-  add(rb(.2, .14, .012, .008), new THREE.MeshPhysicalMaterial({ color: 0x1a1a22, roughness: .2, transparent: true, opacity: .85 }), [-.27, -.46, D / 2 + .016]);
+  // the prize door: a chrome-edged opening with a dark pocket behind it and a smoky flap hinged at the top (it swings out
+  // when a toy comes through), and a little lamp inside that comes on when a prize arrives
+  const doorAt = new THREE.Vector3(-.27, -.46, D / 2);
+  add(rb(.24, .2, .02, .01), blackPlastic, [doorAt.x, doorAt.y + .005, D / 2 + .005]);
+  add(rb(.21, .155, .006, .004), chrome, [doorAt.x, doorAt.y, D / 2 + .013]);
+  const pocket = new THREE.Mesh(new THREE.BoxGeometry(.19, .135, .2), new THREE.MeshStandardMaterial({ color: 0x0c0a10, roughness: .8, side: THREE.BackSide })); pocket.position.set(doorAt.x, doorAt.y, D / 2 - .085); pocket.receiveShadow = true; G.add(pocket);
+  const flap = new THREE.Group(); flap.position.set(doorAt.x, doorAt.y + .068, D / 2 + .018); G.add(flap);
+  const flapMesh = add(rb(.19, .134, .006, .004).translate(0, -.067, 0), new THREE.MeshPhysicalMaterial({ color: 0x1a1a24, roughness: .15, transparent: true, opacity: .78, clearcoat: 1, depthWrite: false }), [0, 0, 0], { parent: flap, cast: false });
+  flapMesh.renderOrder = 6;
+  const doorLamp = new THREE.PointLight(0xffe6c8, 0, .5, 1.6); doorLamp.position.set(doorAt.x, doorAt.y + .05, D / 2 - .05); G.add(doorLamp);
   add(rb(.07, .12, .02, .008), chrome, [.27, -.36, D / 2 + .005]);
   add(new THREE.PlaneGeometry(.012, .05), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, .4, .3) }), [.27, -.36, D / 2 + .016], { cast: false });
 
@@ -273,7 +281,7 @@ export function buildMachine(scene, renderer, theme) {
   laser.scale.setScalar(.026); laser.renderOrder = 20; laser.visible = false; G.add(laser);
   const _bulb = new THREE.Color(), _led = new THREE.Color(), _base = new THREE.Color(); let flash = 0, lastT = 0;
   const api = {
-    group: G, laser, env, claw, prongs, carriage, bridge, cable, clawLed, ledRing, roof, area, sign, bulbs, stickTop, btnCap, counter, counterLight, neighbours, look,
+    group: G, laser, door: { at: doorAt, flap, lamp: doorLamp }, env, claw, prongs, carriage, bridge, cable, clawLed, ledRing, roof, area, sign, bulbs, stickTop, btnCap, counter, counterLight, neighbours, look,
     clawPos: new THREE.Vector3(DIM.home.x, DIM.top, DIM.home.z),
     /** 0 = prongs shut, 1 = wide open; or an exact angle via setProngAngle */
     setOpen(k) { const a = THREE.MathUtils.lerp(-.1, .62, k); prongs.forEach((p) => { p.rotation.z = a; }); },
