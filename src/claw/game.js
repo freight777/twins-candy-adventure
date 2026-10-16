@@ -495,7 +495,9 @@ function update(dt) {
   const px = C.x, pz = C.z;
   if (S.state === 'aim') {
     // the gantry's motors spin up and brake (no instant starts), and knock against the end stops at the walls
-    const ix = clamp(S.stick.x + S.keys.x, -1, 1), iz = clamp(S.stick.z + S.keys.z, -1, 1), sp = .3, acc = 1.5 * dt;
+    // response curve: a small push creeps (for lining up exactly), a full push runs; a little dead zone in the middle
+    const rx = clamp(S.stick.x + S.keys.x, -1, 1), rz = clamp(S.stick.z + S.keys.z, -1, 1), rm = Math.hypot(rx, rz);
+    const curve = rm < .1 ? 0 : Math.pow((Math.min(1, rm) - .1) / .9, 1.7) / Math.max(rm, 1e-3), ix = rx * curve, iz = rz * curve, sp = .3, acc = 1.5 * dt;
     C.mvx += clamp(ix * sp - C.mvx, -acc, acc); C.mvz += clamp(iz * sp - C.mvz, -acc, acc);
     C.x += C.mvx * dt; C.z += C.mvz * dt;
     const bx = clamp(C.x, DIM.bounds.x0, DIM.bounds.x1), bz = clamp(C.z, DIM.bounds.z0, DIM.bounds.z1);
@@ -504,7 +506,7 @@ function update(dt) {
     const m = Math.hypot(C.mvx, C.mvz) / sp;
     motor(m > .03 ? Math.min(1, m) : 0, .8 + m * .3); S.moved += Math.hypot(C.x - px, C.z - pz);
     if (S.moved > .05 && !S.hinted) { $('#stick').classList.remove('hint'); $('#drop').classList.add('hint'); }
-    machine.setStick(ix, iz);
+    machine.setStick(rx, rz);
   } else if (S.state === 'title') {
     attract.t -= dt; if (attract.t <= 0) { attract = { x: lerp(DIM.bounds.x0, DIM.bounds.x1, Math.random()), z: lerp(DIM.bounds.z0, DIM.bounds.z1, Math.random()), t: 2.5 + Math.random() * 2 }; }
     C.x += (attract.x - C.x) * (1 - Math.exp(-.8 * dt)); C.z += (attract.z - C.z) * (1 - Math.exp(-.8 * dt));
