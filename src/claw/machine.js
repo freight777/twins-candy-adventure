@@ -210,7 +210,7 @@ export function buildMachine(scene, renderer, theme) {
     add(new THREE.CylinderGeometry(.002, .002, .05, 6), darkMetal, [.012, .025, 0], { parent: arm, rot: [0, 0, -.5] });   // linkage
     prongs.push(pivot);
   }
-  const clawLed = new THREE.SpotLight(look.led, .5, 1.1, .3, .8, 1.4); clawLed.position.set(0, -.01, 0); claw.add(clawLed); claw.add(clawLed.target); clawLed.target.position.set(0, -1, 0);
+  const clawLed = new THREE.SpotLight(look.led, .9, 1.1, .28, .75, 1.4); clawLed.position.set(0, -.01, 0); claw.add(clawLed); claw.add(clawLed.target); clawLed.target.position.set(0, -1, 0);
 
   // ---- the control panel: a ledge in front with a ball-top joystick and a big lit button
   const ledge = add(rb(W, .07, .24, .015), paint2, [0, -.04, D / 2 + .1]);
@@ -267,8 +267,12 @@ export function buildMachine(scene, renderer, theme) {
   const moteTex = tex(canvas(32, 32, (g) => { const r = g.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 32, 32); }));
   const motes = new THREE.Points(moteGeo, new THREE.PointsMaterial({ size: .0035, map: moteTex, color: new THREE.Color(1.3, 1.2, 1.1), transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending }));
   motes.frustumCulled = false; G.add(motes);
+  // the aiming laser: a red dot on whatever is straight below the claw (newer machines have one); a hot core and a soft bloom
+  const laserTex = tex(canvas(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.12, 'rgba(255,80,80,1)'); r.addColorStop(.35, 'rgba(255,0,0,.35)'); r.addColorStop(1, 'rgba(255,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }));
+  const laser = new THREE.Sprite(new THREE.SpriteMaterial({ map: laserTex, color: new THREE.Color(9, .5, .45), transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending }));
+  laser.scale.setScalar(.026); laser.renderOrder = 20; laser.visible = false; G.add(laser);
   const api = {
-    group: G, env, claw, prongs, carriage, bridge, cable, clawLed, ledRing, roof, area, sign, bulbs, stickTop, btnCap, counter, counterLight, neighbours, look,
+    group: G, laser, env, claw, prongs, carriage, bridge, cable, clawLed, ledRing, roof, area, sign, bulbs, stickTop, btnCap, counter, counterLight, neighbours, look,
     clawPos: new THREE.Vector3(DIM.home.x, DIM.top, DIM.home.z),
     /** 0 = prongs shut, 1 = wide open; or an exact angle via setProngAngle */
     setOpen(k) { const a = THREE.MathUtils.lerp(-.1, .62, k); prongs.forEach((p) => { p.rotation.z = a; }); },
@@ -278,6 +282,8 @@ export function buildMachine(scene, renderer, theme) {
       bridge.position.z = z; carriage.position.set(x, 0, z);
       cable.scale.y = Math.max(.01, .865 - (y + CLAW.cap));
     },
+    /** the laser dot at a point (or hidden), flickering a little like a real diode */
+    setLaser(p, t = 0) { laser.visible = !!p; if (p) { laser.position.set(p.x, p.y + .006, p.z); laser.scale.setScalar(.04 + .006 * Math.sin(t * 37) * Math.sin(t * 23)); } },
     /** joystick tilt (-1..1 each way) and the button pressed in (0..1) */
     setStick(x, z) { stickTop.rotation.set(z * .35, 0, -x * .35); },
     setButton(k) { btnCap.position.y = .016 - k * .008; btnCap.material.emissiveIntensity = .6 + k * 2.4; },

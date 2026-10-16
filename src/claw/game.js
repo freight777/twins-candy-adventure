@@ -421,6 +421,7 @@ function update(dt) {
   } else machine.setStick(0, 0);
   C.vx = (C.x - px) / Math.max(dt, 1e-4); C.vz = (C.z - pz) / Math.max(dt, 1e-4);
   machine.setClaw(C.x, C.y, C.z);
+  if (S.state === 'aim') { const h = phys.probe(C.x, C.z, C.y - .02); _p.set(C.x, h.y, C.z); machine.setLaser(_p, t); } else machine.setLaser(null);
   if (C.angle != null) machine.setProngAngle(C.angle); else machine.setOpen(C.open);
   // physics, then the toy in the claw's grip (it settles into a hanging pose, swings a little, slides when the grip gives)
   phys.step(dt); phys.sync(); keepInside(false);
@@ -459,7 +460,7 @@ function placeCamera(dt) {
   camera.lookAt(S.cam.look);
   const fov = view.fov * (1 - .1 * S.cam.push) * (S.endView > 0 ? lerp(1, .9, S.endView) : 1);
   if (Math.abs(camera.fov - fov) > .01) { camera.fov = fov; camera.updateProjectionMatrix(); }
-  const focusAt = S.reveal ? S.reveal.t.position : S.endView > .5 ? machine.counter.position : machine.claw.position;
+  const focusAt = S.reveal ? S.reveal.t.position : S.endView > .5 ? machine.counter.position : machine.laser.visible ? machine.laser.position : machine.claw.position;
   bokeh.uniforms.focus.value = lerp(bokeh.uniforms.focus.value, camera.position.distanceTo(focusAt), 1 - Math.exp(-6 * Math.min(dt, .1)));
 }
 
