@@ -271,6 +271,7 @@ export function buildMachine(scene, renderer, theme) {
   const laserTex = tex(canvas(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.12, 'rgba(255,80,80,1)'); r.addColorStop(.35, 'rgba(255,0,0,.35)'); r.addColorStop(1, 'rgba(255,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }));
   const laser = new THREE.Sprite(new THREE.SpriteMaterial({ map: laserTex, color: new THREE.Color(9, .5, .45), transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending }));
   laser.scale.setScalar(.026); laser.renderOrder = 20; laser.visible = false; G.add(laser);
+  const _bulb = new THREE.Color();
   const api = {
     group: G, laser, env, claw, prongs, carriage, bridge, cable, clawLed, ledRing, roof, area, sign, bulbs, stickTop, btnCap, counter, counterLight, neighbours, look,
     clawPos: new THREE.Vector3(DIM.home.x, DIM.top, DIM.home.z),
@@ -303,7 +304,7 @@ export function buildMachine(scene, renderer, theme) {
         if (motePos[j + 1] < .03) motePos[j + 1] = .95;
       }
       moteGeo.attributes.position.needsUpdate = true;
-      const c = new THREE.Color();
+      const c = _bulb;
       for (let i = 0; i < bulbN; i++) {
         let k;
         if (mode === 'win') k = (Math.floor(t * 8) % 2) ? 1 : .15;

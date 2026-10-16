@@ -113,7 +113,6 @@ function keepInside(silent) {
     const b = phys.bodyOf(t); if (!b || b.userData.held || b.world == null) continue;
     if (b.position.y < -.1 || !Number.isFinite(b.position.y)) {
       if (S.catchResolve && inChute(b.position) && !silent) { caught(t); continue; }      // a lucky extra only counts while the claw is letting go over the chute
-      console.debug('claw: toy back on the pile from', b.position.x.toFixed(2), b.position.y.toFixed(2), b.position.z.toFixed(2), S.state);
       b.position.copy(dropPoint(.6)); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.wakeUp();
     }
   }
@@ -174,7 +173,7 @@ function dealPlan() {
 async function start() {
   S.state = 'starting'; playMusic('arcade');
   if (S.toys.length < TOYS) await rainIn(TOYS - S.toys.length);
-  S.plan = dealPlan(); S.try = 0; S.results = []; S.won = []; S.endView = 0; bonus.length = 0;
+  S.plan = dealPlan(); S.try = 0; S.results = []; S.won = []; S.endView = 0;
   show('#hud'); setHud();
   while (S.try < TRIES) await oneTry();
   await gameOver();
@@ -270,7 +269,7 @@ async function grab(shouldWin) {
     await anim(.55, (k) => { t.position.y = y0 - 4.9 * (k * .55) ** 2 - .3 * k; t.rotation.x += sx * .016; t.rotation.z += sz * .016; }, ease.linear);
     caught(t);
   } else if (S.held) drop(true);
-  caughtToy = bonus.shift() || await Promise.race([S.catchWait, sleep(S.recentDrop ? 1.4 : .4).then(() => null)]);
+  caughtToy = await Promise.race([S.catchWait, sleep(S.recentDrop ? 1.4 : .4).then(() => null)]);
   S.catchResolve = null; S.recentDrop = false;
   await anim(.4, (k) => { C.angle = lerp(.62, lerp(-.1, .62, .15), k); });
   C.angle = null; C.open = .15;
@@ -303,9 +302,8 @@ function drop(intoChute = false) {
 /** a toy fell all the way down the chute */
 function caught(t) {
   phys.remove(t); t.visible = false; S.toys = S.toys.filter((x) => x !== t); sfx.chute();
-  if (S.catchResolve) S.catchResolve(t); else bonus.push(t);
+  S.catchResolve?.(t);
 }
-const bonus = [];
 
 // ---------------------------------------------------------------- winning: the toy pops up in front of you
 const hero = new THREE.SpotLight(0xfff0f6, 0, 3.5, .45, .7, 1.2); hero.castShadow = false; scene.add(hero, hero.target);
@@ -401,7 +399,7 @@ $('#again').addEventListener('click', () => again(false));
 $('#change').addEventListener('click', () => again(true));
 
 // ---------------------------------------------------------------- per frame
-const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _l = new THREE.Vector3(), _e = new THREE.Euler();
+const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _p = new THREE.Vector3(), _l = new THREE.Vector3(), _e = new THREE.Euler(), _hang = new THREE.Vector3(), _end1 = new THREE.Vector3(), _end2 = new THREE.Vector3();
 let attract = { x: DIM.home.x, z: DIM.home.z, t: 0 };
 function update(dt) {
   S.time += dt; const t = S.time, C = S.claw;
@@ -427,11 +425,11 @@ function update(dt) {
   phys.step(dt); phys.sync(); keepInside(false);
   const H = S.held;
   if (H) {
-    H.k = Math.min(1, H.k + dt * 1.6); const e = ease.inOut(H.k), hang = new THREE.Vector3(0, -(.07 * CLAW.s + H.toy.userData.toy.radius * .42) - H.slide, 0);
-    _p.copy(H.off0).lerp(hang, e);
+    H.k = Math.min(1, H.k + dt * 1.6); const e = ease.inOut(H.k);
+    _p.copy(H.off0).lerp(_hang.set(0, -(.07 * CLAW.s + H.toy.userData.toy.radius * .42) - H.slide, 0), e);
     H.swing = (H.swing || 0) * Math.exp(-2.5 * dt) + clamp(C.vx, -1, 1) * dt * 2.2; H.swingZ = (H.swingZ || 0) * Math.exp(-2.5 * dt) + clamp(C.vz, -1, 1) * dt * 2.2;
     H.toy.position.set(C.x + _p.x - H.swing * .05, C.y + _p.y, C.z + _p.z - H.swingZ * .05);
-    _q.slerpQuaternions(H.q0, H.up, e * .85); H.toy.quaternion.copy(_q).premultiply(new THREE.Quaternion().setFromEuler(_e.set(-H.swingZ * .6, 0, H.swing * .6)));
+    _q.slerpQuaternions(H.q0, H.up, e * .85); H.toy.quaternion.copy(_q).premultiply(_q2.setFromEuler(_e.set(-H.swingZ * .6, 0, H.swing * .6)));
   }
   if (S.reveal) { const R = S.reveal; R.spin += dt; R.t.quaternion.setFromEuler(_e.set(.12 + Math.sin(t * 1.3) * .05, Math.sin(R.spin * 1.1) * .9, Math.sin(t * .9) * .05)); }
   machine.lights(t, S.state === 'reveal' ? 'win' : S.state === 'title' || S.state === 'boot' ? 'attract' : 'play');
@@ -452,7 +450,7 @@ function placeCamera(dt) {
   _p.y += wd * .2; _p.z += wd * .62; _l.y += wd * .2;
   if (S.endView > 0) {
     const e = ease.inOut(S.endView), cp = machine.counter.position;
-    _p.lerp(new THREE.Vector3(cp.x - .06, cp.y + .52, cp.z + 1.12), e); _l.lerp(new THREE.Vector3(cp.x, cp.y - .03, cp.z), e);
+    _p.lerp(_end1.set(cp.x - .06, cp.y + .52, cp.z + 1.12), e); _l.lerp(_end2.set(cp.x, cp.y - .03, cp.z), e);
   }
   if (S.cam.shake) { S.cam.shake = Math.max(0, S.cam.shake - dt * 2.5); _p.y += (Math.random() - .5) * .004 * S.cam.shake; }
   if (!S.cam.init || dt >= 1) { camera.position.copy(_p); S.cam.look = _l.clone(); S.cam.init = true; }
