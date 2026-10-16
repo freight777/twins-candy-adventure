@@ -93,8 +93,8 @@ function newToy(i) { const t = makeToy(S.theme, i, S.seed++); scene.add(t); S.to
 function removeToy(t) { forgetToy(t); phys.remove(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); S.toys = S.toys.filter((x) => x !== t); }
 /** a full machine, already settled (behind the loading screen) */
 function fillNow() {
-  for (let i = 0; i < TOYS; i++) { phys.add(newToy(i), dropPoint(.62), randQuat()); phys.settle(.14); }
-  phys.settle(2.5); phys.sync(); keepInside(true); ensureGolden();
+  for (let i = 0; i < TOYS; i++) { phys.add(newToy(i), dropPoint(.62), randQuat()); phys.settle(.1); }
+  phys.settle(1.6); phys.sync(); keepInside(true); ensureGolden();
 }
 /** there is always exactly one golden toy in the machine, somewhere you can see it (on top, not buried) */
 function ensureGolden() {
