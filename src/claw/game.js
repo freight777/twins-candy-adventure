@@ -186,23 +186,33 @@ const PLAYERS = { adalyn: { name: "Adalyn's toys", color: '#ff8a1f' }, esmae: { 
 const KINDS = { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus };
 const collection = (who) => store.get(`clawShelf:${who}`, []);
 function keepToys(who, toys) { if (!who || !toys.length) return; const all = collection(who); toys.forEach((t) => all.push({ k: t.userData.toy.kind, s: t.userData.toy.seed, g: !!t.userData.golden })); store.set(`clawShelf:${who}`, all.slice(-500)); }
-const shelfToys = [];
+const shelfToys = [], shelfExtras = [];
+let _ped = null;
+/** a round pedestal with a gold rim and a warm glow on top (shared geometry and materials) */
+function pedestal() {
+  if (!_ped) _ped = { g: new THREE.CylinderGeometry(.055, .062, .022, 32), top: new THREE.CylinderGeometry(.05, .05, .002, 32), m: new THREE.MeshStandardMaterial({ color: 0xf2c45a, metalness: 1, roughness: .25 }), t: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.7, .9) }) };
+  const p = new THREE.Group(), base = new THREE.Mesh(_ped.g, _ped.m), top = new THREE.Mesh(_ped.top, _ped.t);
+  base.position.y = .011; top.position.y = .023; base.castShadow = base.receiveShadow = true; p.add(base, top); return p;
+}
 /** fresh: how many of the newest toys pop onto the shelf one by one (the end of a game); ui: show the back / A / E buttons */
-async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn', { fresh = 0, ui = true } = {}) {
+async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn', { fresh = 0, ui = true, page = 0 } = {}) {
   if (!S.who) return;
   if (S.state === 'shelf') clearShelf(); else if (!fresh) sfx.pop();
   S.state = 'shelf'; S.shelfWho = who; show('#title', false); show('#over', false);
   document.querySelectorAll('#shelfWho button').forEach((b) => b.classList.toggle('on', b.dataset.shelf === who));
-  const all = collection(who), list = all.slice(-shelf.slots.length);
+  const all = collection(who), per = shelf.slots.length, pages = Math.max(1, Math.ceil(all.length / per)); page = clamp(page, 0, pages - 1); S.shelfPage = page;
+  const list = all.slice(Math.max(0, all.length - (page + 1) * per), all.length - page * per);       // page 0 = the newest toys
+  show('#shelfOlder', ui && page < pages - 1); show('#shelfNewer', ui && page > 0);
   shelf.setName(PLAYERS[who].name, PLAYERS[who].color);
   list.forEach((r, i) => {
     const make = KINDS[r.k]; if (!make) return;
     const t = make(r.s); if (r.g) makeGolden(t);
     t.quaternion.setFromEuler(_e.set(0, (Math.random() - .5) * .5, 0)); t.scale.setScalar(.86); t.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(t), slot = shelf.slots[i];
-    t.position.set(slot.x + (Math.random() - .5) * .02, slot.y - (box.min.y - t.position.y), slot.z);
+    t.position.set(slot.x + (Math.random() - .5) * .02, slot.y - (box.min.y - t.position.y) + (r.g ? .024 : 0), slot.z);
     if (i >= list.length - fresh) { t.userData.base = t.scale.x; t.scale.setScalar(.001); t.userData.fresh = true; }
     scene.add(t); shelfToys.push(t);
+    if (r.g) { const p = pedestal(); p.position.set(t.position.x, slot.y, slot.z); scene.add(p); shelfExtras.push(p); }   // golden ones stand on a little lit pedestal
   });
   $('#shelfCount').textContent = `\u{1F9F8} ${all.length - fresh}`; show('#shelfUI', ui);
   anim(1, (k) => { shelf.light.intensity = 7 * k; shelf.fill.intensity = .8 * k; });
@@ -215,16 +225,16 @@ async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn', { fresh =
       $('#shelfCount').textContent = `\u{1F9F8} ${++n}`; await sleep(.45);
     }
     await sleep(.8);
-  } else if (all.length) { await sleep(.9); voice(`n_${Math.min(30, all.length)}`, { priority: 1 }); }
+  } else if (all.length && page === 0) { await sleep(.9); voice(`n_${Math.min(30, all.length)}`, { priority: 1 }); }
 }
 const _tapP = new THREE.Vector3();
 canvas.addEventListener('pointerdown', (e) => {
-  if (S.state !== 'shelf' || !shelfToys.length) return;
+  if (S.state !== 'shelf' || !shelfToys.length || $('#shelfUI').classList.contains('hidden')) return;
   // the nearest toy to the finger (generous: small fingers miss), measured on the screen
   camera.updateMatrixWorld(); let t = null, best = 80 * 80;
   for (const toy of shelfToys) { _tapP.copy(toy.position).project(camera); const dx = (_tapP.x + 1) / 2 * innerWidth - e.clientX, dy = (1 - _tapP.y) / 2 * innerHeight - e.clientY, d = dx * dx + dy * dy; if (d < best) { best = d; t = toy; } }
   if (!t) return;
-  if (t.userData.hopping) return; t.userData.hopping = true; sfx.plush(); if (t.userData.golden) sfx.sparkle();
+  if (t.userData.hopping || t.userData.fresh || t.scale.x < .1) return; t.userData.hopping = true; sfx.plush(); if (t.userData.golden) sfx.sparkle();
   const y0 = t.position.y, r0 = t.rotation.y, s0 = t.scale.x;
   anim(.7, (k) => { t.position.y = y0 + Math.sin(k * Math.PI) * .07; t.rotation.y = r0 + k * Math.PI * 2; const sq = Math.sin(k * Math.PI * 3) * .08 * (1 - k); t.scale.set(s0 * (1 + sq), s0 * (1 - sq), s0 * (1 + sq)); }, ease.linear).then(() => { t.position.y = y0; t.rotation.y = r0; t.scale.setScalar(s0); t.userData.hopping = false; });
 });
@@ -234,7 +244,7 @@ async function closeShelf() {
   clearShelf();
   showTitle('theme');
 }
-function clearShelf() { for (const t of shelfToys) { forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); } shelfToys.length = 0;
+function clearShelf() { for (const t of shelfToys) { forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); } shelfToys.length = 0; shelfExtras.forEach((p) => scene.remove(p)); shelfExtras.length = 0;
 }
 async function chooseTheme(theme) {
   if (S.busy) return; S.busy = true; unlock(); sfx.pop(); playMusic('arcade'); arcadeBed(true);
@@ -531,6 +541,8 @@ $('#backTheme').addEventListener('click', () => { sfx.pop(); show('#pickLevel', 
 document.querySelectorAll('#pickWho .choice').forEach((b) => b.addEventListener('click', () => chooseWho(b.dataset.who)));
 $('#backWho').addEventListener('click', () => { sfx.pop(); showTitle('who'); });
 $('#shelfBtn').addEventListener('click', () => openShelf());
+$('#shelfOlder').addEventListener('click', () => { sfx.swoosh(); openShelf(S.shelfWho, { page: S.shelfPage + 1 }); });
+$('#shelfNewer').addEventListener('click', () => { sfx.swoosh(); openShelf(S.shelfWho, { page: S.shelfPage - 1 }); });
 document.querySelectorAll('#shelfWho button').forEach((b) => b.addEventListener('click', () => { if (S.shelfWho !== b.dataset.shelf) { sfx.pop(); openShelf(b.dataset.shelf); } }));
 $('#shelfBack').addEventListener('click', closeShelf);
 $('#overShelf').addEventListener('click', () => again('shelf'));
