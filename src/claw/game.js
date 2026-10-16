@@ -313,8 +313,13 @@ async function start() {
   ensureGolden();
   S.plan = dealPlan(); S.try = 0; S.results = []; S.won = []; S.endView = 0;
   show('#hud'); setHud();
-  while (S.try < TRIES) await oneTry();
-  await gameOver();
+  while (S.try < TRIES) {
+    try { await oneTry(); } catch (e) {                                   // something went wrong in a try: never leave the girls stuck - count it and carry on
+      reportOnce(e); S.held = null; S.claw.angle = null; S.claw.open = .15; S.claw.y = DIM.top; S.reveal = null; S.cam.doorWant = false;
+      if (!S.results[S.try]) S.results[S.try] = { type: 'miss' }; S.try++; setHud();
+    }
+  }
+  try { await gameOver(); } catch (e) { reportOnce(e); show('#hud', false); show('#over'); }
 }
 
 async function oneTry() {
@@ -336,6 +341,9 @@ function handTo(sel, how) {
   const r = $(sel).getBoundingClientRect(), h = $('#hand');
   h.style.left = `${r.left + r.width * .42}px`; h.style.top = `${r.top + r.height * .38}px`; h.className = how; show('#hand');
 }
+/** an error is logged once (not every frame) and the game keeps going */
+let reported = false;
+function reportOnce(e) { if (!reported) { reported = true; console.error('claw:', e); } }
 /** this try's token flips out of the bar and drops into the machine: a clink, the lights flare */
 function insertCoin() {
   const tok = $('#tries i.now'); if (!tok) { sfx.coin(); return; }
@@ -750,6 +758,6 @@ function renderClawCam() {
   renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.shadowMap.autoUpdate = au;
 }
 let frameNo = 0; renderer.shadowMap.autoUpdate = false;
-pipe.start((dt, raw) => { if (!machine || !phys) return false; update(dt); renderer.shadowMap.needsUpdate = (frameNo++ & 1) === 0 || Q.name === 'high'; pipe.render(raw); renderClawCam(); return false; });   // shadows: every other frame on the iPad
+pipe.start((dt, raw) => { if (!machine || !phys) return false; try { update(dt); } catch (e) { reportOnce(e); } renderer.shadowMap.needsUpdate = (frameNo++ & 1) === 0 || Q.name === 'high'; try { pipe.render(raw); renderClawCam(); } catch (e) { reportOnce(e); renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); } return false; });   // shadows: every other frame on the iPad
 window.claw = { S, scene, openShelf, keepToys, THREE, renderClawCam: () => renderClawCam(), camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, sparkly: makeSparkly, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus, dragon, turtle } };
 boot().catch((e) => { console.error(e); loading.fail(); });
