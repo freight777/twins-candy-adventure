@@ -78,6 +78,9 @@ body:not(.aiming) #peek { pointer-events: none; }
 .choice.both { background: linear-gradient(#fff, #f3e0ff); }
 .choice .pair { display: flex; gap: 4px; margin: 6px 0; } .choice .pair .initial { width: .95em; height: .95em; font-size: clamp(40px, 6.4vw, 66px); font-style: normal; margin: 0; }
 .initial.a { background: radial-gradient(circle at 35% 30%, #ffc46b, #ff8a1f 70%); } .initial.e { background: radial-gradient(circle at 35% 30%, #ff9fd0, #ff4fa3 70%); }
+#shelfSet { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; gap: clamp(2px, .5vw, 6px); padding: 6px 12px; border-radius: 30px; background: rgba(10,8,20,.7); white-space: nowrap; }
+#shelfSet i { font-style: normal; font-size: clamp(16px, 2.6vw, 28px); filter: grayscale(1) brightness(.45); opacity: .6; transition: filter .3s; }
+#shelfSet i.got { filter: none; opacity: 1; } #shelfSet i.got.new { animation: bump .6s 2; }
 .pager { position: absolute; top: 38%; transform: translateY(-50%); width: clamp(60px, 8vw, 84px); height: clamp(60px, 8vw, 84px); border-radius: 50%; border: 5px solid #fff; background: #8a5bd8; color: #fff; font-size: clamp(26px, 4vw, 38px); box-shadow: 0 6px 0 rgba(0,0,0,.35); pointer-events: auto; }
 #shelfOlder { left: max(14px, env(safe-area-inset-left)); } #shelfNewer { right: max(14px, env(safe-area-inset-right)); }
 .pager:active { transform: translateY(-45%); }

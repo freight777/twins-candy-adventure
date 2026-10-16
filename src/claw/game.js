@@ -177,7 +177,8 @@ function showTitle(step = 'who') {
   document.querySelectorAll('#pickWho .choice').forEach((b) => b.classList.toggle('picked', b.dataset.who === S.who));
   document.querySelectorAll('#pickTheme .choice').forEach((b) => b.classList.toggle('picked', b.dataset.theme === S.theme));
 }
-function chooseWho(who) { unlock(); sfx.pop(); playMusic('arcade'); arcadeBed(true); S.who = who; store.set('clawWho', who); showTitle('theme'); }
+const themeMusic = () => (S.theme === 'mermaid' ? 'ocean' : 'arcade');
+function chooseWho(who) { unlock(); sfx.pop(); if (!S.musicOn) { S.musicOn = true; playMusic(themeMusic()); } arcadeBed(true); S.who = who; store.set('clawWho', who); showTitle('theme'); }
 
 // ---------------------------------------------------------------- each girl's toy shelf: every toy she has ever won, kept on this iPad
 /** whose try this is: with "take turns" Adalyn has the even tries and Esmae the odd ones */
@@ -214,7 +215,7 @@ async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn', { fresh =
     scene.add(t); shelfToys.push(t);
     if (r.g) { const p = pedestal(); p.position.set(t.position.x, slot.y, slot.z); scene.add(p); shelfExtras.push(p); }   // golden ones stand on a little lit pedestal
   });
-  $('#shelfCount').textContent = `\u{1F9F8} ${all.length - fresh}`; show('#shelfUI', ui);
+  $('#shelfCount').textContent = `\u{1F9F8} ${all.length - fresh}`; show('#shelfUI', ui); setCollection(all, fresh);
   anim(1, (k) => { shelf.light.intensity = 7 * k; shelf.fill.intensity = .8 * k; });
   if (fresh) {                                                               // the new ones arrive: each pops in with a sparkle and a chime
     await sleep(1.2); let n = all.length - fresh;
@@ -226,6 +227,14 @@ async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn', { fresh =
     }
     await sleep(.8);
   } else if (all.length && page === 0) { await sleep(.9); voice(`n_${Math.min(30, all.length)}`, { priority: 1 }); }
+}
+/** the collection: one badge per kind of toy (and the golden one), lit once she has won one; new ones bounce */
+const SET = [['unicorn', '\u{1F984}'], ['star', '⭐'], ['heart', '\u{1F496}'], ['rainbow', '\u{1F308}'], ['bunny', '\u{1F430}'], ['kitty', '\u{1F431}'],
+  ['mermaid', '\u{1F9DC}‍♀️'], ['starfish', '\u{1F31F}'], ['shell', '\u{1F41A}'], ['fish', '\u{1F420}'], ['seahorse', '\u{1F40E}'], ['octopus', '\u{1F419}'], ['golden', '\u{1F3C6}']];
+function setCollection(all, fresh = 0) {
+  const has = (list, k) => (k === 'golden' ? list.some((r) => r.g) : list.some((r) => r.k === k)), before = all.slice(0, all.length - fresh);
+  $('#shelfSet').innerHTML = SET.map(([k, e]) => `<i class="${has(all, k) ? 'got' : ''}${has(all, k) && !has(before, k) ? ' new' : ''}">${e}</i>`).join('');
+  show('#shelfSet', true);
 }
 const _tapP = new THREE.Vector3();
 canvas.addEventListener('pointerdown', (e) => {
@@ -247,9 +256,9 @@ async function closeShelf() {
 function clearShelf() { for (const t of shelfToys) { forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); } shelfToys.length = 0; shelfExtras.forEach((p) => scene.remove(p)); shelfExtras.length = 0;
 }
 async function chooseTheme(theme) {
-  if (S.busy) return; S.busy = true; unlock(); sfx.pop(); playMusic('arcade'); arcadeBed(true);
+  if (S.busy) return; S.busy = true; unlock(); sfx.pop(); arcadeBed(true);
   if (S.demo) await S.demo;
-  store.set('clawTheme', theme);
+  store.set('clawTheme', theme); if (theme !== S.theme || !S.musicOn) { S.musicOn = true; playMusic(theme === 'mermaid' ? 'ocean' : 'arcade'); }
   if (theme !== S.theme) {
     S.theme = theme; machine.setTheme(theme);
     document.querySelectorAll('#pickTheme .choice').forEach((b) => b.classList.toggle('picked', b.dataset.theme === theme));
@@ -276,7 +285,7 @@ function dealPlan() {
   return plan;
 }
 async function start() {
-  S.state = 'starting'; playMusic('arcade'); arcadeBed(true);
+  S.state = 'starting'; arcadeBed(true);
   if (S.demo) await S.demo;                                               // (let the attract demo put its toy down first)
   if (S.toys.length < TOYS) await rainIn(TOYS - S.toys.length);
   ensureGolden();

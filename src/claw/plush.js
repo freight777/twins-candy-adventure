@@ -246,7 +246,7 @@ class Toy {
   }
 }
 const WHITE = new THREE.Color(1, 1, 1);
-const EMOJI = { bunny: '\u{1F430}', kitty: '\u{1F431}', seahorse: '\u{1F420}', octopus: '\u{1F419}', unicorn: '\u{1F984}', mermaid: '\u{1F9DC}‍♀️', star: '⭐', heart: '\u{1F496}', rainbow: '\u{1F308}', starfish: '\u{1F31F}', shell: '\u{1F41A}', fish: '\u{1F420}' };
+const EMOJI = { bunny: '\u{1F430}', kitty: '\u{1F431}', seahorse: '\u{1F40E}', octopus: '\u{1F419}', unicorn: '\u{1F984}', mermaid: '\u{1F9DC}‍♀️', star: '⭐', heart: '\u{1F496}', rainbow: '\u{1F308}', starfish: '\u{1F31F}', shell: '\u{1F41A}', fish: '\u{1F420}' };
 
 // ---------------------------------------------------------------- faces
 /** glossy black safety eyes set into a head (ellipsoid centre c, radii r), looking along dir; with two tiny lashes */
