@@ -237,23 +237,44 @@ function setCollection(all, fresh = 0) {
   show('#shelfSet', true);
 }
 const _tapP = new THREE.Vector3();
+// tap a toy on the shelf to hold it up close (drag to turn it round, tap again to put it back)
+const drag = { on: false, x: 0, y: 0, moved: 0 };
 canvas.addEventListener('pointerdown', (e) => {
   if (S.state !== 'shelf' || !shelfToys.length || $('#shelfUI').classList.contains('hidden')) return;
+  if (S.inspect) { drag.on = true; drag.x = e.clientX; drag.y = e.clientY; drag.moved = 0; return; }
   // the nearest toy to the finger (generous: small fingers miss), measured on the screen
   camera.updateMatrixWorld(); let t = null, best = 80 * 80;
   for (const toy of shelfToys) { _tapP.copy(toy.position).project(camera); const dx = (_tapP.x + 1) / 2 * innerWidth - e.clientX, dy = (1 - _tapP.y) / 2 * innerHeight - e.clientY, d = dx * dx + dy * dy; if (d < best) { best = d; t = toy; } }
-  if (!t) return;
-  if (t.userData.hopping || t.userData.fresh || t.scale.x < .1) return; t.userData.hopping = true; sfx.plush(); if (t.userData.golden) sfx.sparkle();
-  const y0 = t.position.y, r0 = t.rotation.y, s0 = t.scale.x;
-  anim(.7, (k) => { t.position.y = y0 + Math.sin(k * Math.PI) * .07; t.rotation.y = r0 + k * Math.PI * 2; const sq = Math.sin(k * Math.PI * 3) * .08 * (1 - k); t.scale.set(s0 * (1 + sq), s0 * (1 - sq), s0 * (1 + sq)); }, ease.linear).then(() => { t.position.y = y0; t.rotation.y = r0; t.scale.setScalar(s0); t.userData.hopping = false; });
+  if (!t || t.userData.fresh || t.scale.x < .1) return;
+  pickUp(t);
 });
+canvas.addEventListener('pointermove', (e) => {
+  const I = S.inspect; if (!drag.on || !I) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+  I.spinY += dx * .012; I.spinX = clamp(I.spinX + dy * .008, -.9, .9);
+});
+addEventListener('pointerup', () => { if (!drag.on) return; drag.on = false; if (drag.moved < 12) putBack(); });
+function pickUp(t) {
+  sfx.plush(); if (t.userData.golden) sfx.sparkle();
+  const v = shelf.view, dir = v.l.clone().sub(v.p).normalize(), at = v.p.clone().addScaledVector(dir, .66); at.y += .015;
+  const I = S.inspect = { t, home: { p: t.position.clone(), q: t.quaternion.clone(), s: t.scale.x }, at, spinY: 0, spinX: .12 };
+  anim(.6, (k) => { if (S.inspect !== I) return; t.position.lerpVectors(I.home.p, at, ease.inOut(k)); t.position.y += Math.sin(k * Math.PI) * .08; t.scale.setScalar(lerp(I.home.s, .95, ease.out(k))); });
+  hero.position.copy(v.p).add(_tapP.set(.35, .45, -.05)); hero.target.position.copy(at); rim.position.copy(at).add(_tapP.set(-.2, .25, -.25));
+  anim(.5, (k) => { shelf.light.intensity = 7 - 3.5 * k; hero.intensity = 2.6 * k; rim.intensity = .8 * k; });
+}
+function putBack() {
+  const I = S.inspect; if (!I) return; S.inspect = null; sfx.pop();
+  const t = I.t, p0 = t.position.clone(), q0 = t.quaternion.clone(), s0 = t.scale.x;
+  anim(.55, (k) => { t.position.lerpVectors(p0, I.home.p, ease.inOut(k)); t.quaternion.slerpQuaternions(q0, I.home.q, k); t.scale.setScalar(lerp(s0, I.home.s, k)); });
+  anim(.5, (k) => { shelf.light.intensity = 3.5 + 3.5 * k; hero.intensity = 2.6 * (1 - k); rim.intensity = .8 * (1 - k); });
+}
 async function closeShelf() {
   sfx.pop(); show('#shelfUI', false); S.state = 'title';
   await anim(.6, (k) => { shelf.light.intensity = 7 * (1 - k); shelf.fill.intensity = .8 * (1 - k); });
   clearShelf();
   showTitle('theme');
 }
-function clearShelf() { for (const t of shelfToys) { forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); } shelfToys.length = 0; shelfExtras.forEach((p) => scene.remove(p)); shelfExtras.length = 0;
+function clearShelf() { if (S.inspect) { hero.intensity = rim.intensity = 0; } S.inspect = null; for (const t of shelfToys) { forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); } shelfToys.length = 0; shelfExtras.forEach((p) => scene.remove(p)); shelfExtras.length = 0;
 }
 async function chooseTheme(theme) {
   if (S.busy) return; S.busy = true; unlock(); sfx.pop(); arcadeBed(true);
@@ -652,6 +673,7 @@ function update(dt) {
     _q.slerpQuaternions(H.q0, H.up, e * .85); H.toy.quaternion.copy(_q).premultiply(_q2.setFromEuler(_e.set(-H.swingZ * .6, 0, H.swing * .6)));
   }
   twinkle(t);
+  if (S.inspect) { const I = S.inspect; if (!drag.on) I.spinY += dt * .45; I.t.quaternion.setFromEuler(_e.set(I.spinX, I.spinY, 0, 'YXZ')); _e.order = 'XYZ'; }   // the toy in your hands
   if (S.reveal) { const R = S.reveal; R.spin += dt; R.t.quaternion.setFromEuler(_e.set(.12 + Math.sin(t * 1.3) * .05, Math.sin(R.spin * 1.1) * .9, Math.sin(t * .9) * .05)); }
   machine.lights(t, S.state === 'reveal' ? 'win' : ['title', 'boot', 'over'].includes(S.state) ? 'attract' : 'play');
   grade.uniforms.time.value = t;
