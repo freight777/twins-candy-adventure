@@ -17,7 +17,7 @@ import { Timers, Fx, ease, lerp, clamp } from '../util.js';
 import { unlock, playMusic, sfx, voice, say, motor, arcadeBed } from '../audio.js';
 import { buildMachine, buildShelf, DIM, CLAW } from './machine.js';
 import { createPhysics } from './physics.js';
-import { makeToy, plushMaterials, setFurLayers, furShown, forgetToy, makeGolden, twinkle, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus } from './plush.js';
+import { makeToy, plushMaterials, setFurLayers, furShown, forgetToy, makeGolden, twinkle, unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus, dragon, turtle } from './plush.js';
 
 const $ = (s) => document.querySelector(s);
 homeGate();
@@ -184,7 +184,7 @@ function chooseWho(who) { unlock(); sfx.pop(); if (!S.musicOn) { S.musicOn = tru
 /** whose try this is: with "take turns" Adalyn has the even tries and Esmae the odd ones */
 const ownerOf = (i) => (S.who === 'both' ? (i % 2 ? 'esmae' : 'adalyn') : S.who);
 const PLAYERS = { adalyn: { name: "Adalyn's toys", color: '#ff8a1f' }, esmae: { name: "Esmae's toys", color: '#ff4fa3' } };
-const KINDS = { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus };
+const KINDS = { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus, dragon, turtle };
 const collection = (who) => store.get(`clawShelf:${who}`, []);
 function keepToys(who, toys) { if (!who || !toys.length) return; const all = collection(who); toys.forEach((t) => all.push({ k: t.userData.toy.kind, s: t.userData.toy.seed, g: !!t.userData.golden })); store.set(`clawShelf:${who}`, all.slice(-500)); }
 const shelfToys = [], shelfExtras = [];
@@ -229,8 +229,8 @@ async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn', { fresh =
   } else if (all.length && page === 0) { await sleep(.9); voice(`n_${Math.min(30, all.length)}`, { priority: 1 }); }
 }
 /** the collection: one badge per kind of toy (and the golden one), lit once she has won one; new ones bounce */
-const SET = [['unicorn', '\u{1F984}'], ['star', '⭐'], ['heart', '\u{1F496}'], ['rainbow', '\u{1F308}'], ['bunny', '\u{1F430}'], ['kitty', '\u{1F431}'],
-  ['mermaid', '\u{1F9DC}‍♀️'], ['starfish', '\u{1F31F}'], ['shell', '\u{1F41A}'], ['fish', '\u{1F420}'], ['seahorse', '\u{1F40E}'], ['octopus', '\u{1F419}'], ['golden', '\u{1F3C6}']];
+const SET = [['unicorn', '\u{1F984}'], ['star', '⭐'], ['heart', '\u{1F496}'], ['rainbow', '\u{1F308}'], ['bunny', '\u{1F430}'], ['kitty', '\u{1F431}'], ['dragon', '\u{1F409}'],
+  ['mermaid', '\u{1F9DC}‍♀️'], ['starfish', '\u{1F31F}'], ['shell', '\u{1F41A}'], ['fish', '\u{1F420}'], ['seahorse', '\u{1F40E}'], ['octopus', '\u{1F419}'], ['turtle', '\u{1F422}'], ['golden', '\u{1F3C6}']];
 function setCollection(all, fresh = 0) {
   const has = (list, k) => (k === 'golden' ? list.some((r) => r.g) : list.some((r) => r.k === k)), before = all.slice(0, all.length - fresh);
   $('#shelfSet').innerHTML = SET.map(([k, e]) => `<i class="${has(all, k) ? 'got' : ''}${has(all, k) && !has(before, k) ? ' new' : ''}">${e}</i>`).join('');
@@ -750,5 +750,5 @@ function renderClawCam() {
 }
 let frameNo = 0; renderer.shadowMap.autoUpdate = false;
 pipe.start((dt, raw) => { if (!machine || !phys) return false; update(dt); renderer.shadowMap.needsUpdate = (frameNo++ & 1) === 0 || Q.name === 'high'; pipe.render(raw); renderClawCam(); return false; });   // shadows: every other frame on the iPad
-window.claw = { S, scene, openShelf, keepToys, THREE, renderClawCam: () => renderClawCam(), camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus } };
+window.claw = { S, scene, openShelf, keepToys, THREE, renderClawCam: () => renderClawCam(), camera, renderer, pipe, get machine() { return machine; }, get phys() { return phys; }, step: (dt = 1 / 60) => update(dt), chooseTheme, chooseLevel, pressDrop, passes: { gtao, bokeh, grade }, Q, kinds: { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish, bunny, kitty, seahorse, octopus, dragon, turtle } };
 boot().catch((e) => { console.error(e); loading.fail(); });

@@ -246,7 +246,7 @@ class Toy {
   }
 }
 const WHITE = new THREE.Color(1, 1, 1);
-const EMOJI = { bunny: '\u{1F430}', kitty: '\u{1F431}', seahorse: '\u{1F40E}', octopus: '\u{1F419}', unicorn: '\u{1F984}', mermaid: '\u{1F9DC}‍♀️', star: '⭐', heart: '\u{1F496}', rainbow: '\u{1F308}', starfish: '\u{1F31F}', shell: '\u{1F41A}', fish: '\u{1F420}' };
+const EMOJI = { dragon: '\u{1F409}', turtle: '\u{1F422}', bunny: '\u{1F430}', kitty: '\u{1F431}', seahorse: '\u{1F40E}', octopus: '\u{1F419}', unicorn: '\u{1F984}', mermaid: '\u{1F9DC}‍♀️', star: '⭐', heart: '\u{1F496}', rainbow: '\u{1F308}', starfish: '\u{1F31F}', shell: '\u{1F41A}', fish: '\u{1F420}' };
 
 // ---------------------------------------------------------------- faces
 /** glossy black safety eyes set into a head (ellipsoid centre c, radii r), looking along dir; with two tiny lashes */
@@ -604,9 +604,52 @@ export function octopus(seed) {
   return T.finish(1.2);
 }
 
+/** a baby dragon: chubby, a paler tummy, two little horns, felt wings, spikes down its back and a spade on its tail */
+export function dragon(seed) {
+  const r = rng(seed), T = new Toy('dragon', seed), c = new THREE.Color(pickR(r, ['#7fd8a8', '#b49cff', '#ff9fc0', '#7fc4ff', '#ffb36b'])), tum = c.clone().lerp(new THREE.Color('#fff6e0'), .6), horn = '#fff1c4';
+  const plate = tum.clone().multiplyScalar(.9), paint = (p, n) => (n.z > .55 && p.y < .1 ? (Math.sin(p.y * 280) > .75 ? plate : tum) : c);   // a ridged dragon tummy
+  const head = [[.05, .046, .046], [0, .118, .02]];
+  T.ell([.05, .052, .055], [0, .052, -.008], null, { col: true, paint, lump: .04 });
+  T.ell(...head, null, { col: true, paint: () => c });
+  T.ell([.03, .019, .022], [0, .1, .058], c, {});                                                        // a little snout
+  for (const s of [-1, 1]) T.ell([.0025, .0035, .0015], [s * .01, .105, .079], '#5a3a4a', { mat: 'felt', occ: false, seg: 8, lump: 0 });
+  for (let i = 0; i < 3; i++) T.ell([.004, .01, .007], [0, .165 - i * .006, .02 - i * .022], tum, { mat: 'felt', rot: [-.3 - i * .4, 0, 0], occ: false, seg: 10 });   // head spikes
+  eyes(T, ...head, { y: .25, x: .52, size: .18 }); cheeks(T, ...head, '#ff9fb8', { y: -.12, x: .84 }); smile(T, [0, .094, .079], .007);
+  for (const s of [-1, 1]) {
+    T.add(tubeGeo([[s * .024, .148, .01], [s * .03, .168, .0], [s * .036, .18, -.016]], .0075, .0025, { seg: 8, rad: 8 }), 'felt', horn);   // curved horns
+    const w = new THREE.Shape(); w.moveTo(0, 0); w.quadraticCurveTo(.02, .05, .055, .045); w.quadraticCurveTo(.045, .03, .05, .018); w.quadraticCurveTo(.035, .018, .036, .006); w.quadraticCurveTo(.02, .008, 0, 0);
+    T.add(place(puffGeo(w, .002, .004, { seg: 3 }), [s * .04, .08, -.035], [0, -s * .7, s * .2], [s * 1.5, 1.5, 1.5]), 'satin', tum);   // wings (big enough to see from the front)
+    T.ell([.017, .012, .03], [s * .028, .013, .045], c, {});                                               // feet
+    T.ell([.013, .02, .013], [s * .036, .06, .035], c, { rot: [.4, 0, s * .3] });                           // arms
+  }
+  for (let i = 0; i < 5; i++) { const a = .3 + i * .32; T.ell([.005, .011, .008], [0, .1 + Math.cos(a) * .03 - i * .016, -.035 - Math.sin(a) * .02 - i * .008], tum, { mat: 'felt', rot: [-.5 - i * .25, 0, 0], occ: false, seg: 10 }); }   // back spikes
+  T.add(tubeGeo([[0, .03, -.06], [.02, .015, -.09], [.05, .012, -.1], [.07, .02, -.09]], .016, .007, { seg: 16, rad: 10 }), 'fabric', c);   // tail
+  const sp = new THREE.Shape(); sp.moveTo(0, -.012); sp.quadraticCurveTo(.014, 0, 0, .016); sp.quadraticCurveTo(-.014, 0, 0, -.012);
+  T.add(place(puffGeo(sp, .002, .003, { seg: 2 }), [.078, .024, -.086], [0, 0, -1.2]), 'felt', tum);
+  T.cols.push({ c: new THREE.Vector3(.05, .015, -.095), r: .016 });
+  tag(T, [-.03, .03, -.06], [.3, -.6, .1]);
+  return T.finish(1.15);
+}
+/** a sea turtle: a domed shell with darker plates, a paler tummy, a smiley head and four flippers */
+export function turtle(seed) {
+  const r = rng(seed), T = new Toy('turtle', seed), shellC = new THREE.Color(pickR(r, ['#3fb07a', '#2fa6a0', '#8fbf4a', '#c08a4a'])), line = shellC.clone().multiplyScalar(.62), skin = new THREE.Color(pickR(r, ['#a8e6a0', '#9fe0d8', '#cfe89a']));
+  const plates = (p) => (Math.min(Math.abs(Math.sin(p.x * 95)), Math.abs(Math.sin(p.z * 95 + p.x * 48))) < .18 ? line : shellC);
+  T.ell([.07, .036, .075], [0, .04, 0], null, { col: true, paint: plates, lump: .03 });                    // shell
+  T.add(place(new THREE.TorusGeometry(.068, .007, 8, 40).scale(1, 1.08, 1), [0, .022, 0], [Math.PI / 2, 0, 0]), 'fabric', line);   // its rim
+  T.ell([.062, .016, .066], [0, .016, 0], skin.clone().lerp(new THREE.Color('#fff7e0'), .45), {});         // tummy
+  const head = [[.03, .028, .032], [0, .045, .088]];
+  T.ell(...head, skin, { col: true });
+  eyes(T, ...head, { y: .3, x: .55, size: .22 }); cheeks(T, ...head, '#ff9fb8', { y: -.1, x: .85 }); smile(T, [0, .036, .117], .007);
+  for (const [x, z, s] of [[.06, .045, 1], [-.06, .045, -1], [.05, -.055, 1], [-.05, -.055, -1]]) T.ell([.034, .008, .018], [x, .018, z], skin, { rot: [0, z > 0 ? -s * .5 : s * .4, -s * .2] });   // flippers
+  T.ell([.008, .006, .016], [0, .018, -.08], skin, {});
+  T.cols.push({ c: new THREE.Vector3(.04, .02, .03), r: .03 }, { c: new THREE.Vector3(-.04, .02, -.03), r: .03 });
+  tag(T, [.05, .02, -.05], [0, 2.3, .2]);
+  return T.finish(1.2);
+}
+
 export const THEMES = {
-  unicorn: { hero: unicorn, friends: [star, heart, rainbow, bunny, kitty], heroShare: .6 },
-  mermaid: { hero: mermaid, friends: [starfish, shell, fish, seahorse, octopus], heroShare: .55 },
+  unicorn: { hero: unicorn, friends: [star, heart, rainbow, bunny, kitty, dragon], heroShare: .58 },
+  mermaid: { hero: mermaid, friends: [starfish, shell, fish, seahorse, octopus, turtle], heroShare: .53 },
 };
 export function makeToy(theme, i, seed) {
   const th = THEMES[theme], r = rng(seed * 31 + 7);

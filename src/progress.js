@@ -27,7 +27,7 @@ function clawLine(who) {
   for (const th of ['unicorn', 'mermaid']) for (const lv of ['easy', 'medium', 'hard']) { const v = +(localStorage.getItem(`clawBest:${who}:${th}:${lv}`) || 0); if (v) best.push(`${th} ${lv} ${v}`); }
   if (!all.length && !best.length) return '';
   const kinds = new Set(all.map((r) => r.k)).size, gold = all.filter((r) => r.g).length;
-  return `<p class="meta"><b>Claw Machine:</b> ${all.length} toys on the shelf &middot; ${kinds} of 12 kinds &middot; ${gold} golden${best.length ? ` &middot; best games: ${best.join(', ')}` : ''}</p>`;
+  return `<p class="meta"><b>Claw Machine:</b> ${all.length} toys on the shelf &middot; ${kinds} of 14 kinds &middot; ${gold} golden${best.length ? ` &middot; best games: ${best.join(', ')}` : ''}</p>`;
 }
 
 function kidCard(who, k) {
