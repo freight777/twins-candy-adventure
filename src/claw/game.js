@@ -158,7 +158,7 @@ const banner = (html, cls = '', sec = 2) => { const b = $('#bigtext'); b.innerHT
 function setHud() {
   $('#tries').innerHTML = Array.from({ length: TRIES }, (_, i) => {
     const r = S.results[i]; const cls = r ? r.type : i === S.try && S.state !== 'over' ? 'now' : '';
-    return `<i class="${cls}">${r && r.type === 'win' ? r.emoji : ''}</i>`;
+    return `<i class="${cls}${S.who === 'both' ? (i % 2 ? ' pe' : ' pa') : ''}">${r && r.type === 'win' ? r.emoji : ''}</i>`;
   }).join('');
   $('#count').textContent = S.won.length;
 }
@@ -175,16 +175,20 @@ function showTitle(step = 'who') {
 function chooseWho(who) { unlock(); sfx.pop(); playMusic('arcade'); arcadeBed(true); S.who = who; store.set('clawWho', who); showTitle('theme'); }
 
 // ---------------------------------------------------------------- each girl's toy shelf: every toy she has ever won, kept on this iPad
+/** whose try this is: with "take turns" Adalyn has the even tries and Esmae the odd ones */
+const ownerOf = (i) => (S.who === 'both' ? (i % 2 ? 'esmae' : 'adalyn') : S.who);
 const PLAYERS = { adalyn: { name: "Adalyn's toys", color: '#ff8a1f' }, esmae: { name: "Esmae's toys", color: '#ff4fa3' } };
 const KINDS = { unicorn, mermaid, star, heart, rainbow, starfish, shell, fish };
 const collection = (who) => store.get(`clawShelf:${who}`, []);
 function keepToys(who, toys) { if (!who || !toys.length) return; const all = collection(who); toys.forEach((t) => all.push({ k: t.userData.toy.kind, s: t.userData.toy.seed, g: !!t.userData.golden })); store.set(`clawShelf:${who}`, all.slice(-500)); }
 const shelfToys = [];
-async function openShelf() {
-  if (!S.who || S.state === 'shelf') return;
-  sfx.pop(); S.state = 'shelf'; show('#title', false); show('#over', false);
-  const all = collection(S.who), list = all.slice(-shelf.slots.length);
-  shelf.setName(PLAYERS[S.who].name, PLAYERS[S.who].color);
+async function openShelf(who = S.who === 'esmae' ? 'esmae' : 'adalyn') {
+  if (!S.who) return;
+  if (S.state === 'shelf') clearShelf(); else sfx.pop();
+  S.state = 'shelf'; S.shelfWho = who; show('#title', false); show('#over', false);
+  document.querySelectorAll('#shelfWho button').forEach((b) => b.classList.toggle('on', b.dataset.shelf === who));
+  const all = collection(who), list = all.slice(-shelf.slots.length);
+  shelf.setName(PLAYERS[who].name, PLAYERS[who].color);
   list.forEach((r, i) => {
     const make = KINDS[r.k]; if (!make) return;
     const t = make(r.s); if (r.g) makeGolden(t);
@@ -211,8 +215,10 @@ canvas.addEventListener('pointerdown', (e) => {
 async function closeShelf() {
   sfx.pop(); show('#shelfUI', false); S.state = 'title';
   await anim(.6, (k) => { shelf.light.intensity = 7 * (1 - k); shelf.fill.intensity = .8 * (1 - k); });
-  for (const t of shelfToys) { forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); } shelfToys.length = 0;
+  clearShelf();
   showTitle('theme');
+}
+function clearShelf() { for (const t of shelfToys) { forgetToy(t); scene.remove(t); t.traverse((o) => o.geometry?.dispose()); } shelfToys.length = 0;
 }
 async function chooseTheme(theme) {
   if (S.busy) return; S.busy = true; unlock(); sfx.pop(); playMusic('arcade'); arcadeBed(true);
@@ -231,8 +237,16 @@ function chooseLevel(level) { if (S.busy) return; unlock(); sfx.pop(); S.level =
 
 // ---------------------------------------------------------------- the game
 function dealPlan() {
-  const wins = LEVELS[S.level][Math.floor(Math.random() * LEVELS[S.level].length)], idx = [...Array(TRIES).keys()].sort(() => Math.random() - .5).slice(0, wins);
-  return Array.from({ length: TRIES }, (_, i) => idx.includes(i));
+  const pick = (a) => a[Math.floor(Math.random() * a.length)], plan = Array(TRIES).fill(false);
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };   // (Fisher-Yates: every try equally likely)
+  const deal = (tries, n) => shuffle([...tries]).slice(0, n).forEach((i) => { plan[i] = true; });
+  const all = [...Array(TRIES).keys()];
+  if (S.who !== 'both') deal(all, pick(LEVELS[S.level]));
+  else {                                                                     // taking turns: the same luck for both girls (on hard, one win each)
+    const each = S.level === 'easy' ? pick([2, 2, 3, 3]) : 1;
+    deal(all.filter((i) => i % 2 === 0), each); deal(all.filter((i) => i % 2 === 1), each);
+  }
+  return plan;
 }
 async function start() {
   S.state = 'starting'; playMusic('arcade'); arcadeBed(true);
@@ -246,6 +260,7 @@ async function start() {
 
 async function oneTry() {
   S.state = 'aim'; S.moved = 0; setHud(); sfx.coin(); setPeek(false);
+  if (S.who === 'both') { const w = ownerOf(S.try); banner(`<span class="initial ${w[0]}">${w[0].toUpperCase()}</span>`, 'turn', 1.4); say(w === 'adalyn' ? "Adalyn's turn!" : "Esmae's turn!", 'narrator'); }
   controls(true);
   if (!S.hinted) $('#stick').classList.add('hint');
   await new Promise((r) => (S.dropNow = r));
@@ -348,7 +363,7 @@ async function grab(shouldWin) {
 /** a motor's speed curve: a quick spin-up, a steady run, a quick stop */
 const motorEase = (t) => { const a = .12, d = 2 * a * (1 - a); return t < a ? t * t / d : t > 1 - a ? 1 - (1 - t) * (1 - t) / d : (t - a / 2) / (1 - a); };
 /** a planned win that couldn't happen moves to the next try that isn't already a win */
-function carryWin() { for (let i = S.try + 1; i < TRIES; i++) if (!S.plan[i]) { S.plan[i] = true; return; } }
+function carryWin() { for (let i = S.try + 1; i < TRIES; i++) if (!S.plan[i] && ownerOf(i) === ownerOf(S.try)) { S.plan[i] = true; return; } }
 function pickFail() { const r = Math.random(); return r < .2 ? 'early' : r < .55 ? 'lift' : r < .78 ? 'top' : 'carry'; }
 const clawVec = () => machine.clawPos.clone();
 /** the toy's rotation turned so it hangs the way a stuffed toy hangs from a claw: upright, keeping which way it faced */
@@ -375,7 +390,7 @@ function caught(t) {
 const hero = new THREE.SpotLight(0xfff0f6, 0, 3.5, .45, .7, 1.2); hero.castShadow = false; scene.add(hero, hero.target);
 const rim = new THREE.PointLight(0xff9fe0, 0, 2, 1.5); scene.add(rim);
 async function reveal(t) {
-  S.state = 'reveal'; S.won.push(t); setHud();
+  S.state = 'reveal'; t.userData.owner = ownerOf(S.try); S.won.push(t); setHud();
   // 1. down at the prize door: the lamp comes on, the toy shoves the flap open and tumbles out toward you
   const D = machine.door, d = D.at; S.cam.doorWant = true;
   t.traverse((o) => { if (o.isMesh) o.castShadow = false; });
@@ -417,6 +432,7 @@ async function reveal(t) {
 async function gameOver() {
   S.state = 'over'; controls(false); motor(0); setHud();
   await sleep(.6);
+  S.won.sort((a, b) => (a.userData.owner === b.userData.owner ? 0 : a.userData.owner === 'adalyn' ? -1 : 1));     // (taking turns: Adalyn's on the left, Esmae's on the right)
   const n = S.won.length, top = machine.counter.position.y + .02, cx = machine.counter.position.x, cz = machine.counter.position.z;
   const perRow = n > 5 ? Math.ceil(n / 2) : n;
   S.won.forEach((t, i) => {
@@ -438,12 +454,14 @@ async function gameOver() {
       await voice(`n_${i + 1}`, { priority: 2, minMs: 520 });
     }
   }
-  keepToys(S.who, S.won);
+  for (const w of ['adalyn', 'esmae']) keepToys(w, S.won.filter((t) => t.userData.owner === w));
   const key = `clawBest:${S.who}:${S.theme}:${S.level}`, best = store.get(key, 0);
   if (best && n > best) await voice(n === best + 1 ? 'one_more_than_last' : 'new_best', { priority: 2 });
   if (n > best) store.set(key, n);
   else if (n) await voice('well_done', { priority: 2 });
-  $('#final').textContent = n; $('#over .toys').innerHTML = S.won.map((t) => `<span>${t.userData.toy.emoji}</span>`).join('') || '<span>\u{1F9F8}</span>';
+  $('#final').textContent = n;
+  const row = (list) => list.map((t) => `<span>${t.userData.toy.emoji}</span>`).join('');
+  $('#over .toys').innerHTML = S.who === 'both' ? ['adalyn', 'esmae'].map((w) => `<div class="mine"><i class="initial ${w[0]}">${w[0].toUpperCase()}</i>${row(S.won.filter((t) => t.userData.owner === w)) || ''}</div>`).join('') : row(S.won) || '<span>\u{1F9F8}</span>';
   show('#hud', false); show('#over');
 }
 async function again(changeTheme) {
@@ -479,7 +497,8 @@ document.querySelectorAll('#pickLevel .choice').forEach((b) => b.addEventListene
 $('#backTheme').addEventListener('click', () => { sfx.pop(); show('#pickLevel', false); show('#pickTheme'); });
 document.querySelectorAll('#pickWho .choice').forEach((b) => b.addEventListener('click', () => chooseWho(b.dataset.who)));
 $('#backWho').addEventListener('click', () => { sfx.pop(); showTitle('who'); });
-$('#shelfBtn').addEventListener('click', openShelf);
+$('#shelfBtn').addEventListener('click', () => openShelf());
+document.querySelectorAll('#shelfWho button').forEach((b) => b.addEventListener('click', () => { if (S.shelfWho !== b.dataset.shelf) { sfx.pop(); openShelf(b.dataset.shelf); } }));
 $('#shelfBack').addEventListener('click', closeShelf);
 $('#overShelf').addEventListener('click', () => again('shelf'));
 $('#again').addEventListener('click', () => again(false));

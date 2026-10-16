@@ -39,6 +39,7 @@
       <div id="pickWho" class="choices">
         <button class="choice ada" data-who="adalyn"><span class="em initial">A</span><b>Adalyn</b></button>
         <button class="choice esm" data-who="esmae"><span class="em initial">E</span><b>Esmae</b></button>
+        <button class="choice both" data-who="both"><span class="em pair"><i class="initial a">A</i><i class="initial e">E</i></span><b>Take turns</b></button>
       </div>
       <div id="pickTheme" class="choices hidden">
         <button id="backWho" class="back" aria-label="Back">&#11013;&#65039;</button>
@@ -59,7 +60,8 @@
       <div class="toys"></div>
       <div class="row"><button id="again" class="pill green">&#128257; Again</button><button id="change" class="pill">&#129412; &#129500;&#8205;&#9792;&#65039;</button><button id="overShelf" class="pill">&#129528;</button></div>
     </div>
-    <div id="shelfUI" class="hidden"><button id="shelfBack" class="back" aria-label="Back">&#11013;&#65039;</button><div id="shelfCount"></div></div>
+    <div id="shelfUI" class="hidden"><button id="shelfBack" class="back" aria-label="Back">&#11013;&#65039;</button><div id="shelfCount"></div>
+      <div id="shelfWho"><button data-shelf="adalyn" class="initial a">A</button><button data-shelf="esmae" class="initial e">E</button></div></div>
   </div>
   <script type="module" src="/src/claw/game.js"></script>
 </body>
