@@ -307,6 +307,8 @@ export const sfx = {
   thud: (v = 1) => { noise(.14, { vol: .22 * v, from: 500, to: 140, q: .7 }); tone(85, .14, { slide: .6, vol: .22 * v, wet: .05 }); },
   /** a squeezed plush toy's squeaker (pitch varies a little each time) */
   plush: (k = 1) => { const f = 900 + Math.random() * 500; tone(f, .09 * k, { type: 'triangle', slide: 1.35, vol: .09 }); tone(f * 1.3, .12 * k, { type: 'triangle', slide: .75, vol: .08, delay: .08 }); },
+  /** a snare roll that speeds up into a cymbal (the last coin) */
+  drumroll: () => { let t = 0; for (let i = 0; i < 26; i++) { noise(.06, { vol: .12 + i * .006, from: 2600, to: 1800, q: .7, delay: t }); t += .085 - i * .0022; } noise(1.1, { vol: .22, from: 9000, to: 6000, type: 'highpass', q: .4, delay: t + .02 }); },
   bell: () => { [0, .2, .4].forEach((d) => { tone(2349, .7, { vol: .1, delay: d, wet: .45 }); tone(2349 * 2.76, .35, { vol: .035, delay: d, wet: .45 }); tone(2349 * 5.4, .15, { vol: .015, delay: d, wet: .45 }); }); },
   door: () => { noise(.05, { vol: .3, from: 1100, to: 400, q: .8 }); tone(170, .08, { type: 'square', slide: .5, vol: .1, wet: .05 }); noise(.04, { vol: .16, from: 900, to: 350, q: .8, delay: .14 }); },
   chute: () => { [0, .16, .34].forEach((d, i) => { noise(.16, { vol: .3 - i * .07, from: 700, to: 160, q: .7, delay: d }); tone(95 - i * 8, .16, { slide: .6, vol: .22 - i * .05, delay: d, wet: .05 }); }); },

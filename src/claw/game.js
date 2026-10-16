@@ -149,7 +149,7 @@ async function boot() {
   scene.environment = machine.env; scene.environmentIntensity = .6; scene.background = new THREE.Color(0x07060c); scene.fog = new THREE.Fog(0x07060c, 3.5, 7);
   plushMaterials(); tick();
   phys = createPhysics(); fillNow();
-  let lastThud = 0; phys.onImpact = (t, v) => { const now = performance.now(); if (now - lastThud < 90 || S.state === 'boot') return; lastThud = now; sfx.thud(Math.min(1, v / 2.5) * .8); }; shelf = buildShelf(scene); shelf.merge(); tick();
+  let lastThud = 0; phys.onImpact = (t, v) => { if (v > 1.1) t.userData.squish = Math.min(1, Math.max(t.userData.squish || 0, v / 3)); const now = performance.now(); if (now - lastThud < 90 || S.state === 'boot') return; lastThud = now; sfx.thud(Math.min(1, v / 2.5) * .8); }; shelf = buildShelf(scene); shelf.merge(); tick();
   pipe.applyTier(); collectDepthSkip();
   placeCamera(1);
   try { await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 5000))]); } catch { /* compiles on the first frame instead */ }
@@ -297,7 +297,8 @@ async function start() {
 
 async function oneTry() {
   S.state = 'aim'; S.moved = 0; S.coinIn = false; setHud(); insertCoin(); setPeek(false);
-  if (S.who === 'both') { const w = ownerOf(S.try); banner(`<span class="initial ${w[0]}">${w[0].toUpperCase()}</span>`, 'turn', 1.4); say(w === 'adalyn' ? "Adalyn's turn!" : "Esmae's turn!", 'narrator'); }
+  if (S.try === TRIES - 1) { sfx.drumroll(); machine.flash(.8); banner('<span>\u{1FA99}</span><span>Last one!</span>', 'good', 1.6); }
+  else if (S.who === 'both') { const w = ownerOf(S.try); banner(`<span class="initial ${w[0]}">${w[0].toUpperCase()}</span>`, 'turn', 1.4); say(w === 'adalyn' ? "Adalyn's turn!" : "Esmae's turn!", 'narrator'); }
   controls(true);
   if (!S.hinted) { $('#stick').classList.add('hint'); handTo('#stick', 'drag'); }
   await new Promise((r) => (S.dropNow = r));
@@ -409,7 +410,7 @@ async function grab(shouldWin) {
   C.angle = null; C.open = .15;
   if (caughtToy) { await reveal(caughtToy); return { type: 'win', emoji: caughtToy.userData.toy.emoji }; }
   if (shouldWin && target) carryWin();                            // (it bounced out somehow: the win isn't lost)
-  if (target) { say('Oops! Next time!', 'narrator'); banner('<span>So close!</span>', 'soft', 1.6); } else { voice('hmm_try_again', { priority: 1 }); banner('<span>Oops!</span>', 'soft', 1.4); }
+  missLine(!!target);
   sfx.soft();
   return { type: 'miss' };
 }
@@ -441,6 +442,12 @@ async function demoGrab() {
   motor(.3, 1); await anim(1.1 * fast, (k) => { C.y = lerp(y1, DIM.top, k); C.angle = lerp(a1, lerp(-.1, .62, .15), k); });
   C.angle = null; C.open = .15; motor(0); S.recentDrop = false;
   if (!stop()) { await anim(1.2, (k) => { C.x = lerp(x1, DIM.home.x, k); C.z = lerp(z1, DIM.home.z, k); }); }
+}
+/** never the same "almost" twice in a row: four recorded voices, three banners */
+const MISS = [() => say('Oops! Next time!', 'narrator'), () => say('Almost! Try again!', 'announcer'), () => say('Not quite. Try again!', 'counter'), () => voice('hmm_try_again', { priority: 1 })];
+function missLine(close) {
+  let i; do i = Math.floor(Math.random() * MISS.length); while (i === S.lastMiss && MISS.length > 1); S.lastMiss = i; MISS[i]();
+  banner(`<span>${close ? ['So close!', 'Almost!', 'Nearly!'][i % 3] : 'Oops!'}</span>`, 'soft', 1.5);
 }
 /** a motor's speed curve: a quick spin-up, a steady run, a quick stop */
 const motorEase = (t) => { const a = .12, d = 2 * a * (1 - a); return t < a ? t * t / d : t > 1 - a ? 1 - (1 - t) * (1 - t) / d : (t - a / 2) / (1 - a); };
@@ -501,6 +508,7 @@ async function reveal(t) {
   if (gold) { sfx.magic(); timers.after(.8, () => voice('you_got_it', { priority: 2 })); store.set('clawGolden', store.get('clawGolden', 0) + 1); }
   banner(`<span class="em">${t.userData.toy.emoji}</span><span>${gold ? 'Golden!' : 'You got it!'}</span>`, gold ? 'good gold' : 'good', gold ? 3 : 2.4);
   await anim(1.0, (k) => { const e = ease.inOut(k); t.position.lerpVectors(from, at, e); t.position.z += Math.sin(k * Math.PI) * .1; t.scale.setScalar(lerp(s0, 1, ease.out(k))); });
+  sfx.plush(); anim(.8, (k) => { const h = Math.abs(Math.sin(k * Math.PI * 2)) * (1 - k * .4), sq = Math.sin(k * Math.PI * 4) * .07 * (1 - k); t.position.y = at.y + h * .035; t.scale.set(1 + sq, 1 - sq, 1 + sq); }, ease.linear).then(() => t.scale.setScalar(1));   // a happy hop
   await Promise.race([sleep(2.1), new Promise((r) => (S.skipReveal = r))]); S.skipReveal = null;
   // fly to the prize counter in the corner
   const corner = new THREE.Vector3(.86, .78, .5).unproject(camera), p0 = t.position.clone();
@@ -632,6 +640,7 @@ function update(dt) {
   if (C.angle != null) machine.setProngAngle(C.angle); else machine.setOpen(C.open);
   // physics, then the toy in the claw's grip (it settles into a hanging pose, swings a little, slides when the grip gives)
   phys.step(dt); phys.sync(); keepInside(false, dt);
+  for (const toy of S.toys) { const q = toy.userData.squish; if (!q || toy === S.held?.toy) continue; const k = q; toy.scale.set(1 + .1 * k, 1 - .12 * k, 1 + .1 * k); toy.userData.squish = q < .02 ? 0 : q * Math.exp(-7 * dt); if (!toy.userData.squish) toy.scale.setScalar(1); }   // plush squashes a little when it lands
   const H = S.held;
   if (H) {
     H.k = Math.min(1, H.k + dt * 1.6); const e = ease.inOut(H.k);
