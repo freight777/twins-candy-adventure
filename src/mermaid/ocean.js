@@ -205,17 +205,39 @@ export function buildOcean(scene) {
     const fm = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .4, metalness: .15 });
     fm.onBeforeCompile = (sh) => { sh.uniforms.time = TIME; sh.vertexShader = 'uniform float time;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\n#ifdef USE_INSTANCING\nfloat fph = instanceMatrix[3].x*.7+instanceMatrix[3].z*.5;\n#else\nfloat fph = 0.;\n#endif\ntransformed.x += sin(time*9.+fph - position.z*3.)*max(-position.z-.2,0.)*.35;`); };
     const SCH = 16, PER = 16, total = SCH * PER, mesh = new THREE.InstancedMesh(body, fm, total); mesh.frustumCulled = false; mesh.castShadow = false; scene.add(mesh);
-    const schools = Array.from({ length: SCH }, (_, s) => { const t = W.tiles[Math.floor(rand(0, N))].pos; return { cx: t.x + rand(-30, 30), cy: t.y + rand(-2, 10), cz: t.z + rand(-30, 30), R: rand(8, 20), sp: rand(.12, .3) * (Math.random() < .5 ? -1 : 1), ph: rand(0, 6), size: rand(.7, 1.4), col: [pick([0xffb04a, 0x5bc0ff, 0xff7ab8, 0xffe14d, 0x7be0a0, 0xb07cff]), pick([0xffffff, 0xffe0a0, 0xa8e8ff])], offs: Array.from({ length: PER }, () => new THREE.Vector3(rand(-3, 3), rand(-2, 2), rand(-3, 3))) }; });
+    // the first few schools circle right over the path, so Esmae swims through them (and they scatter)
+    const ON_PATH = 6, schools = Array.from({ length: SCH }, (_, s) => { const on = s < ON_PATH, t = W.tiles[on ? Math.floor(5 + s * (N - 12) / ON_PATH) : Math.floor(rand(0, N))].pos, spread = on ? 4 : 30; return { cx: t.x + rand(-spread, spread), cy: t.y + (on ? rand(1.5, 4) : rand(-2, 10)), cz: t.z + rand(-spread, spread), R: on ? rand(6, 10) : rand(8, 20), sp: rand(.12, .3) * (Math.random() < .5 ? -1 : 1), ph: rand(0, 6), size: rand(.7, 1.4), col: [pick([0xffb04a, 0x5bc0ff, 0xff7ab8, 0xffe14d, 0x7be0a0, 0xb07cff]), pick([0xffffff, 0xffe0a0, 0xa8e8ff])], offs: Array.from({ length: PER }, () => new THREE.Vector3(rand(-3, 3), rand(-2, 2), rand(-3, 3))) }; });
     const o = new THREE.Object3D(), c = new THREE.Color();
     schools.forEach((s, si) => { for (let k = 0; k < PER; k++) { c.set(s.col[k % 2]); mesh.setColorAt(si * PER + k, c); } });
     W.fish = { mesh, schools };
+    // each fish has its own push away from its place in the school: Esmae (W.scare) and the camera shove it, a spring brings it back
+    const push = new Float32Array(total * 3), vel = new Float32Array(total * 3);
+    const threats = [[null, 6.5, 45], [null, 3.5, 30]];                         // [position, reach, strength]
+    let lastT = 0;
     W.animated.push((t) => {
+      const dt = clamp(t - lastT, 0, .05); lastT = t;
+      threats[0][0] = W.scare; threats[1][0] = W.cam && W.cam.position;
       schools.forEach((s, si) => {
         const a = t * s.sp + s.ph, hx = Math.cos(a) * s.R, hz = Math.sin(a) * s.R, yaw = Math.atan2(-Math.sin(a) * Math.sign(s.sp), Math.cos(a) * Math.sign(s.sp));
         for (let k = 0; k < PER; k++) {
-          const of = s.offs[k], wob = Math.sin(t * 1.3 + k * 1.7) * .8;
-          o.position.set(s.cx + hx + of.x + wob * Math.cos(yaw), s.cy + of.y + Math.sin(t * .7 + k) * .6, s.cz + hz + of.z + wob * Math.sin(yaw));
-          o.rotation.set(0, yaw + Math.PI / 2 + Math.sin(t * 2 + k) * .15, 0); o.scale.setScalar(s.size); o.updateMatrix(); mesh.setMatrixAt(si * PER + k, o.matrix);
+          const of = s.offs[k], wob = Math.sin(t * 1.3 + k * 1.7) * .8, j = (si * PER + k) * 3;
+          const hx0 = s.cx + hx + of.x + wob * Math.cos(yaw), hy0 = s.cy + of.y + Math.sin(t * .7 + k) * .6, hz0 = s.cz + hz + of.z + wob * Math.sin(yaw);
+          let px = push[j], py = push[j + 1], pz = push[j + 2], vx = vel[j], vy = vel[j + 1], vz = vel[j + 2];
+          for (const [p, reach, str] of threats) {
+            if (!p) continue;
+            const dx = hx0 + px - p.x, dy = hy0 + py - p.y, dz = hz0 + pz - p.z, d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 > reach * reach) continue;
+            const d = Math.sqrt(d2) || .01, f = (1 - d / reach) * str * dt / d;
+            vx += dx * f; vy += dy * f * .4; vz += dz * f;
+          }
+          vx += (-1.4 * px - 2.6 * vx) * dt; vy += (-1.4 * py - 2.6 * vy) * dt; vz += (-1.4 * pz - 2.6 * vz) * dt;   // spring home, a little over-damped
+          px += vx * dt; py += vy * dt; pz += vz * dt;
+          push[j] = px; push[j + 1] = py; push[j + 2] = pz; vel[j] = vx; vel[j + 1] = vy; vel[j + 2] = vz;
+          // a darting fish turns the way it darts; a calm one swims with its school
+          let h = yaw, w = clamp(Math.hypot(vx, vz) / 3, 0, 1);
+          if (w > .02) { let dy2 = Math.atan2(vx, vz) - yaw; dy2 = Math.atan2(Math.sin(dy2), Math.cos(dy2)); h = yaw + dy2 * w; }
+          o.position.set(hx0 + px, hy0 + py, hz0 + pz);
+          o.rotation.set(0, h + Math.PI / 2 + Math.sin(t * 2 + k) * .15, 0); o.scale.setScalar(s.size); o.updateMatrix(); mesh.setMatrixAt(si * PER + k, o.matrix);
         }
       });
       mesh.instanceMatrix.needsUpdate = true;

@@ -271,9 +271,14 @@ export function buildWorld(scene) {
       transformed.x += sin(time * .5 + ph * 1.7) * .7;`);
   };
   const motes = new THREE.Points(mgeo, mmat); motes.frustumCulled = false; scene.add(motes);
+  // one wing: a big rounded fore-lobe and a smaller hind-lobe (they visit Uni up close, where a plain rectangle showed)
+  const wingShape = new THREE.Shape();
+  wingShape.moveTo(0, .05); wingShape.bezierCurveTo(.15, .5, .95, .55, .88, .12); wingShape.bezierCurveTo(.85, -.02, .6, -.04, .46, -.03);
+  wingShape.bezierCurveTo(.66, -.16, .62, -.44, .36, -.4); wingShape.bezierCurveTo(.14, -.37, .04, -.16, 0, -.05); wingShape.closePath();
+  const wing = new THREE.ShapeGeometry(wingShape, 10);
   for (let i = 0; i < 26; i++) {
     const b = new THREE.Group(), col = pick([0xff7fb5, 0x7bd8ff, 0xffe14d, 0xc9a8ff]);
-    const wing = new THREE.PlaneGeometry(.9, .7).translate(.45, 0, 0), wm = new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .4, side: THREE.DoubleSide, roughness: .6 });
+    const wm = new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .4, side: THREE.DoubleSide, roughness: .6 });
     const wl = new THREE.Mesh(wing, wm), wr = new THREE.Mesh(wing, wm); wr.scale.x = -1; wl.rotation.x = wr.rotation.x = Math.PI / 2; b.add(wl, wr, mk(sph(.1), 0x3a2a4a));
     const t = W.tiles[Math.floor(rand(0, N))].pos; b.userData = { cx: t.x + rand(-9, 9), cz: t.z + rand(-9, 9), cy: t.y + rand(1.5, 4.5), ph: rand(0, 6), sp: rand(.4, .9), noShadow: true, wl, wr };
     scene.add(b); W.butterflies.push(b);
@@ -314,12 +319,34 @@ export function buildWorld(scene) {
     [-1, 1].forEach((sd) => { for (let k = 0; k < 4; k++) w.add(mk(sph(.28, 10, 8), 0xfff0a0, [sd * 2.9, .5, -len / 2 + 1 + k * (len - 2) / 3])); });
   }
 
+  const visit = { last: new THREE.Vector3(), still: 0, chosen: [] }, _bh = new THREE.Vector3(), _bv = new THREE.Vector3(), _bp = new THREE.Vector3();
   W.update = (dt, t) => {
     W.waterMat.uniforms.time.value = t; W.sky.material.uniforms.time.value = t; W.time.value = t;
     W.clouds.forEach((c) => { c.position.x += dt * 1.1; if (c.position.x > 240) c.position.x = -240; });
     W.pickups.forEach((s) => { if (!s.taken) { s.mesh.rotation.y = t * 1.6 + s.tile; s.mesh.position.y = s.y0 + Math.sin(t * 2 + s.tile) * .35; } });
     W.animated.forEach((f) => f(t));
-    W.butterflies.forEach((b) => { const d = b.userData, a = t * d.sp + d.ph; b.position.set(d.cx + Math.cos(a) * 5, d.cy + Math.sin(a * 2) * .8, d.cz + Math.sin(a * 1.3) * 5); b.rotation.y = -a + Math.PI / 2; const f = Math.sin(t * 16 + d.ph) * .9; d.wl.rotation.z = f; d.wr.rotation.z = -f; });
+    // butterflies: when Uni (W.visitor) stands still for a moment, the nearest few flutter over and circle her horn;
+    // when she sets off they drift back home
+    const V = W.visitor;
+    if (V) {
+      visit.still = V.distanceTo(visit.last) < dt * .6 ? visit.still + dt : 0; visit.last.copy(V);
+      if (visit.still > 1.2 && !visit.chosen.length) {
+        visit.chosen = W.butterflies.map((b) => [b, Math.hypot(b.userData.cx - V.x, b.userData.cz - V.z)]).filter(([, d]) => d < 32).sort((a, b) => a[1] - b[1]).slice(0, 3).map(([b]) => b);
+      } else if (visit.still === 0 && visit.chosen.length) visit.chosen = [];
+    }
+    W.butterflies.forEach((b) => {
+      const d = b.userData, a = t * d.sp + d.ph, slot = visit.chosen.indexOf(b), f = Math.sin(t * 16 + d.ph) * .9;
+      _bh.set(d.cx + Math.cos(a) * 5, d.cy + Math.sin(a * 2) * .8, d.cz + Math.sin(a * 1.3) * 5);
+      d.k = clamp((d.k || 0) + (slot >= 0 ? dt * .45 : -dt * .7), 0, 1);
+      d.wl.rotation.z = f; d.wr.rotation.z = -f;
+      if (d.k === 0) { b.position.copy(_bh); b.rotation.y = -a + Math.PI / 2; b.scale.setScalar(1); return; }
+      const s = smoothstep(0, 1, d.k), r = 1.7 + Math.max(slot, 0) * .5, o = t * (slot % 2 ? -.9 : .9) + d.ph;
+      b.scale.setScalar(1 + s * .25);                                            // (close up they read a little bigger, like a real visit)
+      _bv.set(V.x + Math.cos(o) * r, V.y + 3.5 + Math.sin(t * 2 + d.ph) * .3, V.z + Math.sin(o) * r);
+      _bp.copy(b.position); b.position.lerpVectors(_bh, _bv, s); b.position.y += Math.sin(d.k * Math.PI) * 2;   // a little arc on the way
+      const mx = b.position.x - _bp.x, mz = b.position.z - _bp.z;
+      if (mx * mx + mz * mz > 1e-6) b.rotation.y = Math.atan2(mx, mz) + Math.PI / 2;
+    });
     if (W.castleGlow) W.castleGlow.material.opacity = .4 + Math.sin(t * 2.2) * .12;
   };
   setStyle('toon');
