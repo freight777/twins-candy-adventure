@@ -82,13 +82,13 @@ const G = createBoardGame({
     reset() {
       S.pearls = 0; S.kind = 0; document.querySelectorAll('#pearls i').forEach((e) => e.classList.remove('got')); W.pearls.forEach((p) => (p.pearl.visible = true));
       if (S.song) S.song.stop(); S.song = null; karaoke(null); stopScore(); S.giftOn = false; S.giftKinds.forEach((k) => (k.m.visible = false)); S.gifts = [];
-      S.pets.forEach((p) => (p.root.visible = false)); playMusic('ocean');
+      S.petsSnap = true; playMusic('ocean');                                     // (the seahorse pets stay: they come along this time)
     },
     resetTwin() {
       lucy.root.position.copy(W.terrace).add(new THREE.Vector3(W.endT.x * 3, 2.8, W.endT.z * 3)).addScaledVector(G.side(W.endT), 6);
       lucy.root.rotation.set(0, Math.atan2(-W.endT.x, -W.endT.z), 0); lucy.root.visible = true;
     },
-    update(dt, t) { king.update(dt, t, 0); queen.update(dt, t, 0); updateGifts(dt, t); },
+    update(dt, t) { king.update(dt, t, 0); queen.update(dt, t, 0); updateGifts(dt, t); updatePets(dt, t); },
     camera(mode, desired, look, t) {
       if (mode === 'title') {                                                    // a slow swim around Esmae, so the title shows her
         const up = hero.root.position, a = t * .22 + .5;
@@ -117,7 +117,7 @@ async function build() {
   G.addSun(0xe8fff8, 1.6, [14, 40, 10], 36);
   G.linearize(); W.cam = G.camera;
   const mermaid = (look, s = SCALE) => { const m = createMermaid(look); m.root.scale.setScalar(s); scene.add(m.root); return m; };
-  hero = G.hero = mermaid(LOOKS.esmae);
+  hero = G.hero = mermaid(LOOKS.esmae); W.scare = hero.root.position;          // (the fish dart away from her)
   G.friends = FRIENDS.map((f, i) => {
     const t = W.tiles[FRIEND_TILES[i]], sd = i % 2 ? 1 : -1, spot = t.pos.clone().add(G.side(t.tan).multiplyScalar(sd * 7)).add(upBy(1.6 + i * .4));
     return { ...f, i, u: mermaid(LOOKS[f.key]), met: false, speed: 0, spot, tile: FRIEND_TILES[i], side: sd };
@@ -230,7 +230,7 @@ function makeGifts() {
   const c = new THREE.Color(), tc = W.terrace, items = [];
   S.giftKinds.forEach((k) => { k.m.visible = true; for (let i = 0; i < k.n; i++) { c.set(k.cols[i % k.cols.length]); k.m.setColorAt(i, c); items.push({ k, i, a: rand(0, 6.28), r: rand(5, 14), h: rand(1, 11), sp: rand(.2, .5) * (Math.random() < .5 ? -1 : 1), s: rand(.8, 1.3), at: rand(0, 3.5), ph: rand(0, 6) }); } if (k.m.instanceColor) k.m.instanceColor.needsUpdate = true; });
   S.gifts = items; S.giftT = 0; S.giftOn = true; S.giftCenter = tc.clone().addScaledVector(W.endT, 1);
-  S.pets.forEach((p, i) => { p.root.visible = true; p.root.position.copy(tc).add(upBy(3)); p.a = (i / 6) * 6.28; });
+  if (!S.petsOn) { S.pets.forEach((p, i) => { p.root.visible = true; p.root.position.copy(tc).add(upBy(3 + i * .4)); }); S.petsOn = true; }   // (on a replay they're already with her)
 }
 function buildGifts() {
   const mk1 = (geo, n, mat) => { const m = new THREE.InstancedMesh(geo, mat, n); m.frustumCulled = false; m.castShadow = false; G.scene.add(m); return m; };
@@ -256,7 +256,34 @@ function updateGifts(dt, t) {
     gdum.rotation.set(t * .6 + g.ph, t * .9 + g.ph, 0); gdum.scale.setScalar(g.s * k); gdum.updateMatrix(); g.k.m.setMatrixAt(g.i, gdum.matrix);
   });
   S.giftKinds.forEach((k) => (k.m.instanceMatrix.needsUpdate = true));
-  S.pets.forEach((p, i) => { const a = p.a + t * .35, r = 6 + Math.sin(t + i) * 1; p.root.position.set(c.x + Math.cos(a) * r, c.y + 3 + Math.sin(t * 1.3 + i) * 1.2 + i * .5, c.z + Math.sin(a) * r); p.root.rotation.y = -a; p.update(t); });
+}
+// the seahorse pets stay Esmae's: on the next adventure they swim along in a little flock just behind her, on the side
+// away from the camera (so none ever swims into the shot), the later ones lagging a little so the flock trails her.
+// At the palace they swim in a line that circles her, each one behind the one ahead.
+const PET_GAP = 1.6, _orb = new THREE.Vector3(), _pt = new THREE.Vector3(), _away = new THREE.Vector3();
+const turnTo = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
+/** pet i's place in the travelling flock: two staggered columns behind her, on the far side from the camera */
+function petSlot(i, t, out) {
+  const hp = hero.root.position; G.side(S.dirS, _away).multiplyScalar(-1);
+  return out.copy(hp).addScaledVector(S.dirS, -.6 - i * .55).addScaledVector(_away, 2.4 + (i % 2) * 1.1).add(upBy(1.3 + i * .28 + Math.sin(t * 1.6 + i) * .25));
+}
+function updatePets(dt, t) {
+  if (!S.petsOn || !dt) return;
+  const hp = hero.root.position;
+  if (S.petsSnap) { S.petsSnap = false; S.pets.forEach((p, i) => { petSlot(i, t, p.root.position); p.prev = p.root.position.clone(); }); return; }   // a replay: there at once
+  const circling = S.mode === 'finale';
+  if (circling) _orb.set(hp.x + Math.cos(t * .55) * 4.4, hp.y + 2.2 + Math.sin(t * 1.3) * .3, hp.z + Math.sin(t * .55) * 4.4);
+  S.pets.forEach((p, i) => {
+    const pos = p.root.position, prev = p.prev || (p.prev = pos.clone());
+    if (!circling) petSlot(i, t, _pt);
+    else if (i === 0) _pt.copy(_orb);
+    else { const ahead = S.pets[i - 1].root.position; _pt.subVectors(pos, ahead); const d = _pt.length() || 1; _pt.multiplyScalar(PET_GAP / d).add(ahead).add(upBy(Math.sin(t * 2 + i) * .12)); }
+    pos.lerp(_pt, 1 - Math.exp(-(circling ? 5 : 6 - i * .5) * dt));
+    const d = pos.distanceTo(_pt); if (!circling && d > 3) pos.lerp(_pt, 1 - 3 / d);   // never left far behind (a dolphin ride is fast)
+    const mx = pos.x - prev.x, mz = pos.z - prev.z, face = Math.hypot(mx, mz) / dt > .5 ? Math.atan2(mx, mz) : circling ? Math.atan2(hp.x - pos.x, hp.z - pos.z) : Math.atan2(S.dirS.x, S.dirS.z);
+    p.root.rotation.y = turnTo(p.root.rotation.y, face, 1 - Math.exp(-6 * dt)); prev.copy(pos);
+    p.update(t);
+  });
 }
 
 G.start();

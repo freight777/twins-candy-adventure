@@ -122,7 +122,7 @@ async function build() {
   G.addSun(0xfff0d6, 1.9, [22, 36, 14], 34);
   G.linearize();
   const unicorn = (look, s = SCALE) => { const u = createUnicorn(look); u.root.scale.setScalar(s); scene.add(u.root); return u; };
-  uni = G.hero = unicorn(LOOKS.uni);
+  uni = G.hero = unicorn(LOOKS.uni); W.visitor = uni.root.position;            // (butterflies come to her when she stands still)
   G.friends = FRIENDS.map((f, i) => ({ ...f, i, u: unicorn(LOOKS[f.key]), met: false, speed: 0, spot: W.friendSpots[i], tile: FRIEND_TILES[i], side: i % 2 ? 1 : -1 }));
   twin = G.twin = unicorn(LOOKS.twin);
   kingU = unicorn(LOOKS.king, 1.45); queenU = unicorn(LOOKS.queen, 1.45);
