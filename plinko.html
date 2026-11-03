@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="A&amp;E Games" />
+  <meta name="theme-color" content="#c9b6ff" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon-ae.png" />
+  <link rel="icon" type="image/png" href="./icon-ae-192.png" />
+  <title>Sparkle Plinko</title>
+</head>
+<body data-board="uni">
+  <canvas id="c"></canvas>
+  <div id="loading" class="loading"><div class="bouncer">&#129412;</div><div class="l-text">Polishing the pegs...</div><div class="bar"><i></i></div></div>
+
+  <button id="home" aria-label="All games (hold)">&#127968;</button>
+
+  <div id="panel" class="hidden">
+    <div id="pname">Rainbow Plinko</div>
+    <div id="heroWrap"><div id="hero">&#129412;</div></div>
+    <div class="scorebox"><b id="score">0</b><small>points <span id="me">&#129412;</span></small></div>
+    <div id="balls" aria-label="Balls"></div>
+    <div id="meter" aria-label="Bonus ball meter"><i></i><span>&#127873;</span></div>
+    <div id="bestline">&#127942; <span id="best">0</span></div>
+  </div>
+  <div id="banner"></div>
+  <div id="hint" aria-hidden="true"><span>&#128070;</span></div>
+
+  <div id="title" class="hidden">
+    <h1>Sparkle <b>Plinko</b></h1>
+    <div id="who" aria-label="Who is playing?">
+      <button data-who="adalyn" aria-label="Addie">&#129412;</button>
+      <button data-who="esmae" aria-label="Esmae">&#129500;&#8205;&#9792;&#65039;</button>
+      <button data-who="tony" aria-label="Tony">&#9918;</button>
+      <button data-who="mom" aria-label="Mommy">&#128105;</button>
+      <button data-who="dad" aria-label="Daddy">&#128104;</button>
+    </div>
+    <div class="cards">
+      <button class="bcard uni" data-board="uni">
+        <span class="art">&#129412;&#127752;&#11088;</span>
+        <span class="name">Rainbow Plinko</span>
+        <span class="best">&#127942; <span id="best-uni">-</span></span>
+      </button>
+      <button class="bcard sea" data-board="sea">
+        <span class="art">&#129500;&#8205;&#9792;&#65039;&#128026;&#128044;</span>
+        <span class="name">Mermaid Plinko</span>
+        <span class="best">&#127942; <span id="best-sea">-</span></span>
+      </button>
+    </div>
+    <button id="lbBtn" class="pill">&#127942; Leaderboard</button>
+  </div>
+
+  <div id="over" class="hidden card">
+    <div id="overHero">&#129412;</div>
+    <div class="big"><span id="final">0</span><small>points</small></div>
+    <div id="overBoard" class="lb"></div>
+    <div class="row">
+      <button id="again" class="pill green">&#8635; Play again</button>
+      <button id="other" class="pill">Other board</button>
+      <button id="menu" class="pill">&#127922; Menu</button>
+    </div>
+  </div>
+
+  <div id="board" class="hidden card wide">
+    <h2>&#127942; Leaderboard</h2>
+    <div class="two">
+      <div><h3>&#129412; Rainbow</h3><div id="lbUni" class="lb"></div></div>
+      <div><h3>&#129500;&#8205;&#9792;&#65039; Mermaid</h3><div id="lbSea" class="lb"></div></div>
+    </div>
+    <button id="closeBoard" class="pill">Close</button>
+  </div>
+  <script type="module" src="/src/plinko/game.js"></script>
+</body>
+</html>

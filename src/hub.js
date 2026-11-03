@@ -16,7 +16,7 @@ document.getElementById('amp').addEventListener('click', () => {
 
 // each game card wears a gold dot for every sticker found in that game (by any of the children)
 const got = new Set(allKids().flatMap(([, k]) => k.stickers.map((id) => id)));
-['candy', 'uni', 'mermaid', 'derby', 'princess'].forEach((g) => {
+['candy', 'uni', 'mermaid', 'derby', 'princess', 'plinko'].forEach((g) => {
   const n = STICKERS.filter((s) => s.game === g && got.has(s.id)).length, card = document.querySelector(`.game.${g}`);
   if (n && card) card.insertAdjacentHTML('beforeend', `<span class="badge" aria-label="${n} stickers">${'<i></i>'.repeat(n)}</span>`);
 });

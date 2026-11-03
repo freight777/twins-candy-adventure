@@ -20,3 +20,6 @@ The raw files are in public/assets/mocap/; tools/export-clips.cjs turns them int
   The uniforms, cap, helmet and name/number are made in code; the motion is the CMU data above.
 - Players' bodies and faces: Quaternius "Universal Base Characters" Superhero Male (CC0, https://quaternius.com/packs/universalbasecharacters.html), public/assets/derby/char/ubc/
   (textures resized for the web). The baseball uniforms, caps, helmet, hair and name/number are generated in code (src/derby/skinned.js).
+
+## Sparkle Plinko sounds (CC0)
+- Peg clinks, bumper bells, the plunger, coins and the pizzicato / steel-drum jingles: [Kenney](https://kenney.nl) Impact Sounds, Interface Sounds, Casino Audio and Music Jingles (CC0), the same packs Wishwood uses, joined into public/assets/plinko/sfx.mp3 by tools/plinko-sfx.mjs.

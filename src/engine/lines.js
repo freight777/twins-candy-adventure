@@ -122,6 +122,9 @@ story('cat', 'Oh no! I lost my toy fish! Can you help me find it?', "Thank you, 
 // Tony's Home Run Derby
 story('counter', 'Play ball!', 'Home run!');
 story('announcer', 'Play ball!', 'Home run!', 'Almost! Try again!', 'Great game!', 'Home run hero!', 'Here comes the pitch!', 'Left!', 'Right!');
+// Sparkle Plinko (the lines live in src/plinko/boards.js THEMES[..].lines)
+story('uni', 'Pull it down and let go!', 'Jackpot! Times ten!', 'Rainbow magic! Three balls!', 'Bonus ball!', 'Last ball!', 'Double points!', 'Up, up in the cloud!', 'Great game!', 'A new high score!');
+story('hero', 'Pull it down and let go!', 'Jackpot! Times ten!', 'Trident magic! Three balls!', 'Bonus ball!', 'Last ball!', 'Double points!', 'Up, up in the bubble!', 'Great game!', 'A new high score!');
 // Mom and Dad
 story('mom', "Girls! Don't go too far!", 'Wake up, sleepyheads!', 'Look! Candy, presents and toys are here!', 'Have fun, girls!');
 story('dad', 'Look at you two!', 'Great swimming!');

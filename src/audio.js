@@ -336,6 +336,9 @@ const SONGS = {
   ocean: { bpm: 86, swing: .04, chords: [[50, MAJ7], [47, MIN7], [43, MAJ7], [45, DOM7], [50, MAJ7], [47, MIN7], [52, MIN7], [45, DOM7]], scale: PENT(74), lead: 'bell', drums: 0, pad: .1 },
   park: { bpm: 112, swing: .05, chords: [[48, MAJ], [53, MAJ], [55, MAJ], [48, MAJ]], scale: PENT(72), lead: 'pluck', drums: 1, pad: .05 },
   castle: { bpm: 100, swing: 0,   chords: [[48, MAJ], [41, MAJ], [43, MAJ], [48, MAJ]], scale: PENT(60), lead: 'bell', drums: 0, pad: .1 },
+  // Sparkle Plinko: a bouncy rainbow arpeggio for the unicorns, a swung island strum for the lagoon
+  plinkoUni: { bpm: 128, swing: 0, chords: [[48, MAJ], [45, MIN], [41, MAJ], [43, MAJ], [48, MAJ], [52, MIN], [41, MAJ], [43, DOM7]], scale: PENT(72), lead: 'bell', drums: 1, pad: .05, arp: true },
+  plinkoSea: { bpm: 112, swing: .14, chords: [[50, MAJ], [55, MAJ], [57, DOM7], [50, MAJ], [47, MIN], [55, MAJ], [57, DOM7], [50, MAJ]], scale: PENT(74), lead: 'pluck', drums: 1, pad: .06 },
 };
 let cur = null, timer = null, nextT = 0, step = 0, phrase = [], phraseOld = [], lastIdx = 3;
 
@@ -432,6 +435,18 @@ export function playScore(score, { loop = false, onBar = null, onEnd = null } = 
   };
   iv = setInterval(tick, 100); tick();
   return { length: score.bars.length * barLen, stop() { clearInterval(iv); if (live()) stopScore(); } };
+}
+/** the shared audio clock (null until the first tap): for games that decode their own sound sprites */
+export const audioCtx = () => ctx;
+/** play part of a decoded buffer (a sprite cue) through the main mix: rate shifts the pitch, pan -1..1, wet = how much room */
+export function playBuffer(buf, start = 0, dur = buf ? buf.duration : 0, { rate = 1, vol = 1, wet = 0.12, pan = 0 } = {}) {
+  if (!ctx || !buf || ctx.state !== 'running') return;
+  const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = buf; s.playbackRate.value = rate; g.gain.value = vol;
+  let out = g;
+  if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); out = p; }
+  s.connect(g); out.connect(master);
+  if (wet && reverbIn) { const w = ctx.createGain(); w.gain.value = wet; out.connect(w); w.connect(reverbIn); }
+  s.start(0, start, dur);
 }
 /** play a recorded voice clip at an exact audio time (a word landing on the beat); missing clips are skipped */
 export function clipAt(id, when) {

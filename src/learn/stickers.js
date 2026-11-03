@@ -17,6 +17,9 @@ export const STICKERS = [
   S('royal-feast', '\u{1F370}', 'Royal feast', 'princess', ['esmae'], 'Serve ten dishes in Princess Kitchen'),
   S('derby-hero', '\u{1F3C6}', 'Home run hero', 'derby', ['tony', 'adalyn', 'esmae'], 'Hit five home runs in one game'),
   S('derby-best', '\u{1F31F}', 'Best ever', 'derby', ['tony', 'adalyn', 'esmae'], 'Beat your best number of home runs'),
+  S('plinko-rainbow', '\u{1F308}', 'Rainbow jackpot', 'plinko', ALL, 'Land a ball in the x10 slot on Rainbow Plinko'),
+  S('plinko-lagoon', '\u{1F41A}', 'Lagoon jackpot', 'plinko', ALL, 'Land a ball in the x10 slot on Mermaid Plinko'),
+  S('plinko-super', '\u{1F4AF}', 'Super score', 'plinko', ALL, 'Score 5,000 points in one round of Sparkle Plinko'),
   // learning: every new reading or math level (only real first-try answers move a level)
   ...['\u{1F4D7}', '\u{1F4D8}', '\u{1F4D9}', '\u{1F4D5}', '\u{1F4D3}', '\u{1F4DA}'].map((e, i) => S(`reading-${i + 1}`, e, `Reading star ${i + 1}`, 'learn', ALL, `Reach reading level ${i + 1}`)),
   ...['\u{1F522}', '➕', '➖', '\u{1F51F}', '\u{1F9EE}', '\u{1F4AF}'].map((e, i) => S(`math-${i + 1}`, e, `Math star ${i + 1}`, 'learn', ALL, `Reach math level ${i + 1}`)),
