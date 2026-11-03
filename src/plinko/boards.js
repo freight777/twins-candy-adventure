@@ -119,5 +119,5 @@ export const THEMES = {
 /** everyone who can be on the leaderboard (no typing: tap your face) */
 export const PLAYERS = {
   adalyn: { emoji: '\u{1F984}', name: 'Addie' }, esmae: { emoji: '\u{1F9DC}‍♀️', name: 'Esmae' }, tony: { emoji: '⚾', name: 'Tony' },
-  mom: { emoji: '\u{1F469}', name: 'Mommy' }, dad: { emoji: '\u{1F468}', name: 'Daddy' },
+  jackson: { emoji: '\u{1F69A}', name: 'Jackson' }, mom: { emoji: '\u{1F469}', name: 'Mommy' }, dad: { emoji: '\u{1F468}', name: 'Daddy' },
 };
