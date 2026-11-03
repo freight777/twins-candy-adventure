@@ -23,3 +23,7 @@ The raw files are in public/assets/mocap/; tools/export-clips.cjs turns them int
 
 ## Sparkle Plinko sounds (CC0)
 - Peg clinks, bumper bells, the plunger, coins and the pizzicato / steel-drum jingles: [Kenney](https://kenney.nl) Impact Sounds, Interface Sounds, Casino Audio and Music Jingles (CC0), the same packs Wishwood uses, joined into public/assets/plinko/sfx.mp3 by tools/plinko-sfx.mjs.
+
+## Claw Machine
+- Toy physics: [cannon-es](https://github.com/pmndrs/cannon-es) (MIT).
+- The machine, the arcade, the plush toys and their fabric shading are all made in code (src/claw/); no downloaded art.
