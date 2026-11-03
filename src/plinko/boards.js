@@ -14,17 +14,27 @@ export const BUMP_VALUES = [10, 20, 30, 50], HITS_PER_LEVEL = 5;
 
 export const BUMPERS = [[180, 432], [340, 432], [100, 522], [260, 522], [420, 522], [180, 612], [340, 612]];
 
+/** a soft, floaty gravity: the ball takes its time through the pegs */
+export const GRAVITY = 950;
+/** the field is a shallow bowl with a flat middle: below the first pegs, a ball out toward the sides drifts back toward the
+ *  middle (k: per second squared per unit beyond the flat part); the middle itself is left alone so nothing settles on a bumper */
+/** how hard the plunger shoots for a pull of 0..1: a narrow window that always clears the gate and comes down over the middle */
+export const launchSpeed = (p) => 1250 + 400 * p;
+export const BOWL = { x: (L + LANE_X) / 2, inner: 60, top: 330, right: LANE_X, k: 3 };
+/** pegs: a dense staggered grid (still wider apart than a ball, so it always finds a way down) */
+const PEG_TOP = 334, PEG_DX = 41, PEG_DY = 34, PEG_ROWS = 12;
+
 /** pegs in staggered rows, leaving room around the bumpers and the kickers */
 export function pegLayout() {
   const pegs = [];
-  for (let row = 0; row < 10; row++) {
-    const y = 340 + row * 40, off = row % 2 ? 24.5 : 0;
-    for (let x = 40 + off; x < LANE_X - 18; x += 49) {
+  for (let row = 0; row < PEG_ROWS; row++) {
+    const y = PEG_TOP + row * PEG_DY, cx = (L + LANE_X) / 2, off = row % 2 ? PEG_DX / 2 : 0;
+    for (let x = cx + off - Math.floor((cx + off - L) / PEG_DX) * PEG_DX; x < LANE_X - 18; x += PEG_DX) {     // centred, so both walls get the same gaps
       if (x < L + 40 || x > LANE_X - 40) continue;      // never closer to a wall than a ball is wide: it would wedge there
       if (y < 380 && x > LANE_X - 70) continue;          // keep the mouth of the launch lane clear
       if (BUMPERS.some(([bx, by]) => Math.hypot(bx - x, by - y) < 46)) continue;
       if (BIG_SPOTS.some(([bx, by]) => Math.hypot(bx - x, by - y) < 30)) continue;
-      if ((x < L + 80 || x > LANE_X - 80) && KICKERS.some((k) => Math.abs(k.y - y) < 44)) continue;
+      if (KICKERS.some((k) => Math.hypot((k.side < 0 ? L + k.d : LANE_X - k.d) - x, k.y - y) < 44)) continue;
       pegs.push([x, y]);
     }
   }
@@ -38,8 +48,8 @@ export function gapSpots() {
   if (gaps) return gaps;
   const pegs = pegLayout();
   gaps = [];
-  for (let row = 0; row < 9; row++) for (let x = 52; x < LANE_X - 40; x += 24.5) {
-    const y = 360 + row * 40;
+  for (let row = 0; row < PEG_ROWS - 1; row++) for (let x = 52; x < LANE_X - 40; x += PEG_DX / 2) {
+    const y = PEG_TOP + PEG_DY / 2 + row * PEG_DY;
     if (pegs.some(([px, py]) => Math.hypot(px - x, py - y) < 17)) continue;
     if (BUMPERS.some(([bx, by]) => Math.hypot(bx - x, by - y) < 44)) continue;
     if (BIG_SPOTS.some(([bx, by]) => Math.hypot(bx - x, by - y) < 40)) continue;
@@ -48,7 +58,12 @@ export function gapSpots() {
   return gaps;
 }
 /** little triangles on both side walls that throw the ball back into the field */
-export const KICKERS = [{ side: -1, y: 470 }, { side: -1, y: 640 }, { side: 1, y: 470 }, { side: 1, y: 640 }];
+// (a row of them down each wall, so a ball can't slide straight down the side into a x1 slot)
+/** a bouncy bar on the upper left of the dome: a hard launch that rides round the dome is knocked back down into the
+ *  middle of the field instead of sliding down the left wall */
+const DA = Math.PI + .52;
+export const DEFLECTOR = { ax: DOME.cx + Math.cos(DA) * DOME.rx, ay: DOME.cy + Math.sin(DA) * DOME.ry, bx: 150, by: 200 };
+export const KICKERS = [400, 485, 570, 655].flatMap((y, i) => [{ side: -1, y: y + (i % 2) * 8, h: 22, d: 26 }, { side: 1, y: y + ((i + 1) % 2) * 8, h: 22, d: 26 }]);
 
 /** put the board into a physics world (src/plinko/physics.js): walls, dome, lane and gate, slots, kickers, pegs, bumpers, mover */
 export function build(w) {
@@ -66,10 +81,11 @@ export function build(w) {
   w.addSegment(LANE_X, PLUNGER_Y, R, PLUNGER_Y, { r: 2, e: .2, oneWay: [0, -1], kind: 'plunger' });
   w.addSegment(L, FLOOR, LANE_X, FLOOR, { r: 2, e: .25, kind: 'floor' });
   for (let i = 1; i < MULTS.length; i++) w.addSegment(L + i * SLOT_W, SLOT_TOP, L + i * SLOT_W, FLOOR, { r: 4, e: .3, kind: 'divider' });
+  const d = DEFLECTOR; w.addSegment(d.ax, d.ay, d.bx, d.by, { r: 5, e: .25, kind: 'kicker' });
   for (const k of KICKERS) {
-    const x0 = k.side < 0 ? L : LANE_X, tip = x0 - k.side * 30;
-    w.addSegment(x0, k.y - 28, tip, k.y, { r: 2, e: .9, kick: 380, kind: 'kicker' });
-    w.addSegment(tip, k.y, x0, k.y + 28, { r: 2, e: .9, kick: 380, kind: 'kicker' });
+    const x0 = k.side < 0 ? L : LANE_X, tip = x0 - k.side * k.d;
+    w.addSegment(x0, k.y - k.h, tip, k.y, { r: 2, e: .9, kick: 380, kind: 'kicker' });
+    w.addSegment(tip, k.y, x0, k.y + k.h, { r: 2, e: .9, kick: 380, kind: 'kicker' });
   }
   return {
     pegs: pegLayout().map(([x, y]) => Object.assign(w.addCircle(x, y, 5, { e: .5, kind: 'peg' }), { lit: 0 })),

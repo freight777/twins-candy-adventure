@@ -1,9 +1,9 @@
 // Sparkle Plinko's little physics world: balls (circles) bouncing off pegs and bumpers (circles), walls (thick line segments)
 // and swimming/fluttering movers, with pass-through sensors for the pickups. Sub-stepped so a fast ball never tunnels through
 // a thin peg. Pure maths, no drawing: the game listens through onHit / onSensor.
-export function createWorld({ gravity = 1400 } = {}) {
+export function createWorld({ gravity = 1400, bowl = null } = {}) {
   const W = {
-    gravity, balls: [], circles: [], segments: [], sensors: [],
+    gravity, bowl, balls: [], circles: [], segments: [], sensors: [],     // bowl: { x, top, k } pulls balls below top toward x
     onHit: null,           // (ball, shape, speed) after a bounce
     onSensor: null,        // (ball, sensor) the first moment a ball overlaps a sensor
   };
@@ -26,7 +26,7 @@ export function createWorld({ gravity = 1400 } = {}) {
     // reflect the normal part, keep most of the sliding part (a touch of friction so balls don't skate forever)
     let tx = rvx - vn * nx, ty = rvy - vn * ny; tx *= .985; ty *= .985;
     let out = speed * e;
-    if (kick) out = Math.max(out, kick);
+    if (kick && !b.tired) out = Math.max(out, kick);      // a tired ball (in play a long time) gets no more springy kicks
     b.vx = tx + nx * out + svx; b.vy = ty + ny * out + svy;
     if (W.onHit) W.onHit(b, shape, speed);
   }
@@ -77,6 +77,7 @@ export function createWorld({ gravity = 1400 } = {}) {
       for (const b of W.balls) {
         if (b.pinned || b.lift) continue;
         b.vy += W.gravity * h;
+        if (W.bowl && !b.tired && b.y > W.bowl.top && b.x < W.bowl.right) { const dx = b.x - W.bowl.x, off = Math.abs(dx) - (W.bowl.inner || 0); if (off > 0) b.vx -= Math.sign(dx) * off * W.bowl.k * h; }
         const sp = Math.hypot(b.vx, b.vy); if (sp > 2400) { b.vx *= 2400 / sp; b.vy *= 2400 / sp; }
         b.x += b.vx * h; b.y += b.vy * h;
         collide(b);

@@ -2,7 +2,7 @@
 // fish), the board drawn once into its own canvas whenever the screen size changes, and every frame the pegs lighting up, the
 // bumpers pulsing, the pickups bobbing, the balls with their trails, and the particles. Fluent Emoji 3D pictures are the art.
 import { fluentURL } from '../engine/fluent.js';
-import { W, H, L, LANE_X, R, DOME, GATE_Y, PLUNGER_Y, SLOT_TOP, FLOOR, MULTS, SLOT_W, KICKERS, BALL_R } from './boards.js';
+import { W, H, L, LANE_X, R, DOME, GATE_Y, PLUNGER_Y, SLOT_TOP, FLOOR, MULTS, SLOT_W, KICKERS, DEFLECTOR, BALL_R } from './boards.js';
 
 const TAU = Math.PI * 2;
 const FONT = (px, w = 700) => `${w} ${px}px Fredoka, system-ui, sans-serif`;
@@ -183,8 +183,8 @@ export function createRenderer(cv) {
     b.restore();
     // kickers: candy triangles on the side walls
     for (const kk of KICKERS) {
-      const x0 = kk.side < 0 ? L : LANE_X, tip = x0 - kk.side * 30;
-      b.beginPath(); b.moveTo(x0, kk.y - 28); b.lineTo(tip, kk.y); b.lineTo(x0, kk.y + 28); b.closePath();
+      const x0 = kk.side < 0 ? L : LANE_X, tip = x0 - kk.side * kk.d;
+      b.beginPath(); b.moveTo(x0, kk.y - kk.h); b.lineTo(tip, kk.y); b.lineTo(x0, kk.y + kk.h); b.closePath();
       const kg = b.createLinearGradient(x0, 0, tip, 0); kg.addColorStop(0, theme.frame[2]); kg.addColorStop(1, theme.frame[1]);
       b.fillStyle = kg; b.fill(); b.strokeStyle = 'rgba(255,255,255,.8)'; b.lineWidth = 2.5; b.stroke();
     }
@@ -193,6 +193,7 @@ export function createRenderer(cv) {
     for (let i = 1; i < MULTS.length; i++) post(b, L + i * SLOT_W, SLOT_TOP, L + i * SLOT_W, FLOOR, 4);
     // the gate at the top of the lane
     post(b, LANE_X, GATE_Y, R, GATE_Y - 40, 3);
+    post(b, DEFLECTOR.ax, DEFLECTOR.ay, DEFLECTOR.bx, DEFLECTOR.by, 5); gemDot(b, DEFLECTOR.bx, DEFLECTOR.by, 5, theme.gemColors[0]);
     // gems set into the frame
     for (let i = 0; i <= 12; i++) {
       const a = Math.PI + (i / 12) * Math.PI, x = DOME.cx + Math.cos(a) * (DOME.rx + 9), y = DOME.cy + Math.sin(a) * (DOME.ry + 9);

@@ -10,7 +10,7 @@ import { homeGate } from '../engine/gate.js';
 import { unlock, playMusic, stopMusic, say, sfx } from '../audio.js';
 import { earn } from '../engine/sticker.js';
 import { createWorld } from './physics.js';
-import { THEMES, PLAYERS, L, LANE_X, R, GATE_Y, PLUNGER_Y, BALL_R, SLOT_TOP, FLOOR, MULTS, SLOT_W, BUMP_VALUES, HITS_PER_LEVEL, BIG_SPOTS, build, gapSpots } from './boards.js';
+import { THEMES, PLAYERS, L, LANE_X, R, GATE_Y, PLUNGER_Y, BALL_R, SLOT_TOP, FLOOR, MULTS, SLOT_W, BUMP_VALUES, HITS_PER_LEVEL, BIG_SPOTS, GRAVITY, BOWL, launchSpeed, build, gapSpots } from './boards.js';
 import { createRenderer, preloadEmoji } from './draw.js';
 import { loadSfx, play, scaleRate, warm } from './sound.js';
 
@@ -21,7 +21,7 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 homeGate();
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
 
-const BALLS = 10, METER_MAX = 1500, MAX_BONUS = 3;     // a round scores ~4-6k: about one bonus ball every three or four balls
+const BALLS = 10, METER_MAX = 6000, MAX_BONUS = 3;     // a round scores ~15-20k: about one bonus ball every three or four balls
 const LANE_CX = (LANE_X + R) / 2;
 
 // ---------------------------------------------------------------- saved on this device: who is playing, and the leaderboards
@@ -54,7 +54,7 @@ const S = {
 };
 
 function buildWorld(theme) {
-  const w = createWorld({ gravity: 1400 });
+  const w = createWorld({ gravity: GRAVITY, bowl: BOWL });
   Object.assign(S, build(w));
   S.mover.phase = rnd(0, 6);
   w.onHit = onHit; w.onSensor = onSensor;
@@ -101,7 +101,7 @@ function readyBall() {
 }
 function launch(p) {
   const b = S.ready; if (!b) return;
-  b.pinned = false; b.vx = rnd(-8, 8); b.vy = -(1250 + 520 * p + rnd(-15, 15));
+  b.pinned = false; b.vx = rnd(-8, 8); b.vy = -(launchSpeed(p) + rnd(-10, 10));
   S.ready = null; S.pull = 0; S.kick = -14; S.pulling = null; S.auto = null;
   S.ballsLeft--; S.launched++; S.readyTimer = .9; S.idle = 0; $('#hint').classList.remove('show');
   play('thunk', { vol: .9 }); sfx.swoosh();
@@ -219,7 +219,7 @@ function finish() {
   const theme = S.theme, P = view.P;
   play(theme.jingles.end); sfx.tada(); P.rain(theme.friends, 24); line('end'); react('spin');
   const res = saveScore(theme.id, S.score);
-  if (['adalyn', 'esmae', 'tony'].includes(who) && S.score >= 5000) earn(who, 'plinko-super');
+  if (['adalyn', 'esmae', 'tony'].includes(who) && S.score >= 20000) earn(who, 'plinko-super');
   setTimeout(() => {
     if (res.top) { banner('NEW HIGH SCORE!', 'jackpot'); line('best'); P.rain(['\u{1F3C6}', '⭐', '\u{1F947}'], 18); }
     $('#final').textContent = S.score.toLocaleString(); $('#overHero').textContent = theme.hero;
@@ -304,6 +304,7 @@ function update(dt) {
   for (const b of [...w.balls]) {
     if (b.pinned) continue;
     b.trail.push([b.x, b.y]); if (b.trail.length > 14) b.trail.shift();
+    b.age = (b.age || 0) + sdt; if (b.age > 12) b.tired = true;          // a long rally winds down: no more springy kicks, so it settles
     if (S.theme.trail === 'bubbles' && !b.lift && Math.random() < .35) view.P.bubbles(b.x, b.y, 1);
     if (b.y > FLOOR - 34 && b.x < LANE_X) { land(b, clamp(Math.floor((b.x - L) / SLOT_W), 0, MULTS.length - 1)); continue; }
     // never stuck: resting on a bumper, or rattling in one place, earns a nudge
