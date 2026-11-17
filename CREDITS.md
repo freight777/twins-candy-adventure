@@ -38,3 +38,6 @@ The raw files are in public/assets/mocap/; tools/export-clips.cjs turns them int
 - Theme pictures and maze shapes (the shapes are the pictures' silhouettes): [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) 3D renders by Microsoft (MIT), public/assets/shelf/ and src/shelf/shapes.js, made by tools/fetch-art.mjs.
 - Sounds: [Kenney](https://kenney.nl) RPG Audio, Interface Sounds, Impact Sounds and Music Jingles (CC0), joined into public/assets/shelf/sfx.mp3 by tools/game-sfx.mjs.
 - The maze generator (Growing Tree) comes from the Puzzle Shelf build spec, after Jamis Buck's write-ups.
+- Hidden-picture objects: [OpenMoji](https://openmoji.org) — the open-source emoji and icon project. License: CC BY-SA 4.0. Line and colour versions,
+  fetched by tools/build-art.mjs into public/art/ (sprite sheets) and src/shelf/ispy/art/ (words and silhouette masks).
+- The hidden-picture backdrops (src/shelf/ispy/sets.js) are drawn in code for this game.

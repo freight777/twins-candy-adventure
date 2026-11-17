@@ -91,3 +91,80 @@ body:not([data-screen="shelf"]) #leave { display: none; }
 .hints .pulse { fill: none; stroke: #ff8a00; stroke-width: .1; transform-box: fill-box; transform-origin: center; animation: pulse 1.1s ease-out infinite; }
 @keyframes pulse { from { transform: scale(.6); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
 .page .art .decor image { opacity: .95; }
+
+/* ---------------------------------------------------------------------------------------------- planks: one per kind of book */
+.shelf { overflow-y: auto; touch-action: pan-y; justify-content: flex-start; }
+.shelf h1 { margin-top: max(2vh, 8px); }
+.shelf > .keep { flex: 0 0 auto; }
+.plank { position: relative; padding-left: 64px; }
+.kind-tag { position: absolute; left: 6px; bottom: 26px; width: 48px; height: 48px; border-radius: 50%; background: #8a5426; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 0 #6b3b17; }
+.kind-tag svg { width: 30px; height: 30px; }
+.lens { position: absolute; top: 6px; right: 6px; width: 34px; height: 34px; border-radius: 50%; border: 5px solid #fff; box-shadow: 0 2px 0 #0003; }
+.lens::after { content: ''; position: absolute; right: -12px; bottom: -10px; width: 6px; height: 16px; border-radius: 3px; background: #fff; transform: rotate(-45deg); }
+.keep .mini { background: #fff; }
+
+/* the look switch on a hidden-picture book, and the chooser the first time */
+.look-switch { display: flex; gap: 14px; }
+.look-switch button { width: 112px; aspect-ratio: 4 / 3; border-radius: 12px; background: #fff; padding: 4px; box-shadow: 0 0 0 3px #bbb; opacity: .7; }
+.look-switch button.on { box-shadow: 0 0 0 5px #2dbb5a; opacity: 1; }
+.look-switch svg, .chooser svg { width: 100%; height: 100%; display: block; border-radius: 8px; }
+.chooser { position: fixed; inset: 0; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4vmin; padding: 90px 16px 16px; background: #f7f1e3f2; }
+.chooser button { width: min(42vw, 60vh, 460px); aspect-ratio: 4 / 3; border-radius: 22px; background: #fff; padding: 8px; box-shadow: 0 0 0 4px #222, 0 8px 0 4px #222; animation: pop-up .4s cubic-bezier(.3, 1.7, .5, 1) both; }
+.chooser button:nth-child(2) { animation-delay: .1s; }
+
+/* ---------------------------------------------------------------------------------------------- a hidden-picture page */
+.ispy-page .scene { position: absolute; touch-action: none; border-radius: 14px; box-shadow: 0 0 0 4px #222; overflow: hidden; background: #fff; }
+.scene .paper { fill: #fffdf7; }
+.scene .fills { opacity: 0; transition: opacity 1.4s ease-in-out; }
+.scene.color .fills, .scene.flooded .fills { opacity: 1; }
+.scene.color .paper { fill: #f3f0ff; }
+.scene .it.found.pop { animation: thing-pop .5s cubic-bezier(.3, 1.8, .5, 1); transform-box: fill-box; transform-origin: center; }
+.scene.color .it.found.pop { animation-name: thing-hop; }
+.scene .it .paint { opacity: 0; animation: paint .5s ease-out forwards; }
+.scene .it .paint.flood { animation-duration: .9s; }
+.scene .it.wave { animation: thing-hop .6s cubic-bezier(.3, 1.8, .5, 1) 2 both; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes paint { to { opacity: 1; } }
+@keyframes thing-pop { 40% { scale: 1.3; } }
+@keyframes thing-hop { 40% { translate: 0 -14%; } }
+.scene .ink .stroke { fill: none; stroke: #e0245e; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+.scene .ink .stroke.fade { transition: opacity .5s; opacity: 0; }
+.scene .ink .ring { fill: none; stroke: #e0245e; stroke-width: 7; stroke-linecap: round; opacity: .85; }
+.scene .ink .ring.fresh { stroke-dasharray: 600; stroke-dashoffset: 600; animation: draw-ring .45s ease-out forwards; }
+@keyframes draw-ring { to { stroke-dashoffset: 0; } }
+.scene .fx .ripple { fill: none; stroke: #2f6fff; stroke-width: 4; animation: ripple .6s ease-out forwards; transform-box: fill-box; transform-origin: center; }
+@keyframes ripple { to { scale: 4; opacity: 0; } }
+.scene .spot .shade { fill: #1b1030; opacity: .42; }
+.scene.calm { opacity: .6; transition: opacity .2s; }
+
+.tray { position: absolute; z-index: 10; display: flex; gap: 10px; padding: 10px; overflow-x: auto; touch-action: pan-x;
+  left: calc(env(safe-area-inset-left) + 12px); right: calc(env(safe-area-inset-right) + 12px); bottom: calc(env(safe-area-inset-bottom) + 10px); height: 116px;
+  background: #fffdf7; border-radius: 18px; box-shadow: 0 0 0 3px #222; }
+.ispy-page.tray-right .tray { flex-direction: column; overflow-x: hidden; overflow-y: auto; touch-action: pan-y; left: auto; width: 180px; height: auto;
+  top: calc(env(safe-area-inset-top) + 88px); bottom: calc(env(safe-area-inset-bottom) + 12px); }
+.ti { position: relative; flex: 0 0 auto; min-width: 92px; min-height: 92px; padding: 6px 8px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 2px #ddd;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.tray-right .ti { flex-direction: row; justify-content: flex-start; gap: 8px; min-height: 64px; }
+.ti svg { width: 56px; height: 56px; flex: 0 0 auto; }
+.ti .word { font-size: 17px; font-weight: 700; color: #333; line-height: 1.05; text-align: center; }
+.ti .count { position: absolute; top: 2px; right: 6px; font-weight: 700; font-size: 18px; color: #e0245e; }
+.ti .dots { display: flex; gap: 4px; }
+.ti .dots i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid #e0245e; }
+.ti .dots i.on { background: #e0245e; }
+.ti.done { background: #eaffea; box-shadow: 0 0 0 2px #2dbb5a; }
+.ti.done::after { content: ''; position: absolute; left: 50%; top: 50%; width: 22px; height: 40px; margin: -30px 0 0 -11px; border: solid #2dbb5a; border-width: 0 9px 9px 0; transform: rotate(40deg); border-radius: 3px; }
+.ti.done svg, .ti.done .word { opacity: .45; }
+.ti.wiggle { animation: wiggle .5s; }
+.ti.just { animation: thing-pop .5s cubic-bezier(.3, 1.8, .5, 1); }
+.ti.pulse { animation: tray-pulse 1s ease-in-out 3; }
+@keyframes wiggle { 25% { rotate: -8deg; } 75% { rotate: 8deg; } }
+@keyframes tray-pulse { 50% { scale: 1.15; box-shadow: 0 0 0 5px #ff8a00; } }
+.minimap { position: absolute; z-index: 9; width: 80px; height: 60px; border-radius: 6px; background: #fff9; box-shadow: 0 0 0 2px #222; pointer-events: none; }
+.minimap.hidden { display: none; }
+.minimap i { position: absolute; border: 2px solid #e0245e; border-radius: 3px; box-sizing: border-box; }
+/* a phone held upright: the kind badge sits in the row, covers show their picture and ribbon only */
+@media (max-width: 560px) {
+  .plank { padding-left: 0; padding-right: 0; gap: 10px; }
+  .kind-tag { position: static; align-self: center; }
+  .book .cover-title { display: none; }
+  .book, .keep { width: clamp(84px, 26vw, 140px); }
+}

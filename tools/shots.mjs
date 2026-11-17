@@ -36,6 +36,8 @@ const SHELF = [
   ['06-ocean-l5-debug', 'page=maze:ocean:5:1234&debug=1'], ['07-gameday-l5-part', 'page=maze:gameday:5:1234', 0.4],
   ['08-gameday-l5-done', 'page=maze:gameday:5:1234', 1], ['09-cars-l7', 'page=maze:cars:7:77'],
   ['10-dinosaurs-l8-debug', 'page=maze:dinosaurs:8:2&debug=1'], ['11-ocean-l10', 'page=maze:ocean:10:1010'], ['12-gameday-book-page-24', 'book=maze-gameday&n=24'],
+  ['13-ispy-gameday-l1-line', 'page=ispy:gameday:1:11&look=line'], ['14-ispy-cars-l3-color', 'page=ispy:cars:3:33&look=color'],
+  ['15-ispy-dinosaurs-l6-line', 'page=ispy:dinosaurs:6:66&look=line'], ['16-ispy-ocean-l9-line', 'page=ispy:ocean:9:99&look=line'], ['17-ispy-book-chooser', 'book=ispy-gameday'],
 ];
 
 const server = await createServer({ root: ROOT, configFile: path.join(ROOT, 'vite.config.js'), server: { port: 5199, strictPort: false }, logLevel: 'error' });
@@ -63,6 +65,6 @@ try {
   if (!only || only === 'match') for (const [name, q] of MATCH) for (const [sz, size] of Object.entries(MATCH_SIZES))
     await shoot(`match-${name}-${sz}.png`, `${base}/match.html?${q}`, size, () => !!window.match?.game);
   if (!only || only === 'shelf') for (const [name, q, draw, then] of SHELF) for (const [sz, size] of Object.entries(SHELF_SIZES))
-    await shoot(`shelf-${name}-${sz}.png`, `${base}/shelf.html${q ? '?' + q : ''}`, size, () => !!window.shelf?.route, draw, then);
+    await shoot(`shelf-${name}-${sz}.png`, `${base}/shelf.html${q ? '?' + q : ''}`, size, () => !!window.shelf?.route && (!location.search.includes('ispy') || !!window.__ispy || !!document.querySelector('.chooser use')), draw, then);
   console.log(`${n} screenshots in ${path.relative(process.cwd(), OUT) || OUT}`);
 } finally { await browser.close(); await server.close(); }
