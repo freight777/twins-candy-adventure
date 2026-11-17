@@ -44,7 +44,8 @@ body[data-theme="mermaid"] { --bg0: #8ee8ff; --bg1: #2a7fd0; --ink: #0f4f8a; }
   background: #fff; font-size: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 0 #0002; }
 #home img.fe { width: 40px; height: 40px; }
 
-#win { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: #ffffff40; }
+#win { position: fixed; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; background: #ffffff70; }
+#winFriend { width: min(42vmin, 300px); filter: drop-shadow(0 12px 8px #0003); transform-origin: 50% 100%; animation: pop-in .5s cubic-bezier(.3, 1.7, .5, 1) both, dance .7s .5s ease-in-out infinite alternate; }
 #win.hidden { display: none; }
 #next { width: 140px; height: 140px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 10px #ffffff80, 0 10px 0 #0002;
   display: flex; align-items: center; justify-content: center; animation: pop-in .45s cubic-bezier(.3, 1.7, .5, 1) both, nudge 1.2s .8s ease-in-out infinite; }
@@ -54,3 +55,13 @@ body[data-theme="mermaid"] #next i { border-left-color: #2a8dff; }
 @keyframes pop-in { from { transform: scale(.2); opacity: 0; } }
 @keyframes nudge { 50% { transform: translateX(12px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01s !important; animation-iteration-count: 1 !important; } }
+
+/* a new level's goal: big in the middle, then into the goal bar */
+#intro { position: fixed; left: 50%; top: 45%; z-index: 7; display: none; gap: 18px; pointer-events: none; translate: -50% -50%; }
+#intro.show { display: flex; animation: pop-in .45s cubic-bezier(.3, 1.7, .5, 1) both; }
+#intro.show .chip { transform: scale(2.3); margin: 0 70px; box-shadow: 0 0 0 6px #fff, 0 10px 40px #0004; }
+#intro.fly { transition: transform .45s cubic-bezier(.5, 0, .7, 1), opacity .45s; }
+#intro.fly .chip { transform: scale(1); margin: 0; transition: transform .45s, margin .45s; }
+/* the friend leaves its place while it visits the board */
+#friend { transition: opacity .2s, transform .3s; }
+#friend.away { opacity: 0; transform: translateY(-30%) scale(.6); }

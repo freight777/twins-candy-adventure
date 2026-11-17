@@ -1,5 +1,6 @@
-// Sparkle Match — a match-3 a five-year-old can play alone and always win (see the build spec). Phase 1: real pieces for both doors,
-// every animation in §6's table, the three power-up effects, sounds, the hint hand. Deep links:
+// Sparkle Match — a match-3 a five-year-old can play alone and always win (see the build spec). Phases 1–2: real pieces for both doors,
+// every animation in §6's table, sounds, the hint hand; the goal bar with all five goals, the friend's visits, the four first-time
+// lessons (levels 1, 11, 21, 31) and the win screen. Deep links:
 //   match.html?level=34&theme=mermaid&seed=7
 import './match.css';
 import { Application, Sprite, Graphics, Container } from 'pixi.js';
@@ -7,11 +8,11 @@ import gsap from 'gsap';
 import confetti from 'canvas-confetti';
 import { holdGate } from '../engine/gate.js';
 import { applyBedtime } from '../engine/bedtime.js';
-import { unlock, voice } from '../audio.js';
+import { unlock, voice, say } from '../audio.js';
 import { sfxSprite } from '../engine/sfxsprite.js';
 import { createGame, play, remaining, bestMove } from './game/engine.js';
 import { makeLevel } from './game/levels.js';
-import { THEMES, slug } from './themes.js';
+import { THEMES, slug, lessonOne } from './themes.js';
 import { Board } from './view/board.js';
 import { loadArt } from './view/piece.js';
 import { attachInput } from './view/input.js';
@@ -37,7 +38,7 @@ $('#stage').appendChild(app.canvas);
 const tex = await loadArt(theme);
 const board = new Board(app, theme, tex), flyLayer = new Container(); app.stage.addChild(flyLayer);
 const hint = await createHint(board);
-$('#friend').src = artSrc(theme.art.friend);
+$('#friend').src = artSrc(theme.art.friend); $('#winFriend').src = artSrc(theme.art.friend);
 
 let g = null, level = 1, seed = 0, busy = false, pending = null, idle = 0;
 
@@ -53,7 +54,34 @@ function start(n, s) {
   hint.hide(); board.load(g); drawGoal(); layout();
   $('#win').classList.add('hidden'); $('#friend').classList.remove('dance');
   history.replaceState(null, '', `?level=${level}&theme=${themeId}&seed=${seed}`);
+  lesson = LESSONS.includes(level) && !lessonsDone().includes(level);
+  introGoal().then(() => { if (lesson && g.moves === 0) { speak(level === 1 ? lessonOne(theme, g.level.goal.kinds[0]) : theme.lines.lesson[level], true); hint.show(bestMove(g)); } });
   poke();
+}
+
+// ------------------------------------------------------------------------------------------------ first-time lessons (§2)
+// Levels 1, 11, 21 and 31 introduce a goal: the hand demonstrates the first move at once and one sentence is spoken.
+// The lesson repeats each time the level is opened until it has been won once (per door).
+const LESSONS = [1, 11, 21, 31], LKEY = `sm.lessons.${themeId}`;
+let lesson = false;
+const lessonsDone = () => { try { return JSON.parse(localStorage.getItem(LKEY)) || []; } catch { return []; } };
+function lessonWon() { if (!lesson) return; try { localStorage.setItem(LKEY, JSON.stringify([...new Set([...lessonsDone(), level])])); } catch { /* fine */ } lesson = false; }
+
+// ------------------------------------------------------------------------------------------------ the friend's voice (praise at most once every 8 s)
+let saidAt = -1e9;
+function speak(line, always = false) { if (!always && performance.now() - saidAt < 8000) return; saidAt = performance.now(); say(line, theme.voice, { priority: 1 }); }
+const pickLine = (list) => list[(Math.random() * list.length) | 0];
+
+/** a new level: its goal appears big in the middle — picture and number — then flies into the goal bar */
+function introGoal() {
+  const box = $('#intro'), chips = $('#chips');
+  box.innerHTML = chips.innerHTML; box.className = 'show'; chips.style.visibility = 'hidden';
+  return new Promise((res) => setTimeout(() => {
+    const from = box.getBoundingClientRect(), to = chips.getBoundingClientRect();
+    box.style.transform = `translate(${to.left + to.width / 2 - (from.left + from.width / 2)}px, ${to.top + to.height / 2 - (from.top + from.height / 2)}px) scale(${Math.min(1, to.width / from.width)})`;
+    box.classList.add('fly');
+    setTimeout(() => { box.className = ''; box.style.transform = ''; box.innerHTML = ''; chips.style.visibility = ''; res(); }, 450);
+  }, 1300));
 }
 
 // ------------------------------------------------------------------------------------------------ the goal bar: pictures and numerals only
@@ -104,11 +132,14 @@ let cheerAt = 0;
 function cheer() {
   const f = $('#friend'); f.classList.remove('cheer'); void f.offsetWidth; f.classList.add('cheer');
   if (performance.now() - cheerAt > 2500) { cheerAt = performance.now(); sfx.play(themeId === 'unicorn' ? 'jUniCheer' : 'jSeaCheer', { vary: false, vol: 0.8 }); }
+  speak(pickLine(theme.lines.praise));
 }
-board.hooks = { sound: (c, o) => sfx.play(c, o), cheer, fly };
+/** the friend leaves its place beside the board while it visits the board */
+function visit(on) { $('#friend').classList.toggle('away', on); if (on) speak(pickLine(theme.lines.help), true); }
+board.hooks = { sound: (c, o) => sfx.play(c, o), cheer, fly, visit };
 
 // ------------------------------------------------------------------------------------------------ moves
-function poke() { clearTimeout(idle); hint.hide(); idle = setTimeout(offerHint, 5000); }
+function poke() { clearTimeout(idle); hint.hide(); idle = setTimeout(offerHint, lesson && g?.moves === 0 ? 2500 : 5000); }
 function offerHint() { if (busy || !g || g.done) return poke(); hint.show(bestMove(g)); }
 
 /** one move from the child; while the board is still busy, remember the latest one and play it when it settles */
@@ -128,14 +159,15 @@ async function submit(m) {
   if (pending) { const p = pending; pending = null; submit(p); }
 }
 function celebrate() {
-  clearTimeout(idle); hint.hide();
+  clearTimeout(idle); hint.hide(); lessonWon();
+  speak(pickLine(theme.lines.win), true);
   sfx.play(themeId === 'unicorn' ? 'jUniWin' : 'jSeaWin', { vary: false });
   $('#friend').classList.add('dance');
   const colors = theme.colors.concat(['#ffffff']);
   confetti({ particleCount: 120, spread: 90, startVelocity: 42, origin: { x: 0.5, y: 0.65 }, colors, disableForReducedMotion: true, zIndex: 4 });
   setTimeout(() => confetti({ particleCount: 60, angle: 60, spread: 60, origin: { x: 0, y: 0.8 }, colors, disableForReducedMotion: true, zIndex: 4 }), 250);
   setTimeout(() => confetti({ particleCount: 60, angle: 120, spread: 60, origin: { x: 1, y: 0.8 }, colors, disableForReducedMotion: true, zIndex: 4 }), 400);
-  setTimeout(() => $('#win').classList.remove('hidden'), 1400);       // then a single "next" arrow
+  setTimeout(() => $('#win').classList.remove('hidden'), 1400);       // then the friend dances in the middle, with a single "next" arrow
 }
 attachInput(app.canvas, board, submit);
 app.canvas.addEventListener('pointerdown', poke);

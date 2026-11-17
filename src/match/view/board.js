@@ -2,8 +2,8 @@
 // and play(steps) — animates the engine's step list in order, each step waiting for the one before (§3), with the feel of §6:
 // pops with particles on their own beat (a line power-up's ribbon sweeps outwards, a pop power-up's ring bursts, a magic piece
 // streaks to each piece in turn), chain reactions climbing a pentatonic scale, collected pieces flying to the goal bar.
-// hooks (set by main.js): sound(cue, opts) · cheer() · fly({ key, n, x, y, tex, at }) — x, y in screen px.
-import { Container, Graphics, Point } from 'pixi.js';
+// hooks (set by main.js): sound(cue, opts) · cheer() · fly({ key, n, x, y, tex, at }) — x, y in screen px · visit(on, kind).
+import { Container, Graphics, Point, Sprite } from 'pixi.js';
 import gsap from 'gsap';
 import { BABY, RAINBOW, ROW, COL, BURST, STAR } from '../game/engine.js';
 import { makePiece, restyle, pictureName, U } from './piece.js';
@@ -26,7 +26,7 @@ export class Board {
     this.root.addChild(this.squares, this.tileLayer, this.pieces, this.fxLayer, this.clip, this.top);
     this.pieces.mask = this.clip;                         // new pieces fall in from above without showing over the goal bar
     app.stage.addChild(this.root);
-    this.sprites = new Map(); this.fx = new Fx(this.fxLayer, this);
+    this.sprites = new Map(); this.fx = new Fx(this.fxLayer, this); this.below = 0;
     this.hooks = { sound() {}, cheer() {}, fly() {} };
   }
 
@@ -44,8 +44,21 @@ export class Board {
       sq.roundRect(x + 3, y + 3, U - 6, U - 6, 18).fill({ color: this.theme.square, alpha: odd ? 0.5 : 0.32 });
     }
     this.clip.clear().rect(-14, -14, w * U + 28, h * U + 28).fill(0xffffff);
+    this.drawHome(g.level.goal.type === 'drop');
     this.drawTiles();
     this.m.cells.forEach((c, i) => c && this.spawn(c, i));
+  }
+
+  /** on a bring-home level the friends' home sits under the board: a little burrow (rock pool) under every column, arrows pointing down */
+  drawHome(on) {
+    if (this.homeBand) { gsap.killTweensOf(this.homeBand.children); this.homeBand.destroy({ children: true }); this.homeBand = null; }
+    this.below = on ? 90 : 0; if (!on) return;
+    const { w, h } = this, [light, dark] = this.theme.homeColor, g = new Graphics(), arrows = new Graphics(), y = h * U + 18;
+    g.roundRect(-14, y, w * U + 28, 72, 30).fill(light);
+    for (let x = 0; x < w; x++) { const cx = x * U + U / 2; g.ellipse(cx, y + 50, 30, 22).fill(dark); g.ellipse(cx, y + 56, 22, 14).fill({ color: 0x000000, alpha: 0.25 }); }
+    for (let x = 0; x < w; x++) { const cx = x * U + U / 2; arrows.poly([cx - 13, y + 6, cx + 13, y + 6, cx, y + 22]).fill({ color: 0xffffff, alpha: 0.9 }); }
+    this.homeBand = new Container(); this.homeBand.addChild(g, arrows); this.root.addChildAt(this.homeBand, 0);
+    gsap.to(arrows, { y: 6, alpha: 0.5, duration: 0.6, yoyo: true, repeat: -1, ease: "sine.inOut" });
   }
 
   drawTiles(tiles = this.m.tiles) {                       // sparkle tiles: a glowing gold square under the piece (two layers = brighter)
@@ -68,9 +81,9 @@ export class Board {
 
   /** fit the board into a rectangle of the screen (CSS px); square cells, centred */
   layout(r) {
-    const k = Math.min(r.w / (this.w * U + 28), r.h / (this.h * U + 28));
+    const k = Math.min(r.w / (this.w * U + 28), r.h / (this.h * U + 28 + this.below));
     this.scale = k; this.root.scale.set(k);
-    this.root.position.set(r.x + (r.w - this.w * U * k) / 2, r.y + (r.h - this.h * U * k) / 2);
+    this.root.position.set(r.x + (r.w - this.w * U * k) / 2, r.y + (r.h - (this.h * U + this.below) * k) / 2);
   }
   /** the open, filled square under a screen point, or -1 */
   cellAt(x, y) {
@@ -222,25 +235,62 @@ export class Board {
     const tl = gsap.timeline(), flies = [];
     for (const b of babies) {
       const s = this.sprites.get(b.id); if (!s) continue; this.sprites.delete(b.id);
-      tl.to(s, { y: s.y - U * 0.4, duration: 0.15, ease: 'power2.out' }, 0).to(s, { y: s.y + U * 1.6, alpha: 0, duration: 0.3, ease: 'power2.in', onComplete: () => s.destroy({ children: true }) }, 0.15);
+      this.top.addChild(s);                                                 // out from under the board's clip, into its burrow below
+      const burrow = this.h * U + 18 + 46;
+      tl.to(s, { y: s.y - U * 0.4, duration: 0.15, ease: 'power2.out' }, 0).to(s, { y: burrow, duration: 0.35, ease: 'power2.in' }, 0.15)
+        .to(s.inner.scale, { x: 0.45, y: 0.45, duration: 0.35, ease: 'power1.in' }, 0.15).call(() => this.fx.burst(s.x, burrow, 0xffffff, 12, 1.2), null, 0.5)
+        .to(s, { alpha: 0, duration: 0.2, onComplete: () => s.destroy({ children: true }) }, 0.5);
       flies.push({ key: 'drop', n: 1, i: b.i, at: 0.1, tex: this.tex[this.theme.art.home] });
     }
     tl.call(() => this.hooks.sound('home'), null, 0.1);
     this.send(flies, tl);
     return tl.then();
   }
-  helper({ cells }) {                                                       // Phase 2 stages the friend's visit; for now the squares glow gold
-    const tl = gsap.timeline();
+  /** the friend (unicorn or mermaid) — a sprite above the board for its visits */
+  friendSprite() {
+    const t = this.tex[this.theme.art.friend]; if (!t) return null;
+    const f = new Sprite(t); f.anchor.set(0.5); f.width = f.height = 150; f.alpha = 0; this.top.addChild(f); return f;
+  }
+  /** The friend's visit (from move `par` on, every second move): staged as a treat — a music sting, a happy line, and the
+   *  unicorn gallops (the mermaid swims) across the board touching each square it helps with, leaving sparkles. */
+  helper({ cells }) {
+    const tl = gsap.timeline(), f = this.friendSprite(), pts = cells.map((i) => this.pos(i)).sort((a, b) => a.x - b.x || a.y - b.y);
+    this.hooks.visit?.(true, 'help');
     tl.call(() => this.hooks.sound(this.theme.id === 'unicorn' ? 'jUniHelp' : 'jSeaHelp', { vary: false }), null, 0);
+    if (f && pts.length) {
+      const W = this.w * U, y0 = pts[0].y, hop = this.theme.id === 'unicorn' ? 40 : 22;
+      f.position.set(-160, y0); f.scale.x = Math.abs(f.scale.x);
+      tl.to(f, { alpha: 1, duration: 0.15 }, 0);
+      let t = 0.05;
+      pts.forEach((p, n) => {
+        const d = n ? 0.18 : 0.3;
+        tl.to(f, { x: p.x, duration: d, ease: 'sine.inOut' }, t).to(f, { y: p.y - hop, duration: d / 2, ease: 'sine.out' }, t).to(f, { y: p.y, duration: d / 2, ease: 'sine.in' }, t + d / 2);
+        t += d;
+        tl.call(() => { this.fx.burst(p.x, p.y, this.theme.id === 'unicorn' ? 0xffe14d : 0x9ff3ff, 10, 1.2); this.hooks.sound('streak', { rate: 1 + n * 0.12, vol: 0.6 }); }, null, t);
+      });
+      cells.forEach((i) => { const s = this.spriteAt(i); if (s) tl.to(s.glow, { alpha: 0.75, duration: 0.15 }, t - 0.1); });
+      tl.to(f, { x: W + 160, y: y0 - 60, duration: 0.35, ease: 'power1.in' }, t + 0.05).to(f, { alpha: 0, duration: 0.15, onComplete: () => f.destroy() }, t + 0.3);
+      tl.call(() => this.hooks.visit?.(false), null, t + 0.45);
+      return until(tl, t + 0.1);
+    }
     cells.forEach((i, n) => { const s = this.spriteAt(i); if (s) tl.to(s.glow, { alpha: 0.7, duration: 0.12, yoyo: true, repeat: 1 }, n * 0.05); });
+    tl.call(() => this.hooks.visit?.(false), null, 0.3);
     return tl.then();
   }
+  /** on a power-up level the friend's visit leaves a gift: it flies to a piece and turns it into a power-up */
   gift({ i, sp }) {
     const s = this.spriteAt(i); if (!s) return;
-    this.hooks.sound('gift');
-    const tl = gsap.timeline().to(s.inner.scale, { x: 0.2, y: 0.2, duration: 0.12, ease: 'power2.in', onComplete: () => restyle(s, this.theme, s.k, sp) })
-      .to(s.inner.scale, { x: 1, y: 1, duration: 0.25, ease: 'back.out(2.4)' });
-    if (this.g.level.goal.type === 'make') this.send([{ key: 'make', n: 1, i, at: 0.3, tex: this.tex[pictureName(this.theme, s.k)] }], tl);
+    const tl = gsap.timeline(), f = this.friendSprite(), p = this.pos(i);
+    this.hooks.visit?.(true, 'gift');
+    tl.call(() => this.hooks.sound(this.theme.id === 'unicorn' ? 'jUniHelp' : 'jSeaHelp', { vary: false }), null, 0);
+    let at = 0;
+    if (f) { f.position.set(-160, p.y - 120); tl.to(f, { alpha: 1, duration: 0.15 }, 0).to(f, { x: p.x, y: p.y - 70, duration: 0.45, ease: 'power2.out' }, 0); at = 0.45; }
+    tl.call(() => { this.hooks.sound('gift'); this.fx.burst(p.x, p.y, 0xffffff, 14, 1.3); }, null, at)
+      .to(s.inner.scale, { x: 0.2, y: 0.2, duration: 0.12, ease: 'power2.in', onComplete: () => restyle(s, this.theme, s.k, sp) }, at)
+      .to(s.inner.scale, { x: 1, y: 1, duration: 0.25, ease: 'back.out(2.4)' }, at + 0.12);
+    if (f) tl.to(f, { x: this.w * U + 160, y: p.y - 160, duration: 0.4, ease: 'power1.in' }, at + 0.25).to(f, { alpha: 0, duration: 0.15, onComplete: () => f.destroy() }, at + 0.55);
+    tl.call(() => this.hooks.visit?.(false), null, at + 0.6);
+    if (this.g.level.goal.type === 'make') this.send([{ key: 'make', n: 1, i, at: at + 0.3, tex: this.tex[pictureName(this.theme, s.k)] }], tl);
     return tl.then();
   }
   shuffle({ cells }) {                                                      // a swirl; pieces take their new kinds
