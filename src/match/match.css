@@ -1,0 +1,41 @@
+/* Sparkle Match: the board is a PixiJS canvas under a thin layer of HTML (goal bar, buttons, win card). */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100dvh; overflow: hidden; overscroll-behavior: none; touch-action: none;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; font-family: Fredoka, system-ui, sans-serif; }
+body { --bg0: #ffd9f1; --bg1: #c7b3ff; --ink: #6a2f86; background: linear-gradient(var(--bg0), var(--bg1)); }
+body[data-theme="mermaid"] { --bg0: #8ee8ff; --bg1: #2a7fd0; --ink: #0f4f8a; }
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; touch-action: none; }
+
+/* the board sits in #boardbox; the goal bar goes above it in portrait and to its left in landscape */
+#ui { position: fixed; inset: 0; pointer-events: none; display: grid; grid-template-rows: auto 1fr; gap: 10px;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+#goal { display: flex; align-items: center; justify-content: center; gap: 14px; min-height: 76px; padding-left: 76px; padding-right: 76px; }
+@media (orientation: landscape) {
+  #ui { grid-template-rows: 1fr; grid-template-columns: auto 1fr; }
+  #goal { flex-direction: column; min-width: 130px; padding: 90px 0 0; }
+}
+.chip { display: flex; align-items: center; gap: 8px; padding: 8px 14px 8px 8px; border-radius: 26px; background: #ffffffcc; box-shadow: 0 4px 0 #0002; transition: transform .2s; }
+.chip .pic { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 40px; position: relative; box-shadow: inset 0 -5px 0 #0002; }
+.chip .pic.emoji { box-shadow: none; }
+.chip .pic img.fe { width: 48px; height: 48px; }
+.chip .pic.tile { background: #ffd23f; box-shadow: 0 0 14px #ffe98a, inset 0 0 0 4px #fff3b0; }
+.chip .pic.power::after { content: ''; position: absolute; left: 0; right: 0; top: 19px; height: 14px; background: #fffe; }
+.chip .num { min-width: 1.4em; font-size: 40px; font-weight: 700; color: var(--ink); text-align: center; line-height: 1; }
+.chip.done { transform: scale(1.08); }
+.chip.done .num { color: #2dbb5a; }
+
+#home { position: fixed; z-index: 5; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); width: 64px; height: 64px; border-radius: 50%;
+  background: #fff; font-size: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 0 #0002; }
+#home img.fe { width: 40px; height: 40px; }
+
+#win { position: fixed; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4vh; background: #ffffff55; }
+#win.hidden { display: none; }
+#win .tick { width: min(40vw, 220px); aspect-ratio: 1; border-radius: 50%; background: #3ccf6e; box-shadow: 0 0 0 12px #fff, 0 14px 30px #0003; display: flex; align-items: center; justify-content: center; animation: pop-in .45s cubic-bezier(.3, 1.7, .5, 1) both; }
+#win .tick i { width: 42%; height: 22%; border: solid #fff; border-width: 0 0 min(4vw, 22px) min(4vw, 22px); transform: translateY(-20%) rotate(-45deg); border-radius: 6px; }
+#next { width: 120px; height: 120px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 8px 0 #0002; display: flex; align-items: center; justify-content: center; animation: pop-in .45s .5s cubic-bezier(.3, 1.7, .5, 1) both, nudge 1.2s 1.2s ease-in-out infinite; }
+#next i { width: 0; height: 0; margin-left: 12px; border-style: solid; border-width: 30px 0 30px 48px; border-color: transparent transparent transparent #ff5fb3; }
+body[data-theme="mermaid"] #next i { border-left-color: #2a8dff; }
+#next:active { transform: translateY(5px); box-shadow: 0 3px 0 #0002; }
+@keyframes pop-in { from { transform: scale(.2); opacity: 0; } }
+@keyframes nudge { 50% { transform: translateX(10px); } }
