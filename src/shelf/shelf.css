@@ -24,12 +24,12 @@ body:not([data-screen="shelf"]) #leave { display: none; }
 /* the shelf */
 .shelf { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; padding: calc(env(safe-area-inset-top) + 12px) 20px calc(env(safe-area-inset-bottom) + 12px); }
 .shelf h1 { margin: 0; font-size: clamp(28px, min(7vw, 9vh), 64px); color: #fff; -webkit-text-stroke: 3px #6b3b17; paint-order: stroke fill; text-shadow: 0 5px 0 #6b3b17; }
-.plank { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 24px; padding: 0 24px 22px; border-bottom: 22px solid #8a5426; box-shadow: 0 14px 0 -4px #6b3b17; }
-.book, .keep { position: relative; width: clamp(110px, min(26vw, 36vh), 220px); aspect-ratio: 3 / 4; border-radius: 10px 18px 18px 10px; box-shadow: inset 12px 0 0 #0002, 0 8px 0 #0003; }
-.book { background: linear-gradient(160deg, var(--c1), var(--c0)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 14px 10px 30px 22px; }
+.plank { display: flex; max-width: 100%; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: clamp(10px, 2.5vw, 24px); padding: 0 24px 22px; border-bottom: 22px solid #8a5426; box-shadow: 0 14px 0 -4px #6b3b17; }
+.book, .keep { position: relative; width: clamp(84px, min(15.5vw, 30vh), 200px); aspect-ratio: 3 / 4; border-radius: 10px 18px 18px 10px; box-shadow: inset 12px 0 0 #0002, 0 8px 0 #0003; }
+.book { background: linear-gradient(160deg, var(--c1), var(--c0)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 10px 8px 34px 20px; overflow: hidden; }
 .book:active, .keep:active { transform: translateY(5px) rotate(-1deg); }
-.cover-pic { font-size: clamp(48px, min(12vw, 16vh), 104px); line-height: 1; }
-.cover-title { font-size: clamp(14px, min(3vw, 4.4vh), 24px); font-weight: 700; color: #fff; text-align: center; line-height: 1.05; text-shadow: 0 2px 0 #0004; }
+.cover-pic { width: clamp(52px, min(14vw, 18vh), 112px); height: auto; filter: drop-shadow(0 4px 2px #0003); }
+.cover-title { font-size: clamp(13px, min(2.4vw, 4vh), 24px); font-weight: 700; color: #fff; text-align: center; line-height: 1.05; text-shadow: 0 2px 0 #0004; }
 .ribbon { position: absolute; bottom: 10px; right: -8px; padding: 4px 12px; border-radius: 8px 0 0 8px; background: #e0245e; color: #fff; font-weight: 700; font-size: 18px; box-shadow: 0 3px 0 #0003; }
 .keep { background: #fffdf7; overflow: hidden; outline: 4px solid #2dbb5a; outline-offset: -4px; }
 .keep .mini { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); }
@@ -40,7 +40,7 @@ body:not([data-screen="shelf"]) #leave { display: none; }
 .bookpage { height: 100%; display: flex; flex-direction: column; align-items: center; gap: 18px; overflow-y: auto; touch-action: pan-y;
   padding: calc(env(safe-area-inset-top) + 96px) 16px calc(env(safe-area-inset-bottom) + 24px); }
 .book-head { display: flex; align-items: center; gap: 14px; padding: 10px 22px; border-radius: 22px; background: linear-gradient(160deg, var(--c1), var(--c0)); box-shadow: 0 5px 0 #0002; }
-.book-head .cover-pic { font-size: 56px; }
+.book-head .cover-pic { width: 60px; }
 .book-head .cover-title { font-size: 30px; }
 .pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 14px; width: min(100%, 760px); }
 .pg { position: relative; aspect-ratio: 3 / 4; border-radius: 6px 12px 12px 6px; background: #fffdf7; box-shadow: 0 0 0 3px #222, 0 5px 0 3px #222; font-size: 30px; }
@@ -69,3 +69,25 @@ body:not([data-screen="shelf"]) #leave { display: none; }
 .finish .next i { margin-left: 10px; border-style: solid; border-width: 28px 0 28px 44px; border-color: transparent transparent transparent #fff; }
 @keyframes pop-up { from { transform: translateY(60px) scale(.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01s !important; transition-duration: .01s !important; } }
+
+/* a finished book gets a gold seal on its cover */
+.seal { position: absolute; top: 8px; left: 18px; width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c0, #ffc83a 60%, #e09a10); box-shadow: 0 2px 0 #0003; }
+
+/* the help button: top-right on a maze page, the same size as Home */
+.hint-btn { position: absolute; z-index: 20; top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 12px); width: 64px; height: 64px; border-radius: 50%;
+  background: #ffe14d; font-size: 40px; font-weight: 700; box-shadow: 0 0 0 3px #222, 0 5px 0 3px #222; }
+.hint-btn:active { transform: translateY(4px); box-shadow: 0 0 0 3px #222, 0 1px 0 3px #222; }
+.hint-btn.hidden { display: none; }
+
+/* stars: collected ones pop and settle as a stamped outline; hints: dots that blink in turn, and a pulsing ring */
+.star { transform-box: fill-box; }
+.star path { transform-box: fill-box; transform-origin: center; animation: twinkle 2.4s ease-in-out infinite; }
+.star.bonus path { animation-duration: 1.8s; }
+.star.got path { animation: star-got .6s cubic-bezier(.3, 1.8, .5, 1) forwards; }
+@keyframes twinkle { 50% { transform: scale(1.12) rotate(8deg); } }
+@keyframes star-got { 0% { transform: scale(1); } 40% { transform: scale(1.9); } 100% { transform: scale(.75); fill: #fff3; stroke: #e0a800; } }
+.hints .dot { fill: #ff8a00; stroke: #fff; stroke-width: .05; animation: dot-blink 1.4s ease-in-out infinite both; }
+@keyframes dot-blink { 0%, 100% { opacity: .2; } 30% { opacity: 1; } }
+.hints .pulse { fill: none; stroke: #ff8a00; stroke-width: .1; transform-box: fill-box; transform-origin: center; animation: pulse 1.1s ease-out infinite; }
+@keyframes pulse { from { transform: scale(.6); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+.page .art .decor image { opacity: .95; }

@@ -1,24 +1,29 @@
-// Puzzle Shelf — endless activity books (see the build spec). Phase 0: the shelf → book → page router with deep links, the maze
-// generator, one plain maze page with finger ink and a finish, and the one-tap Home button with save-on-every-change (§1A).
+// Puzzle Shelf — endless activity books (see the build spec). Phase 1: four maze books (Game Day, Cars & Trucks, Dinosaurs, Ocean)
+// with levels, shapes, theme mats and decoration, stars, hints and fitLevel; the shelf → book → page router; the one-tap Home
+// button with save-on-every-change (§1A).
 //   shelf.html                                   the shelf (every launch opens here, Keep going first)
-//   shelf.html?book=maze-gameday                 a book's pages
-//   shelf.html?book=maze-gameday&n=7             page 7 of that book (the same page every time)
+//   shelf.html?book=maze-ocean                   a book's pages
+//   shelf.html?book=maze-ocean&n=7               page 7 of that book (the same page every time)
 //   shelf.html?page=maze:gameday:5:1234&debug=1  any page by its id; debug shows the maze's solution
 import './shelf.css';
 import { holdGate } from '../engine/gate.js';
 import { applyBedtime } from '../engine/bedtime.js';
 import { unlock } from '../audio.js';
+import { sfxSprite, note } from '../engine/sfxsprite.js';
 import { BOOKS, THEMES, bookById } from './books.js';
+import { artURL } from './themes.js';
 import { pageId, parsePage, hash, baseLevel } from './engine/pageid.js';
 import { save, pageState, setPage, bookDone, markDone, setLast } from './engine/save.js';
-import { artBox } from './engine/layout.js';
-import { makeMaze } from './maze/gen.js';
-import { renderMaze, el, MARGIN } from './maze/render.js';
+import { artBox, regions } from './engine/layout.js';
+import { buildPage, fitLevel, MARGIN } from './maze/page.js';
+import { renderMaze, el } from './maze/render.js';
 import { playMaze } from './maze/play.js';
+import MAP from './sfx.json';
 
 const $ = (s) => document.querySelector(s), app = $('#app');
 ['gesturestart', 'dblclick', 'contextmenu'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
-addEventListener('pointerdown', unlock, { once: true });
+const sfx = sfxSprite(`${import.meta.env.BASE_URL}assets/shelf/sfx.mp3`, MAP);
+addEventListener('pointerdown', () => { unlock(); sfx.warm(); }, { capture: true });
 applyBedtime();
 holdGate($('#leave'), () => { location.href = './'; }, { ms: 1500 });          // back to the A&E games menu (grown-ups: hold)
 
@@ -34,15 +39,16 @@ function routeFrom(q) {
 const urlOf = (r) => '?' + new URLSearchParams({ ...(r.screen === 'page' && r.id ? { page: r.id } : {}), ...(r.book ? { book: r.book } : {}), ...(r.n ? { n: r.n } : {}), ...(DEBUG ? { debug: 1 } : {}) });
 /** a page route → what the page is: { type, theme, level, seed } */
 function specOf(r) {
-  if (r.id) return parsePage(r.id);
+  if (r.id) { const s = parsePage(r.id); return s && THEMES[s.theme] ? s : null; }
   const b = bookById(r.book); return b && { type: b.type, theme: b.theme, level: baseLevel(r.n), seed: hash(b.id, r.n) };
 }
 
 let current = null, cleanup = null;
-function go(r) {
+function go(r, sound = true) {
   if (cleanup) { cleanup(); cleanup = null; }
   current = r; document.body.dataset.screen = r.screen;
   history.replaceState(null, '', urlOf(r));
+  if (sound) sfx.play(r.screen === 'page' ? 'turn' : r.screen === 'book' ? 'open' : 'tap', { vol: 0.8 });
   if (r.screen === 'page') { setLast(r); cleanup = showPage(r); }
   else if (r.screen === 'book') cleanup = showBook(bookById(r.book));
   else cleanup = showShelf();
@@ -57,6 +63,17 @@ $('#btnBook').addEventListener('click', up);
 history.pushState({ guard: 1 }, '', location.href);
 addEventListener('popstate', () => { history.pushState({ guard: 1 }, '', urlOf(current)); up(); });
 
+/** a maze page as it is on this device: built once at the size that fits, then saved, so it never changes under the child */
+function pageFor(spec) {
+  const id = pageId(spec), st = pageState(id);
+  if (st?.gen) return { id, page: buildPage(spec, st.gen) };
+  const [a, b] = regions(2, 1).map((r) => ({ r, f: fitLevel(spec.level, r) }));
+  const pick = b.f.k > a.f.k || (b.f.k === a.f.k && b.r.w * b.r.h > a.r.w * a.r.h) ? b : a;     // the region that holds the bigger maze
+  const page = buildPage(spec, null, pick.r);
+  setPage(id, { gen: page.gen });
+  return { id, page };
+}
+
 // ------------------------------------------------------------------------------------------------ the shelf
 function showShelf() {
   let last = save.last && specOf(save.last) ? save.last : null;
@@ -67,13 +84,12 @@ function showShelf() {
       ${last ? '<button class="keep" aria-label="Keep going"><svg class="mini"></svg><span class="go"><i></i></span></button>' : ''}
       ${BOOKS.map((b) => { const done = Object.keys(bookDone(b.id)).length, t = THEMES[b.theme];
         return `<button class="book" data-book="${b.id}" style="--c0:${t.cover[0]};--c1:${t.cover[1]}" aria-label="${b.title}">
-          <span class="cover-pic">${b.cover}</span><span class="cover-title">${b.title}</span>
-          <span class="ribbon">${done} / ${b.pages}</span></button>`; }).join('')}
+          <img class="cover-pic" src="${artURL(b.cover)}" alt="" draggable="false"><span class="cover-title">${t.title}</span>
+          <span class="ribbon">${done} / ${b.pages}</span>${done >= b.pages ? '<i class="seal"></i>' : ''}</button>`; }).join('')}
     </div></div>`;
   if (last) {
-    const spec = specOf(last), maze = makeMaze(spec.level, spec.seed), svg = app.querySelector('.mini');
-    const layers = renderMaze(svg, maze, THEMES[spec.theme], { mini: true }), st = pageState(pageId(spec));
-    if (st?.trail?.length > 1) el('polyline', { points: st.trail.map((c) => `${(c % maze.grid.w) + 0.5},${((c / maze.grid.w) | 0) + 0.5}`).join(' '), fill: 'none', stroke: '#2f6fff', 'stroke-width': 0.42, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, layers.trail);
+    const { id, page } = pageFor(specOf(last)), layers = renderMaze(app.querySelector('.mini'), page, { mini: true }), st = pageState(id), w = page.maze.grid.w;
+    if (st?.trail?.length > 1) el('polyline', { points: st.trail.map((c) => `${(c % w) + 0.5},${((c / w) | 0) + 0.5}`).join(' '), fill: 'none', stroke: '#2f6fff', 'stroke-width': 0.42, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, layers.trail);
     app.querySelector('.keep').addEventListener('click', () => go(last));
   }
   app.querySelectorAll('.book').forEach((b) => b.addEventListener('click', () => go({ screen: 'book', book: b.dataset.book })));
@@ -83,9 +99,9 @@ function showShelf() {
 // ------------------------------------------------------------------------------------------------ a book's pages
 function showBook(book) {
   const t = THEMES[book.theme], done = bookDone(book.id);
-  const started = (n) => { const s = pageState(pageId({ type: book.type, theme: book.theme, level: baseLevel(n), seed: hash(book.id, n) })); return s?.trail?.length > 1; };
+  const started = (n) => pageState(pageId({ type: book.type, theme: book.theme, level: baseLevel(n), seed: hash(book.id, n) }))?.trail?.length > 1;
   app.innerHTML = `<div class="bookpage" style="--c0:${t.cover[0]};--c1:${t.cover[1]}">
-    <div class="book-head"><span class="cover-pic">${book.cover}</span><span class="cover-title">${book.title}</span></div>
+    <div class="book-head"><img class="cover-pic" src="${artURL(book.cover)}" alt="" draggable="false"><span class="cover-title">${book.title}</span></div>
     <div class="pages">${Array.from({ length: book.pages }, (_, i) => i + 1).map((n) => `<button class="pg${done[n] ? ' done' : started(n) ? ' started' : ''}" data-n="${n}" aria-label="Page ${n}"><b>${n}</b>${done[n] ? '<i class="stamp-mini"></i>' : ''}</button>`).join('')}</div>
   </div>`;
   app.querySelectorAll('.pg').forEach((b) => b.addEventListener('click', () => go({ screen: 'page', book: book.id, n: +b.dataset.n })));
@@ -95,22 +111,26 @@ function showBook(book) {
 // ------------------------------------------------------------------------------------------------ a page
 function showPage(r) {
   const spec = specOf(r);
-  if (!spec || spec.type !== 'maze' || !THEMES[spec.theme]) { queueMicrotask(() => go({ screen: 'shelf' })); return null; }
-  const id = pageId(spec), theme = THEMES[spec.theme], maze = makeMaze(spec.level, spec.seed);
+  if (!spec || spec.type !== 'maze') { queueMicrotask(() => go({ screen: 'shelf' }, false)); return null; }
+  const { id, page } = pageFor(spec), { maze } = page;
   app.innerHTML = `<div class="page"><svg class="art" aria-label="Maze"></svg>
-    <div class="finish hidden"><button class="big next" aria-label="Next page"><i></i></button><button class="big home" aria-label="Home">\u{1F3E0}</button></div></div>`;
+    <button class="hint-btn" aria-label="Help">?</button>
+    <div class="finish hidden"><button class="big next" aria-label="Next page"><i></i></button><button class="big home" aria-label="Home"><img src="${import.meta.env.BASE_URL}emoji/1f3e0.webp" alt=""></button></div></div>`;
   const svg = app.querySelector('.art'), finish = app.querySelector('.finish');
   const vb = { w: maze.grid.w + 2 * MARGIN, h: maze.grid.h + 2 * MARGIN };
   const place = () => { const b = artBox(vb.w / vb.h); Object.assign(svg.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' }); };
   place(); addEventListener('resize', place);
-  const layers = renderMaze(svg, maze, theme, { debug: DEBUG }), st = pageState(id);
-  const showFinish = () => finish.classList.remove('hidden');
-  const ctl = playMaze(layers, maze, {
-    trail: st?.trail, pxPerCell: () => svg.getBoundingClientRect().width / vb.w,
-    onChange: (trail) => setPage(id, { trail }),
-    onFinish: (trail) => { setPage(id, { trail, done: true }); markDone(r.book, r.n); celebrate(layers, ctl).then(showFinish); },
+  const layers = renderMaze(svg, page, { debug: DEBUG }), st = pageState(id);
+  const showFinish = () => { finish.classList.remove('hidden'); app.querySelector('.hint-btn').classList.add('hidden'); };
+  const ctl = playMaze(layers, page, {
+    trail: st?.trail, got: st?.stars || [], pxPerCell: () => svg.getBoundingClientRect().width / vb.w,
+    onChange: (trail, stars) => setPage(id, { trail, stars }),
+    onStar: (c, n, bonus) => { sfx.play('star', { rate: note(n + (bonus ? 3 : 0)), vary: false }); },         // a rising note per star
+    onHint: (kind) => sfx.play('hint', { vol: kind === 'pulse' ? 0.5 : 0.8 }),
+    onFinish: (trail, stars) => { setPage(id, { trail, stars, done: true }); markDone(r.book, r.n); celebrate(layers, ctl).then(showFinish); },
   });
-  window.__maze = { ctl, maze };                                                        // for tests and the screenshot tool
+  app.querySelector('.hint-btn').addEventListener('click', () => ctl.hint());
+  window.__maze = { ctl, maze, page };                                                       // for tests and the screenshot tool
   if (ctl.finished) { layers.svg.classList.add('won'); addStamp(); showFinish(); }
   finish.querySelector('.home').addEventListener('click', () => go({ screen: 'shelf' }));
   finish.querySelector('.next').addEventListener('click', () => {
@@ -128,9 +148,11 @@ function celebrate(layers, ctl) {
   const len = glow.getTotalLength(); glow.style.strokeDasharray = `${len} ${len}`; glow.style.strokeDashoffset = len;
   glow.getBoundingClientRect(); glow.style.transition = 'stroke-dashoffset .9s ease-in-out'; glow.style.strokeDashoffset = 0;
   layers.svg.classList.add('won');
+  sfx.play('done', { vary: false });
+  setTimeout(() => sfx.play('stamp'), 1000);
   addStamp();
   return new Promise((res) => setTimeout(res, 1300));
 }
 
-go(routeFrom(params));
+go(routeFrom(params), false);
 window.shelf = { go, get route() { return current; }, save };                 // for tests and the screenshot tool

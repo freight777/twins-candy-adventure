@@ -1,15 +1,20 @@
 // Playing a maze (§4 "Playing"): the trail is a list of cells and the ink is drawn through their centres. It will not go through
 // walls; going back along the line rubs it out; lifting the finger is fine — touch the end of the line (within 1.5 cells) or
 // anywhere on it to carry on. A fast swipe is walked in half-cell steps so it cannot skip a cell, and a corner cut diagonally
-// still counts (a five-year-old's line rarely turns square). Every change is reported (onChange) so it can be saved at once.
+// still counts (a five-year-old's line rarely turns square). Stars on the way are collected (never taken away again).
+// Hints: after 15 s without progress the next cell pulses; hint() shows the next four cells as dots — from a dead end, the way back.
+// Every change is reported (onChange) so it can be saved at once.
 import { el, centre } from './render.js';
+import { flood } from './gen.js';
 
-const INK = '#2f6fff', EDGE = '#1d3f9a';
+const INK = '#2f6fff', EDGE = '#1d3f9a', IDLE = 15000;
 
-export function playMaze(layers, maze, { trail: saved, onChange, onFinish, pxPerCell }) {
-  const { svg } = layers, { w } = maze.grid, live = new Set(maze.grid.cells);
+export function playMaze(layers, page, { trail: saved, got = [], onChange, onStar, onFinish, onHint, pxPerCell }) {
+  const { maze } = page, { svg } = layers, { w } = maze.grid, live = new Set(maze.grid.cells), toEnd = flood(maze.links, maze.end);
   let trail = saved && saved.length && saved[0] === maze.start && valid(saved) ? saved.slice() : [maze.start];
-  let finished = trail.at(-1) === maze.end, active = null;
+  let finished = trail.at(-1) === maze.end, active = null, idle = 0;
+  const starAt = new Map([...page.stars.map((c) => [c, false]), ...page.bonus.map((c) => [c, true])]), collected = new Set(got.filter((c) => starAt.has(c)));
+  collected.forEach((c) => layers.stars.querySelector(`[data-cell="${c}"]`)?.classList.add('got'));
   const edge = el('path', { fill: 'none', stroke: EDGE, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, layers.trail);
   const ink = el('path', { fill: 'none', stroke: INK, 'stroke-width': 0.42, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, layers.trail);
   const band = el('line', { stroke: INK, 'stroke-width': 0.08, 'stroke-dasharray': '0.05 0.18', 'stroke-linecap': 'round', opacity: 0 }, layers.trail);
@@ -21,7 +26,7 @@ export function playMaze(layers, maze, { trail: saved, onChange, onFinish, pxPer
     const one = trail.length === 1 ? `M${centre(maze, trail[0]).join(' ')}l0.001 0` : d;   // a dot when only the start is inked
     ink.setAttribute('d', one); edge.setAttribute('d', one);
     edge.setAttribute('stroke-width', 0.42 + 2 / (pxPerCell() || 40));                    // the slightly darker 1-px edge
-    if (heroEl) { const [x, y] = centre(maze, trail.at(-1)), s = +heroEl.getAttribute('width') || 0.62; if (heroEl.tagName === 'image') { heroEl.setAttribute('x', x - s / 2); heroEl.setAttribute('y', y - s / 2); } else { heroEl.setAttribute('x', x); heroEl.setAttribute('y', y + 0.22); } }
+    if (heroEl) { const [x, y] = centre(maze, trail.at(-1)), s = +heroEl.getAttribute('width'); heroEl.setAttribute('x', x - s / 2); heroEl.setAttribute('y', y - s / 2); }
   }
   draw();
 
@@ -35,22 +40,30 @@ export function playMaze(layers, maze, { trail: saved, onChange, onFinish, pxPer
     const c = cellAt(p), head = trail.at(-1);
     if (c < 0 || c === head) return false;
     if (c === trail.at(-2)) { trail.pop(); return true; }                                   // back along the line rubs it out
-    if (linked(head, c)) { trail.push(c); return true; }
+    if (linked(head, c)) { trail.push(c); reached(c); return true; }
     const dx = (c % w) - (head % w), dy = ((c / w) | 0) - ((head / w) | 0);
     if (Math.abs(dx) === 1 && Math.abs(dy) === 1) {                                         // a corner cut diagonally
       for (const mid of [head + dx, head + dy * w]) {
         if (mid === trail.at(-2) && trail.at(-3) === c) { trail.pop(); trail.pop(); return true; }
-        if (linked(head, mid) && linked(mid, c)) { trail.push(mid, c); return true; }
+        if (linked(head, mid) && linked(mid, c)) { trail.push(mid, c); reached(mid); reached(c); return true; }
       }
     }
     return false;
+  }
+  function reached(c) {
+    if (!starAt.has(c) || collected.has(c)) return;
+    collected.add(c); layers.stars.querySelector(`[data-cell="${c}"]`)?.classList.add('got');
+    onStar?.(c, collected.size, starAt.get(c));
   }
   function follow(p) {
     let changed = false;
     const from = active.last, n = Math.max(1, Math.ceil(Math.hypot(p[0] - from[0], p[1] - from[1]) / 0.5));
     for (let i = 1; i <= n && !finished; i++) changed = step([from[0] + (p[0] - from[0]) * i / n, from[1] + (p[1] - from[1]) * i / n]) || changed;
     active.last = p;
-    if (changed) { draw(); onChange(trail.slice()); if (trail.at(-1) === maze.end) { finished = true; showBand(null); onFinish(trail.slice()); return; } }
+    if (changed) {
+      clearHint(); draw(); onChange(trail.slice(), [...collected]);
+      if (trail.at(-1) === maze.end) { finished = true; showBand(null); clearTimeout(idle); onFinish(trail.slice(), [...collected]); return; }
+    }
     showBand(near(p, trail.at(-1), 1.5) ? null : p);                                        // where the pen is waiting
   }
   function showBand(p) {
@@ -59,6 +72,26 @@ export function playMaze(layers, maze, { trail: saved, onChange, onFinish, pxPer
     band.setAttribute('x1', x); band.setAttribute('y1', y); band.setAttribute('x2', p[0]); band.setAttribute('y2', p[1]); band.setAttribute('opacity', 0.7);
   }
 
+  // ---------------------------------------------------------------------------------------------- hints
+  /** the next n cells toward the finish from the end of the line (from a dead end that is the way back) */
+  function ahead(n) {
+    const out = []; let c = trail.at(-1);
+    for (let i = 0; i < n && c !== maze.end; i++) { c = [...maze.links.get(c)].find((m) => toEnd.get(m) === toEnd.get(c) - 1); if (c === undefined) break; out.push(c); }
+    return out;
+  }
+  function clearHint() { layers.hints.replaceChildren(); clearTimeout(idle); if (!finished) idle = setTimeout(pulse, IDLE); }
+  function pulse() {                                                                         // 15 s without progress: the next cell pulses
+    if (finished) return; layers.hints.replaceChildren();
+    const c = ahead(1)[0]; if (c === undefined) return;
+    const [x, y] = centre(maze, c); el('circle', { cx: x, cy: y, r: 0.3, class: 'pulse' }, layers.hints); onHint?.('pulse');
+  }
+  function hint() {                                                                          // the "?" button: the next four cells as dots
+    if (finished) return; layers.hints.replaceChildren(); clearTimeout(idle); idle = setTimeout(pulse, IDLE);
+    ahead(4).forEach((c, i) => { const [x, y] = centre(maze, c); el('circle', { cx: x, cy: y, r: 0.16, class: 'dot', style: `animation-delay:${i * 0.18}s` }, layers.hints); });
+    onHint?.('dots');
+  }
+  clearHint();
+
   const down = (e) => {
     if (finished || !e.isPrimary) return;
     active = null;                                     // a new first finger means any earlier one has gone (even if its "up" was lost)
@@ -66,7 +99,7 @@ export function playMaze(layers, maze, { trail: saved, onChange, onFinish, pxPer
     const c = cellAt(p), at = trail.indexOf(c);
     if (!near(p, trail.at(-1), 1.5)) {
       if (at < 0) { showBand(p); return; }                                                  // not near the line: show where the pen is
-      if (at < trail.length - 1) { trail = trail.slice(0, at + 1); draw(); onChange(trail.slice()); }   // touched the line: carry on from there
+      if (at < trail.length - 1) { trail = trail.slice(0, at + 1); draw(); onChange(trail.slice(), [...collected]); }   // touched the line: carry on from there
     }
     e.preventDefault();
     try { svg.setPointerCapture(e.pointerId); } catch { /* fine */ }
@@ -79,10 +112,10 @@ export function playMaze(layers, maze, { trail: saved, onChange, onFinish, pxPer
     for (const ev of list.length ? list : [e]) { const p = toPage(ev); if (p) follow(p); if (finished) break; }
   };
   const up = (e) => { if (active && e.pointerId === active.id) { active = null; showBand(null); } };
-  svg.addEventListener('pointerdown', down); svg.addEventListener('pointermove', move);
-  svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', up); svg.addEventListener('lostpointercapture', up);
+  const evs = { pointerdown: down, pointermove: move, pointerup: up, pointercancel: up, lostpointercapture: up };
+  for (const k in evs) svg.addEventListener(k, evs[k]);
   return {
-    get trail() { return trail.slice(); }, get finished() { return finished; }, ink,
-    destroy() { svg.removeEventListener('pointerdown', down); svg.removeEventListener('pointermove', move); svg.removeEventListener('pointerup', up); svg.removeEventListener('pointercancel', up); },
+    get trail() { return trail.slice(); }, get finished() { return finished; }, get stars() { return [...collected]; }, ink, hint, ahead,
+    destroy() { clearTimeout(idle); for (const k in evs) svg.removeEventListener(k, evs[k]); },
   };
 }

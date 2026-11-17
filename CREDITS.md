@@ -27,3 +27,14 @@ The raw files are in public/assets/mocap/; tools/export-clips.cjs turns them int
 ## Claw Machine
 - Toy physics: [cannon-es](https://github.com/pmndrs/cannon-es) (MIT).
 - The machine, the arcade, the plush toys and their fabric shading are all made in code (src/claw/); no downloaded art.
+
+## Sparkle Match
+- Pieces, friends and pictures: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) 3D renders by Microsoft (MIT), fetched by tools/fetch-art.mjs into public/assets/match/.
+- Sounds: [Kenney](https://kenney.nl) Interface Sounds, Impact Sounds, Casino Audio and Music Jingles (CC0), joined into public/assets/match/sfx.mp3 by tools/game-sfx.mjs.
+- Rendering: [PixiJS](https://pixijs.com) (MIT). Tweens: [GSAP](https://gsap.com) (free "no charge" licence). Confetti: [canvas-confetti](https://github.com/catdad/canvas-confetti) (ISC).
+- The rule engine, the 100 levels and their calibration come from the Sparkle Match build spec.
+
+## Puzzle Shelf
+- Theme pictures and maze shapes (the shapes are the pictures' silhouettes): [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) 3D renders by Microsoft (MIT), public/assets/shelf/ and src/shelf/shapes.js, made by tools/fetch-art.mjs.
+- Sounds: [Kenney](https://kenney.nl) RPG Audio, Interface Sounds, Impact Sounds and Music Jingles (CC0), joined into public/assets/shelf/sfx.mp3 by tools/game-sfx.mjs.
+- The maze generator (Growing Tree) comes from the Puzzle Shelf build spec, after Jamis Buck's write-ups.

@@ -51,8 +51,7 @@ export function measure(links) {
 }
 
 /** Make one maze for a level. Tries seeds until the numbers fall inside the level's band, so difficulty is consistent page to page. */
-export function makeMaze(level, seed, mask) {
-  const L = LEVELS[level];
+export function makeMaze(level, seed, mask, L = LEVELS[level]) {        // L: the level's numbers, or fitted ones (maze/page.js)
   for (let k = 0; k < 200; k++) {
     const rand = rng(seed + k * 7919), grid = squareGrid(L.w, L.h, mask), links = carve(grid, rand, L.twist);
     if (!links) continue;
