@@ -35,6 +35,7 @@ export default defineConfig({
         globIgnores: ['**/*.bvh'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: 'index.html',
+        ignoreURLParametersMatching: [/.*/],         // match.html?level=34 and shelf.html?book=… are the same cached page: the games read their own parameters
         navigateFallbackDenylist: [/\/jackson\//],   // Jackson's game is its own page, not part of the A&E hub
         cleanupOutdatedCaches: true,
         skipWaiting: true, clientsClaim: true,     // a new version takes over on the next launch, not the one after (script-defer registration skips autoUpdate's wiring)
