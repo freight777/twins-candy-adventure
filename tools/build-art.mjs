@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { THEMES, ispyObjects } from '../src/shelf/themes.js';
+import { MASCOTS } from '../src/shelf/sports/teams.js';
 const sharp = createRequire(import.meta.url)('sharp');
 
 const ROOT = path.resolve(import.meta.dirname, '..'), CACHE = path.join(ROOT, 'tools/.cache/openmoji');
@@ -54,4 +55,8 @@ for (const theme of Object.keys(THEMES)) {
   total += objs.length;
   console.log(`${theme.padEnd(10)} ${objs.length} objects, sprite ${Math.round(sheet.length / 1024)} KB`);
 }
-console.log(`${total} objects`);
+// the sports mascots (§9 badges): line drawings only, ids m<HEX>
+const msyms = [];
+for (const hex of Object.keys(MASCOTS)) msyms.push(symbol(await svgOf('black', hex), 'm' + hex, true));
+fs.writeFileSync(path.join(ROOT, 'public/art/mascots.svg'), `<svg xmlns="http://www.w3.org/2000/svg"><defs>${msyms.join('')}</defs></svg>`);
+console.log(`${total} objects, ${msyms.length} mascots`);

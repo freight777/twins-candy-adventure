@@ -29,12 +29,12 @@ export function chooseStickers(pic, level) {
   return chosen;
 }
 
-export function showStickerPage(app, { spec, picName, word, saved, sfx, voice, say, onSave, onDone, finishCard, themeCover, labels = 'upper' }) {
+export function showStickerPage(app, { spec, picName, picture = null, word, saved, sfx, voice, say, onSave, onDone, finishCard, themeCover, labels = 'upper' }) {
   let alive = true, cleanupResize = null;
   app.innerHTML = `<div class="page sticker-page"><div class="spage"><svg class="spic" viewBox="0 0 512 512"></svg></div><div class="sheet"></div>${finishCard}</div>`;
   const pageEl = app.querySelector('.spage'), svg = app.querySelector('.spic'), sheet = app.querySelector('.sheet');
   pageEl.style.background = `linear-gradient(160deg, ${themeCover[1]}, ${themeCover[0]})`;
-  loadPicture(picName).then((pic) => {
+  (picture ? Promise.resolve(picture) : loadPicture(picName)).then((pic) => {           // a picture made by code (the jersey), or a built page
     if (!alive) return;
     const level = spec.level, chosen = chooseStickers(pic, level), isSticker = new Set(chosen), placed = new Set((saved || []).filter((i) => isSticker.has(i)));
     // labels (a grown-up setting): A B C, or 1 2 3, or lower-case stickers onto capital gaps

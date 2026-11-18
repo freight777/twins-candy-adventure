@@ -49,7 +49,7 @@ function drawMat(g, mat, w, h) {
 }
 
 /** draw the whole page into an <svg>; returns the layers play.js draws into */
-export function renderMaze(svg, page, { debug = false, mini = false } = {}) {
+export function renderMaze(svg, page, { debug = false, mini = false, print = false } = {}) {
   svg.replaceChildren();
   const { maze, gen, shape, theme } = page, { w, h } = maze.grid, M = mini ? 0.3 : MARGIN;
   svg.setAttribute('viewBox', `${-M} ${-M} ${w + 2 * M} ${h + 2 * M}`);
@@ -58,12 +58,17 @@ export function renderMaze(svg, page, { debug = false, mini = false } = {}) {
   el('rect', { x: -M, y: -M, width: w + 2 * M, height: h + 2 * M, fill: 'transparent' }, svg);
   const ground = el('g', { class: 'ground' }, svg), decor = el('g', { class: 'decor' }, svg), solution = el('g', { class: 'solution' }, svg);
   const trail = el('g', { class: 'trail' }, svg), walls = el('g', {}, svg), stars = el('g', { class: 'stars' }, svg), marks = el('g', {}, svg), hints = el('g', { class: 'hints' }, svg), fx = el('g', {}, svg);
-  if (shape && gen.shape) {                                       // the shape's own picture, faint, exactly behind its outline
+  if (print) { /* black line art only */ } else if (shape && gen.shape) {                                       // the shape's own picture, faint, exactly behind its outline
     const [x0, y0, bw, bh] = shape.box, iw = w / bw, ih = h / bh;
     el('image', { href: artURL(gen.shape), x: -x0 * iw, y: -y0 * ih, width: iw, height: ih, preserveAspectRatio: 'none', opacity: mini ? 0.25 : 0.3 }, ground);
   } else drawMat(ground, gen.mat, w, h);
   el('path', { d: wallPath(maze, skip), fill: 'none', stroke: '#222', 'stroke-width': 0.16, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, walls);
   if (debug) el('polyline', { points: maze.path.map((c) => centre(maze, c).join(',')).join(' '), fill: 'none', stroke: '#e0245e', 'stroke-width': 0.08, 'stroke-dasharray': '0.12 0.14', 'stroke-linecap': 'round' }, solution);
+  if (print) {                                                    // printed: a circle on the start, a star on the finish
+    const [sx, sy] = centre(maze, maze.start), [ex, ey] = centre(maze, maze.end);
+    el('circle', { cx: sx, cy: sy, r: 0.28, fill: 'none', stroke: '#222', 'stroke-width': 0.08 }, marks);
+    el('path', { d: starPath(0.34, 0.15), fill: 'none', stroke: '#222', 'stroke-width': 0.07, 'stroke-linejoin': 'round', transform: `translate(${ex} ${ey})` }, marks);
+  }
   if (mini) return { svg, trail, fx, marks, solution, stars, hints };
   for (const d of page.decor) pic(decor, d.name, d.x, d.y, d.size).setAttribute('transform', `rotate(${d.turn} ${d.x} ${d.y})`);
   [...page.stars.map((c) => [c, false]), ...page.bonus.map((c) => [c, true])].forEach(([c, bonus]) => {

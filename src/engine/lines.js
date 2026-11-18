@@ -150,3 +150,10 @@ import { THEMES as SHELF, ispyObjects } from '../shelf/themes.js';
   story('announcer', 'Home', 'Next page', 'Book', 'Help', 'Keep going', 'Sticker Album', 'Black and white', 'Colour', 'Look closely', 'You found it!', 'Great job!', 'You did it!',
     'A new trophy!', 'Find these things!', 'Put each sticker on its letter!', ...Object.values(SHELF).flatMap((t) => [t.line, `${t.title} Mazes`, `${t.title} Hidden Pictures`, `${t.title} Sticker by Letter`]));
 }
+// Puzzle Shelf's Score Spy (§9): a clue is said in parts — "Find the game where the" + "Otters" + "scored" + "24" — so every
+// part is a clip: the clue openings, the house league's team names and the numbers 0–120. His own teams' names are not here
+// (they stay on the iPad): a clue with one of them is said whole by the device voice.
+import { HOUSE } from '../shelf/sports/teams.js';
+story('announcer', 'Score Spy', 'Find the scores!', 'Find the', 'Find a', 'Find the game where the', 'scored', 'Which team beat the', 'Who won by', 'Find a tie!',
+  'Find the highest score on the wall!', 'Find the lowest score on the wall!', 'Find the game with the most points altogether!',
+  ...HOUSE.map((t) => t.nick), ...Array.from({ length: 121 }, (_, n) => String(n)));

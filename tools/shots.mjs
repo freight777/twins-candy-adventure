@@ -40,6 +40,8 @@ const SHELF = [
   ['13-ispy-gameday-l1-line', 'page=ispy:gameday:1:11&look=line'], ['14-ispy-cars-l3-color', 'page=ispy:cars:3:33&look=color'],
   ['15-ispy-dinosaurs-l6-line', 'page=ispy:dinosaurs:6:66&look=line'], ['16-ispy-ocean-l9-line', 'page=ispy:ocean:9:99&look=line'], ['17-ispy-book-chooser', 'book=ispy-gameday'],
   ['18-sticker-gameday-l1', 'book=sticker-gameday&n=1'], ['19-sticker-dinosaurs-l9', 'page=sticker:dinosaurs:9:5'], ['20-album', 'album=1'],
+  ['21-score-l1', 'book=score-gameday&n=1'], ['22-score-l6', 'book=score-gameday&n=12'], ['23-score-l10', 'book=score-gameday&n=24'],
+  ['24-jersey', 'book=sticker-gameday&n=4'], ['25-score-book', 'book=score-gameday'],
 ];
 
 const server = await createServer({ root: ROOT, configFile: path.join(ROOT, 'vite.config.js'), server: { port: 5199, strictPort: false }, logLevel: 'error' });

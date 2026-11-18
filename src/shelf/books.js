@@ -11,5 +11,7 @@ export const KINDS = [
 export const BOOKS = KINDS.flatMap(({ type, title }) => THEME_IDS.map((t) => ({
   id: `${type}-${t}`, type, theme: t, title: `${THEMES[t].title} ${title}`, pages: 24, cover: THEMES[t].hero,
 })));
+// Score Spy (§9): the sports-only hidden-picture book, made of scoreboards; it sits on the hidden-pictures plank
+BOOKS.push({ id: 'score-gameday', type: 'score', plank: 'ispy', theme: 'gameday', title: 'Score Spy', pages: 24, cover: 'Trophy' });
 export const bookById = (id) => BOOKS.find((b) => b.id === id) || null;
 export { THEMES };

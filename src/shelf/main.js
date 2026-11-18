@@ -8,6 +8,7 @@
 //   shelf.html?page=maze:gameday:5:1234&debug=1  any page by its id; debug shows the maze's solution
 //   shelf.html?page=ispy:ocean:3:42&look=color   a hidden-picture page in colour (look=line: black-and-white)
 //   shelf.html?album=1                           the Sticker Album
+//   shelf.html?book=score-gameday&n=7            Score Spy (the sports layer, §9); every fourth Game Day sticker page is a number jersey
 import './shelf.css';
 import { holdGate } from '../engine/gate.js';
 import { applyBedtime } from '../engine/bedtime.js';
@@ -25,6 +26,11 @@ import { showIspyPage, sceneFor } from './ispy/page.js';
 import { renderScene, loadSprites } from './ispy/render.js';
 import { showStickerPage, loadPicture, drawFacets, chooseStickers } from './sticker/page.js';
 import { showGrownups } from './ui/grownups.js';
+import { printSheets } from './ui/print.js';
+import { allTeams } from './sports/teams.js';
+import { makeJersey } from './sports/jersey.js';
+import { showScorePage } from './sports/page.js';
+import { LINES, storyId } from '../engine/lines.js';
 import MAP from './sfx.json';
 
 // the badges at the start of each plank (defined before anything is drawn)
@@ -41,7 +47,7 @@ applyBedtime();
 const applySettings = () => { setMuted(!save.settings.sound); setVoices(save.settings.voice); };
 applySettings();
 holdGate($('#leave'), () => { location.href = './'; }, { ms: 1500 });          // back to the A&E games menu (grown-ups: hold)
-holdGate($('#clock'), () => showGrownups(document.body, { onChange: () => { applySettings(); if (current?.screen === 'shelf') go(current, false); } }), { ms: 2000 });
+holdGate($('#clock'), () => showGrownups(document.body, { onChange: () => { applySettings(); if (current?.screen === 'shelf') go(current, false); }, onPrintLast: printLast, onPrintBook: printBook }), { ms: 2000 });
 
 // ------------------------------------------------------------------------------------------------ speaking
 const talk = (text, opts) => say(text, 'announcer', opts);                       // every word on a page is spoken (recorded at build time)
@@ -125,10 +131,10 @@ function showShelf() {
     <h1>Puzzle Shelf</h1>
     ${KINDS.map((k, n) => `<div class="plank" data-kind="${k.type}"><span class="kind-tag" aria-label="${k.title}">${k.type === 'maze' ? MAZE_ICON : k.type === 'ispy' ? SPY_ICON : STICK_ICON}</span>
       ${n === 0 && last ? '<button class="keep" aria-label="Keep going"><svg class="mini"></svg><span class="go"><i></i></span></button>' : ''}
-      ${BOOKS.filter((b) => b.type === k.type).map((b) => { const done = doneCount(b), t = THEMES[b.theme];
+      ${BOOKS.filter((b) => (b.plank || b.type) === k.type).map((b) => { const done = doneCount(b), t = THEMES[b.theme];
         return `<button class="book" data-book="${b.id}" style="--c0:${t.cover[0]};--c1:${t.cover[1]}" aria-label="${b.title}">
           <img class="cover-pic" src="${artURL(b.cover)}" alt="" draggable="false"><span class="cover-title">${t.title}</span>
-          <span class="ribbon">${done} / ${b.pages}</span>${done >= b.pages ? '<i class="seal"></i>' : ''}${b.type === 'ispy' ? '<i class="lens"></i>' : ''}${b.type === 'sticker' ? '<i class="spiral"></i>' : ''}</button>`; }).join('')}
+          <span class="ribbon">${done} / ${b.pages}</span>${done >= b.pages ? '<i class="seal"></i>' : ''}${b.type === 'ispy' || b.type === 'score' ? '<i class="lens"></i>' : ''}${b.type === 'score' ? '<span class="mini-board"><i>7</i><i>3</i></span>' : ''}${b.type === 'sticker' ? '<i class="spiral"></i>' : ''}</button>`; }).join('')}
       ${k.type === 'sticker' ? `<button class="book album" aria-label="Sticker Album" style="--c0:#ff9fd0;--c1:#ffd6ec"><span class="album-grid">${Object.keys(save.album || {}).slice(0, 4).map(() => '<i></i>').join('')}</span><span class="cover-title">Album</span><span class="ribbon">${Object.keys(save.album || {}).length}</span></button>` : ''}
     </div>`).join('')}
     <div class="plank trophies" data-kind="trophy"><span class="kind-tag" aria-label="Trophy Case">${CUP_ICON}</span>
@@ -140,7 +146,9 @@ function showShelf() {
     const spec = specOf(last), svg = app.querySelector('.mini');
     if (spec.type === 'sticker') {
       const name = stickerName(last, spec), st = pageState(pageId(spec)); svg.setAttribute('viewBox', '0 0 512 512');
-      loadPicture(name).then((pic) => { const loose = new Set(chooseStickers(pic, spec.level)), on = new Set(st?.placed || []); pic.pieces.forEach((p, i) => { if (!loose.has(i) || on.has(i)) drawFacets(svg, p); }); });
+      (name === 'jersey' ? Promise.resolve(jerseyFor(last)) : loadPicture(name)).then((pic) => { const loose = new Set(chooseStickers(pic, spec.level)), on = new Set(st?.placed || []); pic.pieces.forEach((p, i) => { if (!loose.has(i) || on.has(i)) drawFacets(svg, p); }); });
+    } else if (spec.type === 'score') {
+      svg.setAttribute('viewBox', '0 0 120 90'); svg.innerHTML = '<rect width="120" height="90" rx="8" fill="#1d2b53"/>' + [0, 1, 2, 3].map((k) => `<rect x="${8 + (k % 2) * 56}" y="${10 + (k >> 1) * 40}" width="48" height="32" rx="4" fill="#fff"/><text x="${48 + (k % 2) * 56}" y="${32 + (k >> 1) * 40}" font-size="14" font-weight="700" text-anchor="end" fill="#1d2b53">${[7, 3, 24, 10][k]}</text>`).join('');
     } else if (spec.type === 'ispy') {                                                        // a hidden-picture page: its scene, small, in his look
       svg.setAttribute('viewBox', '0 0 1200 900');
       Promise.all([sceneFor(spec), loadSprites(spec.theme)]).then(([{ scene }]) => { if (svg.isConnected) renderScene(svg, scene, lookOf(last.book), { mini: true }); });
@@ -189,6 +197,7 @@ function showPage(r) {
   const spec = specOf(r, true);
   if (spec?.type === 'ispy') return showIspy(r, spec);
   if (spec?.type === 'sticker') return showSticker(r, spec);
+  if (spec?.type === 'score') return showScore(r, spec);
   if (!spec || spec.type !== 'maze') { queueMicrotask(() => go({ screen: 'shelf' }, false)); return null; }
   return showMaze(r, spec);
 }
@@ -253,14 +262,19 @@ function showIspy(r, spec) {
 }
 
 /** a sticker book's page n is picture n (of 16; later pages come round again at a higher level); a loose page id picks by its seed */
-const stickerName = (r, spec) => { const list = THEMES[spec.theme].stickers; return slug(list[r.n ? (r.n - 1) % list.length : Math.abs(spec.seed) % list.length]); };
+const stickerName = (r, spec) => { if (r.book === 'sticker-gameday' && r.n % 4 === 0) return 'jersey'; const list = THEMES[spec.theme].stickers; return slug(list[r.n ? (r.n - 1) % list.length : Math.abs(spec.seed) % list.length]); };
+const teams = () => allTeams(save.myTeams || []);
+/** the jersey on page n: his teams first, then the house league, with the number a grown-up set (7 until then) */
+const jerseyTeam = (r) => { const t = teams(); return t[(Math.floor(r.n / 4) - 1) % t.length]; };
+const jerseyFor = (r) => makeJersey(jerseyTeam(r), save.settings.jersey ?? 7);
 function showSticker(r, spec) {
-  const id = pageId(spec), st = pageState(id), t = THEMES[spec.theme], name = stickerName(r, spec), word = name.replace(/-/g, ' ');
+  const id = pageId(spec), st = pageState(id), t = THEMES[spec.theme], name = stickerName(r, spec), jersey = name === 'jersey';
+  const word = jersey ? jerseyTeam(r).nick : name.replace(/-/g, ' ');
   const cleanup = showStickerPage(app, {
-    spec, picName: name, word, saved: st?.placed || [], sfx, voice, say: (w) => talk(w), themeCover: t.cover, finishCard: FINISH, labels: save.settings.labels,
+    spec, picName: name, picture: jersey ? jerseyFor(r) : null, word, saved: st?.placed || [], sfx, voice, say: (w) => talk(w), themeCover: t.cover, finishCard: FINISH, labels: save.settings.labels,
     onSave: (placed) => setPage(id, { placed }),
     onDone: (fresh) => {
-      if (fresh) { setPage(id, { done: true }); pageDone(r, spec, 0); save.album = { ...(save.album || {}), [name]: true }; commit(); sfx.play('done', { vary: false }); setTimeout(() => sfx.play('stamp'), 1200); }
+      if (fresh) { setPage(id, { done: true }); pageDone(r, spec, 0); if (!jersey) { save.album = { ...(save.album || {}), [name]: true }; commit(); } sfx.play('done', { vary: false }); setTimeout(() => sfx.play('stamp'), 1200); }
       addStamp(); setTimeout(() => app.querySelector('.finish')?.classList.remove('hidden'), fresh ? 1800 : 0);
     },
   });
@@ -268,6 +282,38 @@ function showSticker(r, spec) {
   wireFinish(r, spec);
   return cleanup;
 }
+function sayClue(c, t) {
+  const text = c.words.join(' ').replace(/[.!?]*$/, '') + (c.kind === 'beat' || c.kind === 'wonBy' ? '?' : '.');
+  const ids = c.words.map((w) => (t && w === t.nick && !t.house ? null : storyId('announcer', String(w))));
+  if (ids.every((id) => id && LINES[id])) voice(ids, { priority: 1, gap: 0.05 }); else talk(text);
+}
+function showScore(r, spec) {
+  const id = pageId(spec), st = pageState(id);
+  let hints = st?.hints || 0;
+  const cleanup = showScorePage(app, {
+    spec, teams: teams(), saved: st?.got || 0, sfx, sayClue, talk: (w) => talk(w), finishCard: FINISH,
+    onHintUsed: () => { hints++; setPage(id, { hints }); },
+    onSave: (got) => setPage(id, { got }),
+    onDone: (fresh) => {
+      if (fresh) { setPage(id, { done: true }); pageDone(r, spec, hints); sfx.play('done', { vary: false }); setTimeout(() => sfx.play('stamp'), 1000); }
+      addStamp(); app.querySelector('.hint-btn')?.classList.add('hidden'); setTimeout(() => app.querySelector('.finish')?.classList.remove('hidden'), fresh ? 1400 : 0);
+    },
+  });
+  if (!st?.done) firstTimes('intros', 'score', 'Find the scores!');
+  helpButton(() => {});
+  wireFinish(r, spec);
+  return cleanup;
+}
+
+// ------------------------------------------------------------------------------------------------ printing (from the grown-up corner)
+async function sheetFor(spec) {
+  if (spec.type === 'maze') return { kind: 'maze', page: pageFor(spec).page };
+  if (spec.type === 'ispy') { const { scene } = await sceneFor(spec); return { kind: 'ispy', scene, theme: spec.theme }; }
+  return null;
+}
+async function printLast() { const spec = save.last && specOf(save.last); const sh = spec && (await sheetFor(spec)); if (sh) printSheets([sh]); return !!sh; }
+async function printBook(bookId) { const b = bookById(bookId), sheets = []; for (let n = 1; n <= 10; n++) { const sh = await sheetFor(specOf({ book: b.id, n })); if (sh) sheets.push(sh); } if (sheets.length) printSheets(sheets); }
+
 /** the Sticker Album: every finished picture, by theme; a tap says its name */
 function showAlbum() {
   const done = save.album || {};
@@ -296,4 +342,4 @@ function celebrate(layers, ctl) {
 }
 
 go(routeFrom(params), false);
-window.shelf = { go, get route() { return current; }, save };                 // for tests and the screenshot tool
+window.shelf = { go, get route() { return current; }, save, printBook };                 // for tests and the screenshot tool
