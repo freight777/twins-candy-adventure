@@ -124,6 +124,16 @@ try {
       await ctx.close();
     }
   }
+  // Sparkle Match: the whole board is on the screen at phone and tablet sizes, both ways up (it once ran 23 px off an upright phone)
+  for (const [w, h] of [[390, 844], [375, 667], [844, 390], [1180, 820], [820, 1180]]) for (const q of ['level=1&theme=unicorn&seed=7', 'level=63&theme=mermaid&seed=7', 'level=100&theme=mermaid&seed=7']) {
+    const tag = `match ${w}×${h} ${q}`, ctx = await browser.newContext({ viewport: { width: w, height: h } }), page = await ctx.newPage(), errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`${base}/match.html?${q}`); await page.waitForFunction(() => window.match?.game, null, { timeout: 20000 }); await page.waitForTimeout(2500);
+    const b = await page.evaluate(() => { const g = window.match.board.root.getBounds(); return { x: g.x, y: g.y, r: g.x + g.width, bottom: g.y + g.height, w: innerWidth, h: innerHeight }; });
+    assert.ok(b.x >= 0 && b.y >= 0 && b.r <= b.w + 0.5 && b.bottom <= b.h + 0.5, `${tag}: board inside the screen (${JSON.stringify(b)})`);
+    assert.deepEqual(errors, [], `${tag}: no errors`);
+    checks++; await ctx.close();
+  }
   // real scores (Phase 6), with the feed faked inside the browser: off → no Last night page; on → the page appears before page 1 and
   // plays to the end; a broken feed → nothing shows and nothing breaks
   const FEED = { date: '2026-11-17', games: [['Boston', 'Comets', 'Miami', 'Heat', 101, 99], ['Denver', 'Stars', 'Dallas', 'Wings', 88, 72], ['Seattle', 'Storm', 'Chicago', 'Sky', 79, 81],
@@ -152,5 +162,5 @@ try {
     assert.deepEqual(errors, [], `${tag}: no errors`);
     checks++; await ctx.close();
   }
-  console.log(`nav ok (${checks} checks: real scores on, off and broken, 13 pages × 2 sizes, honeycomb and round mazes drawn through, Home ≤ 300 ms, Keep going, rotation, finish screens)`);
+  console.log(`nav ok (${checks} checks: Sparkle Match board fits 5 screens, real scores on, off and broken, 13 pages × 2 sizes, honeycomb and round mazes drawn through, Home ≤ 300 ms, Keep going, rotation, finish screens)`);
 } finally { await browser.close(); await server.close(); }

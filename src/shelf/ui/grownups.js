@@ -33,7 +33,7 @@ export function showGrownups(root, { onChange, onPrintLast, onPrintBook }) {
     <div class="gu-row gu-scores"><label class="gu-check"><input type="checkbox" data-k="realScores" ${s.realScores ? 'checked' : ''}> Real scores from last night <small>(optional, off)</small></label>
       <input class="gu-url" type="url" placeholder="https://…  your scores Worker's address" value="${esc(s.scoresURL)}" autocomplete="off">
       <small>Needs the small scores Worker in the project's workers/scores folder (its README says how to set it up). The game asks it once when it opens — nothing the child taps uses the network — and a "Last night" page appears in Score Spy. Real teams show their colours and initials only, never logos. If anything goes wrong it quietly uses the house league.</small></div>
-    <div class="gu-row"><b>Print</b><button class="gu-print-last">This page</button><select class="gu-print-book">${BOOKS.filter((b) => b.type === 'maze' || b.type === 'ispy').map((b) => `<option value="${b.id}">${b.title}</option>`).join('')}</select><button class="gu-print-book-go">A 10-page book</button>
+    <div class="gu-row"><b>Print</b><button class="gu-print-last">This page</button><select class="gu-print-book">${BOOKS.filter((b) => b.type === 'maze' || b.type === 'ispy').map((b) => `<option value="${b.id}">${b.title}</option>`).join('')}</select><button class="gu-print-book-go">The next 10 pages</button>
       <small>mazes and hidden pictures print as black line art, one per sheet; sticker pages do not print</small></div>
     <label class="gu-check"><input type="checkbox" data-k="sound" ${s.sound ? 'checked' : ''}> Sounds</label>
     <label class="gu-check"><input type="checkbox" data-k="voice" ${s.voice ? 'checked' : ''}> Voice</label>

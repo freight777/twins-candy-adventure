@@ -8,13 +8,13 @@ body[data-theme="mermaid"] { --bg0: #8ee8ff; --bg1: #2a7fd0; --ink: #0f4f8a; }
 #stage canvas { display: block; touch-action: none; }
 
 /* the board sits in #boardbox; the goal bar (and the friend) go above it in portrait and to its left in landscape */
-#ui { position: fixed; inset: 0; pointer-events: none; display: grid; grid-template-rows: auto 1fr; gap: 10px;
+#ui { position: fixed; inset: 0; pointer-events: none; display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); gap: 10px;   /* minmax: the goal bar can never widen the board past the screen */
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
 #goal { display: flex; align-items: center; gap: 12px; min-height: 84px; padding-left: 76px; }
 #chips { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; flex: 1; }
 #friend { width: clamp(64px, 11vh, 110px); height: auto; margin-left: auto; filter: drop-shadow(0 6px 4px #0003); transform-origin: 50% 100%; }
 @media (orientation: landscape) {
-  #ui { grid-template-rows: 1fr; grid-template-columns: auto 1fr; }
+  #ui { grid-template-rows: minmax(0, 1fr); grid-template-columns: auto minmax(0, 1fr); }
   #goal { flex-direction: column; justify-content: flex-start; min-width: 140px; padding: 90px 0 0; }
   #chips { flex-direction: column; flex: 0 0 auto; }
   #friend { margin: auto 0 0; width: clamp(80px, 16vh, 140px); }

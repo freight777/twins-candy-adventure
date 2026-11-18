@@ -51,7 +51,8 @@ export function showScorePage(app, { spec, teams, page: ready, saved, sfx, sayCl
       restart();
     }
   });
-  clueEl.querySelector('.again').addEventListener('click', () => { if (at < page.clues.length) sayClue(page.clues[at], page.clues[at].team && team(page.clues[at].team)); });
+  // the whole card (and its ▶) says the clue again
+  clueEl.addEventListener('click', () => { if (at < page.clues.length) sayClue(page.clues[at], page.clues[at].team && team(page.clues[at].team)); });
   app.querySelector('.hint-btn').addEventListener('click', hint);
   page.clues.slice(0, at).forEach((c) => app.querySelector(`.board[data-g="${c.answer.g}"]`).classList.add('found'));
   if (at >= page.clues.length) onDone(false); else showClue();

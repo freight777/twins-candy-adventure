@@ -135,12 +135,12 @@ function showShelf() {
       ${n === 0 && last ? '<button class="keep" aria-label="Keep going"><svg class="mini"></svg><span class="go"><i></i></span></button>' : ''}
       ${BOOKS.filter((b) => (b.plank || b.type) === k.type).map((b) => { const done = doneCount(b), t = THEMES[b.theme];
         return `<button class="book" data-book="${b.id}" style="--c0:${t.cover[0]};--c1:${t.cover[1]}" aria-label="${b.title}">
-          <img class="cover-pic" src="${artURL(b.cover)}" alt="" draggable="false"><span class="cover-title">${t.title}</span>
+          <img class="cover-pic" src="${artURL(b.cover)}" alt="" draggable="false"><span class="cover-title">${b.type === 'score' ? b.title : t.title}</span>
           <span class="ribbon">${done} / ${b.pages}</span>${done >= b.pages ? '<i class="seal"></i>' : ''}${b.type === 'ispy' || b.type === 'score' ? '<i class="lens"></i>' : ''}${b.type === 'score' ? '<span class="mini-board"><i>7</i><i>3</i></span>' : ''}${b.type === 'sticker' ? '<i class="spiral"></i>' : ''}</button>`; }).join('')}
       ${k.type === 'sticker' ? `<button class="book album" aria-label="Sticker Album" style="--c0:#ff9fd0;--c1:#ffd6ec"><span class="album-grid">${Object.keys(save.album || {}).slice(0, 4).map(() => '<i></i>').join('')}</span><span class="cover-title">Album</span><span class="ribbon">${Object.keys(save.album || {}).length}</span></button>` : ''}
     </div>`).join('')}
     <div class="plank trophies" data-kind="trophy"><span class="kind-tag" aria-label="Trophy Case">${CUP_ICON}</span>
-      ${BOOKS.map((b) => `<span class="trophy${save.trophies[b.id] ? ' won' : ''}" title="${b.title}"><img src="${artURL('Trophy')}" alt=""><img class="badge" src="${artURL(THEMES[b.theme].hero)}" alt=""></span>`).join('')}
+      ${BOOKS.map((b) => `<span class="trophy${save.trophies[b.id] ? ' won' : ''}" title="${b.title}"><img src="${artURL('Trophy')}" alt=""><img class="badge" src="${artURL(b.type === 'score' ? 'Sports medal' : THEMES[b.theme].hero)}" alt=""></span>`).join('')}
     </div></div>`;
   const keep = app.querySelector('.keep');
   if (keep) keep.addEventListener('click', () => { firstTimes('spoken', 'keep', 'Keep going'); go(last); });
@@ -338,16 +338,19 @@ async function sheetFor(spec) {
   return null;
 }
 async function printLast() { const spec = save.last && specOf(save.last); const sh = spec && (await sheetFor(spec)); if (sh) printSheets([sh]); return !!sh; }
-async function printBook(bookId) { const b = bookById(bookId), sheets = []; for (let n = 1; n <= 10; n++) { const sh = await sheetFor(specOf({ book: b.id, n })); if (sh) sheets.push(sh); } if (sheets.length) printSheets(sheets); }
+/** a 10-page book: the next ten pages of that book he hasn't finished (then endless pages), at the levels the game has for him */
+async function printBook(bookId) {
+  const b = bookById(bookId), done = bookDone(b.id), ns = [];
+  for (let n = 1; ns.length < 10 && n <= PAGES + 40; n++) if (!done[n]) ns.push(n);
+  const sheets = []; for (const n of ns) { const sh = await sheetFor(specOf({ book: b.id, n })); if (sh) sheets.push(sh); } if (sheets.length) printSheets(sheets); }
 
 /** the Sticker Album: every finished picture, by theme; a tap says its name */
 function showAlbum() {
   const done = save.album || {};
   app.innerHTML = `<div class="bookpage album-page"><div class="book-head" style="--c0:#ff9fd0;--c1:#ffd6ec"><span class="cover-title">Sticker Album</span></div>
     ${Object.values(THEMES).map((t) => `<div class="album-row">${t.stickers.map((n) => `<button class="album-pic${done[slug(n)] ? ' got' : ''}" data-name="${slug(n)}" aria-label="${n}"><svg viewBox="0 0 512 512"></svg></button>`).join('')}</div>`).join('')}</div>`;
-  app.querySelectorAll('.album-pic').forEach((b) => {
-    if (!b.classList.contains('got')) return;
-    loadPicture(b.dataset.name).then((pic) => pic.pieces.forEach((p) => drawFacets(b.querySelector('svg'), p)));
+  app.querySelectorAll('.album-pic').forEach((b) => {                       // a finished picture in colour; one still to make as its shadow
+    loadPicture(b.dataset.name).then((pic) => { if (b.isConnected) pic.pieces.forEach((p) => drawFacets(b.querySelector('svg'), p)); });
     b.addEventListener('click', () => { talk(b.dataset.name.replace(/-/g, ' ')); b.classList.remove('hop'); void b.offsetWidth; b.classList.add('hop'); });
   });
   return null;

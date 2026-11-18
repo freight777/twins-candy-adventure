@@ -54,7 +54,7 @@ export function hexCircle(cols, rows, r) {
 }
 /** a honeycomb in a circle about `want` cells big, no wider or taller than the box allows (in corridors) */
 export function soccerGrid(want, maxW = 99, maxH = 99) {
-  let r = Math.sqrt(want * 0.866 / Math.PI); r = f3(Math.max(2.2, Math.min(r, (maxW - 0.6) / 2, (maxH - 0.6) / 2)));
+  let r = Math.sqrt(want * 0.866 / Math.PI); r = f3(Math.max(2.2, Math.min(r, (maxW - 2.5) / 2, (maxH - 2.2) / 2)));   // the drawing is ⌈2r⌉ + 1.5 wide and about 2r + 2 tall
   const cols = Math.ceil(2 * r) + 1, rows = Math.ceil(2 * r / DY) + 1;
   return { cols, rows, r, grid: hexCircle(cols, rows, r) };
 }

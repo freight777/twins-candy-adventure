@@ -4,8 +4,8 @@
 import { artSrc } from './doors.js';
 import { won, open, current } from '../save.js';
 
-const H = 760, STONE = 66;
-const stoneAt = (land, j) => ({ x: 50 + 30 * Math.sin(j * 1.05 + land * 0.8), y: H - 96 - j * 60 });
+const H = 860, STONE = 66;                                   // stones 72 px apart, so two never overlap where the path turns
+const stoneAt = (land, j) => ({ x: 50 + 30 * Math.sin(j * 1.05 + land * 0.8), y: H - 96 - j * 72 });
 
 export function buildMap(root, theme, door, friend, { onPlay, onCharms }) {
   const cur = current(door);
