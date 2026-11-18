@@ -29,7 +29,7 @@ export function chooseStickers(pic, level) {
   return chosen;
 }
 
-export function showStickerPage(app, { spec, picName, word, saved, sfx, voice, say, onSave, onDone, finishCard, themeCover }) {
+export function showStickerPage(app, { spec, picName, word, saved, sfx, voice, say, onSave, onDone, finishCard, themeCover, labels = 'upper' }) {
   let alive = true, cleanupResize = null;
   app.innerHTML = `<div class="page sticker-page"><div class="spage"><svg class="spic" viewBox="0 0 512 512"></svg></div><div class="sheet"></div>${finishCard}</div>`;
   const pageEl = app.querySelector('.spage'), svg = app.querySelector('.spic'), sheet = app.querySelector('.sheet');
@@ -37,7 +37,8 @@ export function showStickerPage(app, { spec, picName, word, saved, sfx, voice, s
   loadPicture(picName).then((pic) => {
     if (!alive) return;
     const level = spec.level, chosen = chooseStickers(pic, level), isSticker = new Set(chosen), placed = new Set((saved || []).filter((i) => isSticker.has(i)));
-    const letters = new Map(chosen.map((i, k) => [i, letter(k)]));
+    // labels (a grown-up setting): A B C, or 1 2 3, or lower-case stickers onto capital gaps
+    const letters = new Map(chosen.map((i, k) => [i, labels === 'numbers' ? String(k + 1) : letter(k)])), tabOf = (i) => (labels === 'lower' ? letters.get(i).toLowerCase() : letters.get(i));
     const printed = el('g', { class: 'printed' }, svg), gaps = el('g', { class: 'gaps' }, svg), stuck = el('g', { class: 'stuck' }, svg), fx = el('g', {}, svg);
     pic.pieces.forEach((p, i) => { if (!isSticker.has(i)) drawFacets(printed, p); });
     const gapEls = new Map(), stuckEls = new Map();
@@ -54,7 +55,7 @@ export function showStickerPage(app, { spec, picName, word, saved, sfx, voice, s
     // the sheet: shuffled, each sticker at the size of its gap
     const order = chosen.filter((i) => !placed.has(i)), rand = rng(spec.seed ^ 0x51f15e);
     for (let k = order.length - 1; k > 0; k--) { const j = (rand() * (k + 1)) | 0; [order[k], order[j]] = [order[j], order[k]]; }
-    sheet.innerHTML = order.map((i) => `<button class="loose" data-i="${i}" aria-label="${letters.get(i)}"><svg></svg><span class="tab readable">${letters.get(i)}</span></button>`).join('');
+    sheet.innerHTML = order.map((i) => `<button class="loose" data-i="${i}" aria-label="${letters.get(i)}"><svg></svg><span class="tab readable">${tabOf(i)}</span></button>`).join('');
     const drawLoose = (svgEl, i) => {
       const p = pic.pieces[i], [x0, y0, x1, y1] = bbox(p), pad = 6; svgEl.setAttribute('viewBox', `${x0 - pad} ${y0 - pad} ${x1 - x0 + 2 * pad} ${y1 - y0 + 2 * pad}`);
       el('path', { d: pathOf(p), fill: '#fff', stroke: '#fff', 'stroke-width': 9, 'stroke-linejoin': 'round', 'fill-rule': 'evenodd' }, svgEl);
@@ -86,7 +87,7 @@ export function showStickerPage(app, { spec, picName, word, saved, sfx, voice, s
     const centreOf = (i) => { const [x0, y0, x1, y1] = bbox(pic.pieces[i]), r = svg.getBoundingClientRect(), s = scale(); return { x: r.left + ((x0 + x1) / 2) * s, y: r.top + ((y0 + y1) / 2) * s }; };
     const toPic = (cx, cy) => { const r = svg.getBoundingClientRect(), s = scale(); return [(cx - r.left) / s, (cy - r.top) / s]; };
     let drag = null, selected = null;
-    function sayLetter(i) { const L = letters.get(i).toLowerCase(); voice([...L].map((c) => `name_${c}`), { priority: 0 }); }
+    function sayLetter(i) { const L = letters.get(i).toLowerCase(); voice(/^d+$/.test(L) ? [`n_${Math.min(30, +L)}`] : [...L].map((c) => `name_${c}`), { priority: 0 }); }
     function lift(btn, x, y) {
       const i = +btn.dataset.i, float = btn.querySelector('svg').cloneNode(true), r = btn.querySelector('svg').getBoundingClientRect();
       float.classList.add('floating'); Object.assign(float.style, { width: r.width + 'px', height: r.height + 'px' }); document.body.appendChild(float);

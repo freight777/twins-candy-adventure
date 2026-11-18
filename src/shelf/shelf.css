@@ -17,9 +17,10 @@ img.fe { width: 1em; height: 1em; vertical-align: -0.12em; pointer-events: none;
 #nav button:active { transform: translateY(4px); box-shadow: 0 0 0 3px #222, 0 1px 0 3px #222; }
 body[data-screen="shelf"] #nav { display: none; }
 body:is([data-screen="book"], [data-screen="album"]) #btnBook { display: none; }
-#leave { position: fixed; z-index: 20; top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 12px); width: 48px; height: 48px; border-radius: 50%;
+#leave { position: fixed; z-index: 20; top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); width: 48px; height: 48px; border-radius: 50%;
   background: #ffffffa0; font-size: 26px; display: flex; align-items: center; justify-content: center; }
-body:not([data-screen="shelf"]) #leave { display: none; }
+body:not([data-screen="shelf"]) :is(#leave, #clock) { display: none; }
+#clock { position: fixed; z-index: 20; top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 12px); width: 44px; height: 44px; border-radius: 50%; background: #ffffff90; font-size: 24px; display: flex; align-items: center; justify-content: center; }
 
 /* the shelf */
 .shelf { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; padding: calc(env(safe-area-inset-top) + 12px) 20px calc(env(safe-area-inset-bottom) + 12px); }
@@ -207,3 +208,40 @@ body:not([data-screen="shelf"]) #leave { display: none; }
 .loose.nope { animation: wiggle .4s; }
 .floating { position: fixed; z-index: 50; pointer-events: none; scale: 1.08; filter: drop-shadow(0 12px 10px #0005); overflow: visible; }
 .floating.gliding { transition: left .14s ease-out, top .14s ease-out, scale .14s; scale: 1; }
+
+/* ---------------------------------------------------------------------------------------------- the Trophy Case: one trophy per finished book */
+.plank.trophies { gap: 8px; padding-top: 8px; }
+.trophy { position: relative; width: clamp(44px, 7vw, 66px); aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+.trophy img { width: 100%; filter: grayscale(1) brightness(1.6); opacity: .28; }
+.trophy .badge { position: absolute; width: 46%; bottom: 0; right: -6%; }
+.trophy.won img { filter: drop-shadow(0 4px 3px #0003); opacity: 1; }
+.trophy.hop { animation: thing-hop .5s cubic-bezier(.3, 1.8, .5, 1); }
+@keyframes thing-hop { 40% { translate: 0 -14%; } }
+
+/* the endless pages ribbon at the end of a book */
+.pg.endless { background: linear-gradient(160deg, var(--c1), var(--c0)); color: #fff; font-size: 44px; box-shadow: 0 0 0 3px #222, 0 5px 0 3px #222; }
+.pg.endless b { text-shadow: 0 2px 0 #0003; }
+
+/* a page turn between screens */
+#app > .turn-in { animation: turn-in .42s cubic-bezier(.2, .8, .3, 1) both; transform-origin: 0 50%; }
+#app > .turn-back { animation: turn-back .36s cubic-bezier(.2, .8, .3, 1) both; transform-origin: 100% 50%; }
+@keyframes turn-in { from { transform: perspective(1400px) rotateY(-28deg) translateX(30px); opacity: 0; } }
+@keyframes turn-back { from { transform: perspective(1400px) rotateY(18deg) translateX(-30px); opacity: 0; } }
+
+/* the grown-up corner */
+.grownups { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: #0007; padding: 16px; font-family: system-ui, sans-serif; touch-action: pan-y; }
+.gu-card { width: min(94vw, 600px); max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 20px; padding: 20px 22px; color: #333; display: flex; flex-direction: column; gap: 14px; -webkit-user-select: text; user-select: text; touch-action: pan-y; }
+.gu-card h2 { margin: 0; }
+.gu-field { display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.gu-field input { font-size: 18px; padding: 8px 10px; border: 2px solid #ccc; border-radius: 10px; }
+.gu-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 16px; }
+.gu-row small { width: 100%; color: #777; }
+.gu-row .pill { padding: 6px 12px; border: 2px solid #ddd; border-radius: 20px; }
+.gu-check { display: flex; align-items: center; gap: 10px; font-size: 17px; }
+.gu-check input { width: 22px; height: 22px; }
+.gu-book { font-size: 15px; padding: 6px; border-radius: 8px; }
+.gu-reset { position: relative; padding: 8px 14px; border-radius: 12px; border: 2px solid #e0245e; background: #fff; color: #e0245e; font-size: 15px; }
+.gu-note { margin: 0; font-size: 14px; color: #777; }
+.gu-credits summary { cursor: pointer; font-weight: 600; }
+.gu-credits p { font-size: 13px; line-height: 1.5; color: #555; }
+.gu-close { align-self: flex-end; padding: 10px 26px; border-radius: 12px; border: 0; background: #6b3b17; color: #fff; font-size: 17px; }

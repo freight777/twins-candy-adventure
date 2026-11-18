@@ -46,6 +46,12 @@ if (!doorId) {
   holdGate($('#home'), () => { location.href = './'; }, { ms: 1200, onTap: () => voice('hold_to_go_home', { priority: 0 }) });
   const draw = () => showDoors($('#doors'), { onPick: (d) => { say(`${THEMES[d].door.title}!`, THEMES[d].voice); setTimeout(() => { location.href = `?door=${d}`; }, 650); } });
   draw();
+  let nudge = 0, which = 0;
+  const idleDoors = () => { clearTimeout(nudge); nudge = setTimeout(() => {
+    const doors = [...document.querySelectorAll('.door')], d = doors[which++ % doors.length]; if (!d) return;
+    d.classList.remove('nudge'); void d.offsetWidth; d.classList.add('nudge'); say(`${THEMES[d.dataset.door].door.title}!`, THEMES[d.dataset.door].voice); idleDoors();
+  }, 8000); };
+  addEventListener('pointerdown', idleDoors); idleDoors();
   holdGate($('#gear'), () => showGrownups(document.body, { onChange: () => { applySettings(); draw(); } }), { ms: 2000 });
 } else {
   await startDoor(doorId);
@@ -76,7 +82,12 @@ async function startDoor(id) {
       onCharms: (li) => { say(`${theme.lands[li].name}!`, theme.voice); showCharms(document.body, theme, id, li, {}); },
     });
     requestAnimationFrame(() => map.standOn(current(id), hopFrom));
+    const walker = $('#map .walker'), letsGo = () => { walker.classList.remove('hop'); void walker.offsetWidth; walker.classList.add('hop'); speak("Let's go!", true); };
+    clearTimeout(mapIdle); mapIdle = setTimeout(() => { if (document.body.dataset.screen === 'map' && !document.querySelector('.charms')) letsGo(); }, 8000);
+    $('#map .map-scroll').addEventListener('pointerdown', (e) => { clearTimeout(mapIdle); if (e.target.closest('.land-name')) say(`${theme.lands[+e.target.closest('.land').dataset.land].name}!`, theme.voice); });
+    walker.style.pointerEvents = 'auto'; walker.addEventListener('click', letsGo);
   }
+  let mapIdle = 0;
   $('#mapBack').addEventListener('click', () => { location.href = './match.html'; });
   $('#back').addEventListener('click', () => openMap());
   $('#bulb').addEventListener('click', () => { if (g && !g.done && !busy) { clearTimeout(idle); hint.show(bestMove(g)); } });
@@ -175,6 +186,10 @@ async function startDoor(id) {
   /** the friend leaves its place beside the board while it visits the board */
   function visit(on) { $('#friend').classList.toggle('away', on); if (on) speak(pickLine(theme.lines.help), true); }
   board.hooks = { sound: (c, o) => sfx.play(c, o), cheer, fly, visit };
+  $('#chips').addEventListener('click', (e) => { const chip = e.target.closest('.chip'); if (!chip) return; const n = shown[chip.dataset.key] ?? 0;
+    chip.classList.remove('bump'); void chip.offsetWidth; chip.classList.add('bump'); if (n > 0 && n <= 30) voice(`n_${n}`, { priority: 0 }); });
+  $('#friend').addEventListener('click', () => { const f = $('#friend'); f.classList.remove('cheer'); void f.offsetWidth; f.classList.add('cheer'); sfx.play('gift', { vol: 0.6 }); });
+  $('#win').addEventListener('click', (e) => { const t = e.target.closest('#winFriend, #prize img'); if (t) { t.classList.remove('hop'); void t.offsetWidth; t.classList.add('hop'); sfx.play('gift', { vol: 0.6 }); } });
 
   // -------------------------------------------------------------------------------------------- moves
   function poke() { clearTimeout(idle); hint.hide(); idle = setTimeout(offerHint, (lesson && g?.moves === 0) || save.settings.hints ? 2000 : 5000); }

@@ -168,3 +168,10 @@ body[data-screen="play"] #goal { padding-right: 76px; }
 .reset { position: relative; padding: 10px 14px; border-radius: 12px; border: 2px solid #e0245e; background: #fff; color: #e0245e; font-size: 15px; }
 .gu-note { margin: 0; font-size: 14px; color: #777; }
 .gu-close { align-self: flex-end; padding: 10px 26px; border-radius: 12px; border: 0; background: #6a2f86; color: #fff; font-size: 17px; }
+
+/* Phase 4: things a child taps always answer; nothing waits more than a few seconds without a nudge */
+.door.nudge { animation: door-nudge .9s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes door-nudge { 30% { transform: translateY(-14px) rotate(-3deg) scale(1.04); } 60% { transform: rotate(2deg); } }
+#ui { pointer-events: none; } #chips, #friend { pointer-events: auto; }
+#winFriend.hop, #prize img.hop { animation: hop .45s ease-in-out; }
+.land-name { cursor: pointer; }

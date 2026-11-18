@@ -22,7 +22,7 @@ function layout(trayRight) {
   return a.w >= b.w ? a : b;
 }
 
-export function showIspyPage(app, { r, spec, id, saved, look, sfx, note, say, onSave, onDone, finishCard }) {
+export function showIspyPage(app, { r, spec, id, saved, look, sfx, note, say, onSave, onDone, onHintUsed, finishCard }) {
   let alive = true, ctl = null, onResize = null;
   app.innerHTML = `<div class="page ispy-page"><svg class="scene" aria-label="Hidden pictures"></svg><div class="tray"></div><div class="minimap hidden"><i></i></div>
     <button class="hint-btn" aria-label="Help">?</button>${finishCard}</div>`;
@@ -51,7 +51,7 @@ export function showIspyPage(app, { r, spec, id, saved, look, sfx, note, say, on
       onFind: (i, t, done, all) => { finds++; sfx.play('star', { rate: note(Math.min(10, finds)), vary: false }); say(scene.tray[t].word); tick(t); onSave({ found: all }); if (done) trayEl.querySelector(`[data-t="${t}"]`).classList.add('just'); },
       onMiss: () => sfx.play('wobble', { vol: 0.6 }),
       onCalm: () => say('Look closely…'),
-      onHint: (t) => { sfx.play('hint'); const b = trayEl.querySelector(`[data-t="${t}"]`); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); },
+      onHint: (t) => { onHintUsed?.(); sfx.play('hint'); const b = trayEl.querySelector(`[data-t="${t}"]`); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); },
       onFinish: (all) => { onSave({ found: all, done: true }); finish(layers, scene, true); },
     });
     scene.tray.forEach((e) => tick(e.t));
