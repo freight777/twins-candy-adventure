@@ -41,3 +41,10 @@ The raw files are in public/assets/mocap/; tools/export-clips.cjs turns them int
 - Hidden-picture objects: [OpenMoji](https://openmoji.org) — the open-source emoji and icon project. License: CC BY-SA 4.0. Line and colour versions,
   fetched by tools/build-art.mjs into public/art/ (sprite sheets) and src/shelf/ispy/art/ (words and silhouette masks).
 - The hidden-picture backdrops (src/shelf/ispy/sets.js) are drawn in code for this game.
+- Sticker-by-letter pictures: Fluent Emoji 3D renders by Microsoft (MIT), cut into stickers by tools/build-stickers.mjs (from the
+  Puzzle Shelf build spec; uses [delaunator](https://github.com/mapbox/delaunator), ISC) and tools/stickers-finish.mjs, public/stickers/.
+
+## Sparkle Match (Phase 3)
+- Doors, maps, charms and map friends: Fluent Emoji 3D renders by Microsoft (MIT), public/assets/match/ (tools/fetch-art.mjs).
+- The friends' voices: Kokoro-82M (Apache-2.0), rendered on this computer by tools/voice-bank.mjs into public/voice/.
+- The music loops are played by the shared music engine in src/audio.js (no recordings).

@@ -18,7 +18,7 @@ export function installSoak(match, E) {
     startClock();
     try {
       for (const L of levels) {
-        match.start(L, seed); let n = 0, r = seed * 7 + 1;
+        match.start(L, seed); match.app?.ticker.stop(); let n = 0, r = seed * 7 + 1;   // nothing needs drawing: the logic and the animations' bookkeeping are what is tested
         while (!match.game.done && n < 150) {
           if (performance.now() - t0 > budgetMs) return { ok: !problem, out, stoppedAt: L, problem };
           const ms = E.moves(match.game); r = (r * 1103515245 + 12345) >>> 0;
@@ -29,6 +29,6 @@ export function installSoak(match, E) {
         out.push(`${L}:${n}`);
       }
       return { ok: !problem, out, problem, sprites: board.sprites.size };
-    } finally { stopClock(); console.error = oe; removeEventListener('error', onErr); }
+    } finally { stopClock(); match.app?.ticker.start(); console.error = oe; removeEventListener('error', onErr); }
   };
 }

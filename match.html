@@ -12,17 +12,27 @@
   <link rel="icon" type="image/png" href="./icon-ae-192.png" />
   <title>Sparkle Match</title>
 </head>
-<body data-theme="unicorn">
+<body data-theme="unicorn" data-screen="loading">
+  <!-- the doors -->
+  <main id="doors"></main>
+  <button id="home" aria-label="All games (hold)">&#127968;</button>
+  <button id="gear" aria-label="Grown-ups (hold)">&#9881;&#65039;</button>
+  <!-- a door's map -->
+  <main id="map"></main>
+  <button id="mapBack" class="round back" aria-label="Doors"><i></i></button>
+  <!-- a level -->
   <div id="stage"></div>
   <div id="ui">
     <div id="goal" aria-label="Goal"><div id="chips"></div><img id="friend" alt="" draggable="false"></div>
     <div id="boardbox"></div>
   </div>
-  <button id="home" aria-label="All games (hold)">&#127968;</button>
+  <button id="back" class="round back" aria-label="Map"><i></i></button>
+  <button id="bulb" class="round" aria-label="Hint"><img src="./assets/match/light-bulb.webp" alt=""></button>
   <div id="intro" aria-hidden="true"></div>
   <div id="win" class="hidden">
+    <div id="prize"></div>
     <img id="winFriend" alt="" draggable="false">
-    <button id="next" aria-label="Next level"><i></i></button>
+    <button id="next" aria-label="Next"><i></i></button>
   </div>
   <script type="module" src="/src/match/main.js"></script>
 </body>

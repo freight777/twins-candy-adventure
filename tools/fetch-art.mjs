@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { THEMES as MATCH, artNames, slug } from '../src/match/themes.js';
+import { THEMES as MATCH, artNames, artFile, slug } from '../src/match/themes.js';
 import { THEMES as SHELF } from '../src/shelf/themes.js';
 const sharp = createRequire(import.meta.url)('sharp');
 
@@ -26,21 +26,27 @@ for (const p of paths) {
   if (m && (!pngOf.has(m[1]) || p.includes('/Default/'))) pngOf.set(m[1], p);
 }
 const folder = (name) => [...pngOf.keys()].find((f) => f.toLowerCase() === name.toLowerCase());
+/** 'Woman merpeople|Medium' → that skin tone's picture */
+function pathOf(name) {
+  const [base, tone] = name.split('|'), f = folder(base); if (!f) return null;
+  if (!tone) return pngOf.get(f);
+  return paths.find((p) => p.startsWith(`assets/${f}/${tone}/3D/`) && p.endsWith('.png')) || null;
+}
 
 async function source(name) {
-  const f = folder(name); if (!f) return null;
-  const file = path.join(CACHE, slug(name) + '.png');
+  const p = pathOf(name); if (!p) return null;
+  const file = path.join(CACHE, artFile(name) + '.png');
   if (!fs.existsSync(file)) {
-    const r = await fetch(RAW + pngOf.get(f).split('/').map(encodeURIComponent).join('/'));
+    const r = await fetch(RAW + p.split('/').map(encodeURIComponent).join('/'));
     if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
     fs.writeFileSync(file, Buffer.from(await r.arrayBuffer()));
   }
   return file;
 }
-async function webp(name, outDir) {
+async function webp(name, outDir, size = SIZE) {
   const src = await source(name); if (!src) return false;
   fs.mkdirSync(outDir, { recursive: true });
-  await sharp(src).resize(SIZE, SIZE, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).webp({ quality: 86, alphaQuality: 90 }).toFile(path.join(outDir, slug(name) + '.webp'));
+  await sharp(src).resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).webp({ quality: 86, alphaQuality: 90 }).toFile(path.join(outDir, artFile(name) + '.webp'));
   return true;
 }
 /** the silhouette, cropped to its outline, as rows of hex (1 bit per cell, BITS on the long side) */
@@ -57,14 +63,18 @@ async function silhouette(name) {
 }
 
 const missing = [], made = [];
-for (const t of Object.values(MATCH)) for (const n of artNames(t)) (await webp(n, path.join(ROOT, 'public/assets/match'))) ? made.push(n) : missing.push(`match/${t.id}: ${n}`);
+for (const t of Object.values(MATCH)) {                    // pieces and friends at 192 px; map charms and map friends at 128 px
+  const big = new Set([...t.names, ...Object.values(t.art)]);
+  for (const n of artNames(t)) (await webp(n, path.join(ROOT, 'public/assets/match'), big.has(n.split('|')[0]) ? SIZE : 128)) ? made.push(n) : missing.push(`match/${t.id}: ${n}`);
+}
 const shapes = {};
 for (const t of Object.values(SHELF)) {
   for (const n of new Set([t.hero, t.goal, ...t.decor, ...t.shapes])) (await webp(n, path.join(ROOT, 'public/assets/shelf'))) ? made.push(n) : missing.push(`shelf/${t.id}: ${n}`);
   for (const n of t.shapes) { const s = await silhouette(n); if (s) shapes[slug(n)] = s; }
+  // sticker-by-letter source pictures, for tools/build-stickers.mjs (node tools/build-stickers.mjs tools/.cache/sticker-src tools/.cache/stickers 24)
+  fs.mkdirSync(path.join(ROOT, 'tools/.cache/sticker-src'), { recursive: true });
+  for (const n of t.stickers || []) { const src = await source(n); if (src) fs.copyFileSync(src, path.join(ROOT, 'tools/.cache/sticker-src', slug(n) + '.png')); else missing.push(`shelf/${t.id} sticker: ${n}`); }
 }
-fs.writeFileSync(path.join(ROOT, 'src/shelf/shapes.js'), '// Maze shape silhouettes, written by tools/fetch-art.mjs from the Fluent Emoji 3D pictures (do not edit by hand).
-export default ' + JSON.stringify(shapes) + ';
-');
+fs.writeFileSync(path.join(ROOT, 'src/shelf/shapes.js'), '// Maze shape silhouettes, written by tools/fetch-art.mjs from the Fluent Emoji 3D pictures (do not edit by hand).\nexport default ' + JSON.stringify(shapes) + ';\n');
 console.log(`${new Set(made).size} pictures, ${Object.keys(shapes).length} maze shapes`);
 if (missing.length) { console.log('NOT in Fluent Emoji (change the theme file):\n  ' + missing.join('\n  ')); process.exitCode = 1; }

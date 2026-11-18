@@ -4,7 +4,7 @@
 // The pictures are Fluent Emoji 3D (tools/fetch-art.mjs); if they have not loaded, the tile alone still plays.
 import { Container, Graphics, Sprite, Assets } from 'pixi.js';
 import { BABY, RAINBOW, ROW, COL, BURST } from '../game/engine.js';
-import { slug, artNames } from '../themes.js';
+import { artFile } from '../themes.js';
 
 export const U = 100;
 const S = 44, R = 24;                                   // half-size and corner radius of a tile
@@ -13,7 +13,7 @@ const BASE = `${import.meta.env.BASE_URL}assets/match/`;
 /** load every picture a door needs; resolves to a lookup by name (missing pictures are simply absent) */
 export async function loadArt(theme) {
   const tex = {};
-  await Promise.all(artNames(theme).map(async (n) => { try { tex[n] = await Assets.load(BASE + slug(n) + '.webp'); } catch { /* play on with tiles */ } }));
+  await Promise.all([...theme.names, ...Object.values(theme.art).filter(Boolean)].map(async (n) => { try { tex[n] = await Assets.load(BASE + artFile(n) + '.webp'); } catch { /* play on with tiles */ } }));
   return tex;
 }
 

@@ -134,3 +134,9 @@ story('princess', 'Try again!', 'Thank you!', 'A royal feast! Ten dishes!', 'Aga
   'Yummy noodles! Thank you!', 'Yummy pupusas! Thank you!', 'Yummy popsicle! Thank you!', 'Yummy bread with butter! Thank you!',
   "Cookie time! Let's cut some cookies!", 'Juice time! Which glass is for me?', 'Ding dong! Tony brought eggs for a cake!',
   'Yummy cookies! Thank you!', 'Yummy juice! Thank you!', 'Yummy cake! Thank you!');
+// Sparkle Match: each door's friend speaks its own lines (src/match/themes.js): lessons, help, praise, the lands
+import { THEMES as MATCH, lessonOne } from '../match/themes.js';
+for (const t of Object.values(MATCH)) {
+  story(t.voice, ...t.short.map((_, k) => lessonOne(t, k)), ...Object.values(t.lines.lesson), ...t.lines.help, ...t.lines.praise, ...t.lines.win,
+    `${t.door.title}!`, "Let's go!", 'A new charm!', 'A new friend!', ...t.lands.flatMap((l) => [`${l.name}!`, `You finished ${l.name}!`]));
+}

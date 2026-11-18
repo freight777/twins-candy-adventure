@@ -65,3 +65,106 @@ body[data-theme="mermaid"] #next i { border-left-color: #2a8dff; }
 /* the friend leaves its place while it visits the board */
 #friend { transition: opacity .2s, transform .3s; }
 #friend.away { opacity: 0; transform: translateY(-30%) scale(.6); }
+
+/* ---------------------------------------------------------------------------------------------- which screen is showing */
+#doors, #map, #home, #gear, #mapBack, #stage, #ui, #back, #bulb { display: none; }
+body[data-screen="doors"] :is(#doors, #home, #gear) { display: flex; }
+body[data-screen="map"] #map { display: block; }
+body[data-screen="map"] #mapBack { display: flex; }
+body[data-screen="play"] #stage { display: block; }
+body[data-screen="play"] #ui { display: grid; }
+body[data-screen="play"] :is(#back, #bulb) { display: flex; }
+body[data-screen="doors"] { background: linear-gradient(135deg, #ffd9f1, #c7b3ff 50%, #8ee8ff); }
+.round { position: fixed; z-index: 5; width: 64px; height: 64px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 5px 0 #0002; align-items: center; justify-content: center; padding: 0; }
+.round:active { transform: translateY(4px); box-shadow: 0 1px 0 #0002; }
+.round.back { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
+.round.back i { width: 0; height: 0; margin-right: 6px; border-style: solid; border-width: 16px 24px 16px 0; border-color: transparent var(--ink) transparent transparent; }
+#bulb { top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); }
+#bulb img { width: 44px; height: 44px; }
+body[data-screen="play"] #goal { padding-right: 76px; }
+@media (orientation: landscape) { body[data-screen="play"] #goal { padding-right: 0; } }
+#gear { position: fixed; z-index: 5; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 48px; height: 48px; border: 0; border-radius: 50%; background: #ffffffaa; font-size: 26px; align-items: center; justify-content: center; }
+
+/* ---------------------------------------------------------------------------------------------- the doors */
+#doors { position: fixed; inset: 0; align-items: center; justify-content: center; }
+.doors { display: flex; flex-wrap: wrap; gap: clamp(20px, 6vw, 80px); justify-content: center; align-items: center; padding: 80px 16px 24px; }
+.door { position: relative; width: clamp(150px, min(36vw, 52vh), 340px); aspect-ratio: 3 / 4; border: 0; padding: 0; border-radius: 50% 50% 22px 22px / 32% 32% 22px 22px;
+  background: linear-gradient(160deg, var(--d0), var(--d1)); box-shadow: inset 0 0 0 10px #ffffff80, 0 12px 0 #0003; display: flex; align-items: center; justify-content: center; }
+.door:active { transform: translateY(6px); box-shadow: inset 0 0 0 10px #ffffff80, 0 4px 0 #0003; }
+.door .arch { width: 76%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #fff, #ffffffaa 60%, #ffffff00 70%); display: flex; align-items: center; justify-content: center; }
+.door-friend { width: 88%; filter: drop-shadow(0 8px 6px #0003); animation: door-bob 2.6s ease-in-out infinite; }
+.door:nth-child(2) .door-friend { animation-delay: -1.3s; }
+.door-charms { position: absolute; bottom: 14px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 6px; padding: 4px 14px 4px 6px; border-radius: 22px; background: #fff; font: 700 26px Fredoka, sans-serif; color: #6a2f86; box-shadow: 0 3px 0 #0002; }
+.door-charms img { width: 34px; height: 34px; }
+.door.opening { animation: door-open .6s ease-in forwards; }
+@keyframes door-bob { 50% { transform: translateY(-6%) rotate(-3deg); } }
+@keyframes door-open { to { transform: scale(1.15); opacity: 0; } }
+
+/* ---------------------------------------------------------------------------------------------- the map */
+#map { position: fixed; inset: 0; }
+.map-scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+.lands { position: relative; }
+.land { position: relative; background: linear-gradient(var(--l1), var(--l0)); overflow: hidden; }
+.land + .land { border-top: 6px dashed #ffffff90; }
+.land .decor { position: absolute; width: 74px; opacity: .3; animation: drift 7s ease-in-out infinite alternate; pointer-events: none; }
+@keyframes drift { to { transform: translate(14px, -18px) rotate(10deg); } }
+.land .path { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.land .path polyline { fill: none; stroke: #ffffffd0; stroke-width: 22; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.banner { position: absolute; top: 18px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 18px; border-radius: 30px; background: #ffffffe0; box-shadow: 0 4px 0 #0002; white-space: nowrap; }
+.land-name { font: 700 clamp(20px, 4vw, 30px) Fredoka, sans-serif; color: var(--ink); }
+.charm-book { position: relative; width: 58px; height: 58px; border: 0; border-radius: 10px 16px 16px 10px; background: linear-gradient(160deg, #fff, #ffe9a8); box-shadow: inset 6px 0 0 #e8b84a, 0 3px 0 #0002; display: flex; align-items: center; justify-content: center; padding: 0; }
+.charm-book img { width: 38px; }
+.charm-book b { position: absolute; right: -8px; bottom: -8px; min-width: 26px; height: 26px; border-radius: 13px; background: #ff5fb3; color: #fff; font: 700 16px/26px Fredoka; text-align: center; }
+.map-friend { width: 64px; transform-origin: 50% 100%; animation: wave 1.2s ease-in-out infinite alternate; }
+@keyframes wave { from { transform: rotate(-12deg); } to { transform: rotate(12deg) translateY(-6px); } }
+.stone { position: absolute; width: 66px; height: 66px; border: 0; border-radius: 50%; padding: 0; background: #fff; box-shadow: 0 6px 0 #0003, inset 0 -6px 0 #0001; display: flex; align-items: center; justify-content: center; font: 700 26px Fredoka; color: var(--ink); }
+.stone img { width: 46px; height: 46px; }
+.stone.party { width: 76px; height: 76px; margin: -5px; background: radial-gradient(circle, #fff, #ffe9a8); }
+.stone.won { background: radial-gradient(circle at 40% 35%, #fff, #fff6d0); box-shadow: 0 6px 0 #0003, 0 0 0 4px #ffd23f; }
+.stone.locked { background: #ffffff80; color: #0005; box-shadow: 0 4px 0 #0001; }
+.stone.locked img { opacity: .4; }
+.stone.current { box-shadow: 0 6px 0 #0003, 0 0 0 6px #ff5fb3; animation: stone-pulse 1.1s ease-in-out infinite; }
+.stone.nope { animation: nope .4s; }
+@keyframes stone-pulse { 50% { scale: 1.12; } }
+@keyframes nope { 25% { translate: -6px 0; } 75% { translate: 6px 0; } }
+.walker { position: absolute; z-index: 2; width: 80px; pointer-events: none; filter: drop-shadow(0 6px 4px #0003); transition: left .8s cubic-bezier(.3, 0, .3, 1), top .8s cubic-bezier(.3, 0, .3, 1); animation: door-bob 1.6s ease-in-out infinite; }
+.walker.still { transition: none; }
+.walker.hop { animation: hop .4s ease-in-out 2; }
+@keyframes hop { 50% { translate: 0 -40px; } }
+
+/* a land's charm page */
+.charms { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: #0006; padding: 16px; }
+.charm-page { position: relative; width: min(94vw, 560px); padding: 22px 22px 28px; border-radius: 28px; background: linear-gradient(var(--l1), var(--l0)); box-shadow: 0 0 0 8px #fff, 0 20px 40px #0004; animation: pop-in .4s cubic-bezier(.3, 1.7, .5, 1) both; }
+.charm-page h2 { margin: 0 0 14px; text-align: center; font: 700 30px Fredoka; color: var(--ink); }
+.slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.slot { aspect-ratio: 1; border-radius: 50%; background: #ffffff90; box-shadow: inset 0 0 0 3px #ffffffd0; display: flex; align-items: center; justify-content: center; }
+.slot img { width: 74%; filter: brightness(0); opacity: .12; }
+.slot.got { background: #fff; box-shadow: 0 4px 0 #0002, inset 0 0 0 3px #ffd23f; }
+.slot.got img { filter: none; opacity: 1; }
+.slot.fresh { animation: pop-in .5s .3s cubic-bezier(.3, 1.7, .5, 1) both; }
+.charm-page .close { position: absolute; top: -18px; right: -18px; width: 56px; height: 56px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 4px 0 #0003; }
+.charm-page .close i::before, .charm-page .close i::after { content: ""; position: absolute; left: 14px; top: 25px; width: 28px; height: 6px; border-radius: 3px; background: var(--ink); rotate: 45deg; }
+.charm-page .close i::after { rotate: -45deg; }
+
+/* the win: the charm (and a new friend) pops, then flies to its page */
+#prize { position: relative; display: flex; align-items: center; gap: 16px; min-height: 120px; }
+#prize .charm, #prize .newfriend { width: min(26vmin, 150px); filter: drop-shadow(0 8px 8px #0003); animation: pop-in .5s cubic-bezier(.3, 1.7, .5, 1) both; }
+#prize .book { position: fixed; right: max(20px, env(safe-area-inset-right)); top: max(20px, env(safe-area-inset-top)); width: 70px; height: 70px; border-radius: 12px 18px 18px 12px; background: linear-gradient(160deg, #fff, #ffe9a8); box-shadow: inset 7px 0 0 #e8b84a, 0 4px 0 #0002; display: flex; align-items: center; justify-content: center; }
+#prize .book img { width: 44px; }
+#prize.flown .charm { transition: transform .8s cubic-bezier(.5, 0, .7, 1), opacity .8s .5s; transform: translate(40vw, -38vh) scale(.25) rotate(25deg); opacity: 0; }
+#prize.flown .book { animation: chip-bump .4s .8s cubic-bezier(.3, 1.8, .5, 1); }
+#winFriend { width: min(32vmin, 230px); }
+
+/* the grown-up corner */
+.grownups { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: #0007; padding: 16px; font-family: system-ui, sans-serif; }
+.gu-card { width: min(94vw, 560px); max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 20px; padding: 20px 22px; color: #333; display: flex; flex-direction: column; gap: 14px; }
+.gu-card h2 { margin: 0; }
+.gu-card label { display: flex; align-items: center; gap: 10px; font-size: 18px; }
+.gu-card input { width: 24px; height: 24px; }
+.gu-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.skin { width: 56px; height: 56px; border-radius: 12px; border: 3px solid #ddd; background: #fff; padding: 2px; }
+.skin.on { border-color: #ff5fb3; }
+.skin img { width: 100%; }
+.reset { position: relative; padding: 10px 14px; border-radius: 12px; border: 2px solid #e0245e; background: #fff; color: #e0245e; font-size: 15px; }
+.gu-note { margin: 0; font-size: 14px; color: #777; }
+.gu-close { align-self: flex-end; padding: 10px 26px; border-radius: 12px; border: 0; background: #6a2f86; color: #fff; font-size: 17px; }
