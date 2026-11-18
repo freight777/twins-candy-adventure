@@ -15,7 +15,7 @@ import { applyBedtime } from '../engine/bedtime.js';
 import { unlock, say, voice, setMuted, setVoices } from '../audio.js';
 import { sfxSprite, note } from '../engine/sfxsprite.js';
 import { BOOKS, KINDS, THEMES, bookById } from './books.js';
-import { artURL, slug } from './themes.js';
+import { artURL, slug, stickerWord } from './themes.js';
 import { pageId, parsePage, hash, baseLevel } from './engine/pageid.js';
 import { save, commit, pageState, setPage, bookDone, markDone, setLast, skillOf, nudgeSkill, servedLevel, serveLevel } from './engine/save.js';
 import { artBox, regions } from './engine/layout.js';
@@ -278,7 +278,7 @@ const jerseyTeam = (r) => { const t = teams(); return t[(Math.floor(r.n / 4) - 1
 const jerseyFor = (r) => makeJersey(jerseyTeam(r), save.settings.jersey ?? 7);
 function showSticker(r, spec) {
   const id = pageId(spec), st = pageState(id), t = THEMES[spec.theme], name = stickerName(r, spec), jersey = name === 'jersey';
-  const word = jersey ? jerseyTeam(r).nick : name.replace(/-/g, ' ');
+  const word = jersey ? jerseyTeam(r).nick : stickerWord(name);
   const cleanup = showStickerPage(app, {
     spec, picName: name, picture: jersey ? jerseyFor(r) : null, word, saved: st?.placed || [], sfx, voice, say: (w) => talk(w), themeCover: t.cover, finishCard: FINISH, labels: save.settings.labels,
     onSave: (placed) => setPage(id, { placed }),
@@ -351,7 +351,7 @@ function showAlbum() {
     ${Object.values(THEMES).map((t) => `<div class="album-row">${t.stickers.map((n) => `<button class="album-pic${done[slug(n)] ? ' got' : ''}" data-name="${slug(n)}" aria-label="${n}"><svg viewBox="0 0 512 512"></svg></button>`).join('')}</div>`).join('')}</div>`;
   app.querySelectorAll('.album-pic').forEach((b) => {                       // a finished picture in colour; one still to make as its shadow
     loadPicture(b.dataset.name).then((pic) => { if (b.isConnected) pic.pieces.forEach((p) => drawFacets(b.querySelector('svg'), p)); });
-    b.addEventListener('click', () => { talk(b.dataset.name.replace(/-/g, ' ')); b.classList.remove('hop'); void b.offsetWidth; b.classList.add('hop'); });
+    b.addEventListener('click', () => { talk(stickerWord(b.dataset.name)); b.classList.remove('hop'); void b.offsetWidth; b.classList.add('hop'); });
   });
   return null;
 }

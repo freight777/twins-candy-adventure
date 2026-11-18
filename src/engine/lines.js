@@ -142,10 +142,10 @@ for (const t of Object.values(MATCH)) {
 }
 // Puzzle Shelf: every word on a page is spoken when tapped (§3 voice.js) — hidden-picture words, sticker pictures, book names,
 // the buttons (said the first three times they are tapped), and each page type's one-line introduction
-import { THEMES as SHELF, ispyObjects } from '../shelf/themes.js';
+import { THEMES as SHELF, ispyObjects, stickerWord } from '../shelf/themes.js';
 {
   const words = new Set();
-  for (const id of Object.keys(SHELF)) { ispyObjects(id).forEach((o) => words.add(o.word)); SHELF[id].stickers.forEach((n) => words.add(n.toLowerCase().replace(/-/g, ' '))); }
+  for (const id of Object.keys(SHELF)) { ispyObjects(id).forEach((o) => words.add(o.word)); SHELF[id].stickers.forEach((n) => words.add(stickerWord(n))); }
   story('announcer', ...words);
   story('announcer', 'Home', 'Next page', 'Book', 'Help', 'Keep going', 'Sticker Album', 'Black and white', 'Colour', 'Look closely', 'You found it!', 'Great job!', 'You did it!',
     'A new trophy!', 'Find these things!', 'Put each sticker on its letter!', ...Object.values(SHELF).flatMap((t) => [t.line, `${t.title} Mazes`, `${t.title} Hidden Pictures`, `${t.title} Sticker by Letter`]));

@@ -15,11 +15,12 @@
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
     html, body { margin: 0; min-height: 100%; font-family: 'Fredoka', system-ui, sans-serif; color: #5a2a6b; background: linear-gradient(#9fe0ff, #ffe3f4); background-attachment: fixed; }
     main { min-height: 100vh; padding: max(20px, env(safe-area-inset-top)) 5vw 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4vh; }
+    @media (max-width: 600px) { main { padding-top: calc(max(20px, env(safe-area-inset-top)) + 64px); } }   /* phones: the title starts below the two corner buttons */
     h1 { margin: 0; text-align: center; font-size: clamp(30px, 7vw, 68px); line-height: 1.05; color: #fff; -webkit-text-stroke: 3px #7b3fa0; paint-order: stroke fill; text-shadow: 0 5px 0 #7b3fa0; }
     .games { display: flex; flex-wrap: wrap; gap: clamp(16px, 4vw, 44px); justify-content: center; width: 100%; }
     .game { width: min(86vw, 380px); text-decoration: none; color: inherit; background: #fff; border-radius: 34px; overflow: hidden; box-shadow: 0 10px 0 #0003; transition: transform .1s; }
     .game:active { transform: translateY(6px); box-shadow: 0 4px 0 #0003; }
-    .art { height: clamp(130px, 24vh, 210px); display: flex; align-items: center; justify-content: center; font-size: clamp(60px, 12vh, 100px); }
+    .art { height: clamp(130px, 24vh, 210px); display: flex; align-items: center; justify-content: center; font-size: clamp(52px, min(12vh, 21vw), 100px); white-space: nowrap; }   /* three pictures always fit one line */
     .candy .art { background: linear-gradient(135deg, #8fe3ff, #ffb3e6); }
     .uni .art { background: linear-gradient(135deg, #c9a8ff, #8fe3ff); }
     .mermaid .art { background: linear-gradient(135deg, #7ae0ff, #ffb8e0); }

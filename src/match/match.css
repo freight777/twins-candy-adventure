@@ -111,6 +111,7 @@ body[data-screen="play"] #goal { padding-right: 76px; }
 .land .path { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .land .path polyline { fill: none; stroke: #ffffffd0; stroke-width: 22; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .banner { position: absolute; top: 18px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 18px; border-radius: 30px; background: #ffffffe0; box-shadow: 0 4px 0 #0002; white-space: nowrap; }
+@media (max-width: 520px) { .banner { left: calc(50% + 34px); } }   /* clear of the back button on a phone */
 .land-name { font: 700 clamp(20px, 4vw, 30px) Fredoka, sans-serif; color: var(--ink); }
 .charm-book { position: relative; width: 58px; height: 58px; border: 0; border-radius: 10px 16px 16px 10px; background: linear-gradient(160deg, #fff, #ffe9a8); box-shadow: inset 6px 0 0 #e8b84a, 0 3px 0 #0002; display: flex; align-items: center; justify-content: center; padding: 0; }
 .charm-book img { width: 38px; }

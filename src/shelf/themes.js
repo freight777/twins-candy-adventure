@@ -77,6 +77,13 @@ export const MATS = {
   moon: { fill: '#e2e2ea', mark: '#a9a9bd', lines: 'craters' },
 };
 
+/** what a sticker picture is called out loud: a child's word, not the emoji's catalogue name ("Earth", not "globe showing americas") */
+const SAY = {
+  'globe-showing-americas': 'Earth', 'sport-utility-vehicle': 'big car', 'articulated-lorry': 'big truck', 'hatching-chick': 'chick', 'dragon-face': 'dragon head',
+  'spouting-whale': 'whale', 'running-shoe': 'sneaker', 'sports-medal': 'medal', 'american-football': 'football', 'goal-net': 'goal', 'ice-hockey': 'hockey',
+  'tropical-fish': 'fish', 'spiral-shell': 'shell', 'ringed-planet': 'planet', 'alien-monster': 'monster', 'glowing-star': 'star', 'crescent-moon': 'moon',
+};
+export const stickerWord = (name) => SAY[slug(name)] || slug(name).replace(/-/g, ' ');
 export const slug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 export const artURL = (name) => `${import.meta.env?.BASE_URL ?? './'}assets/shelf/${slug(name)}.webp`;
 
