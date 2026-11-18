@@ -3,13 +3,14 @@
 // Needs: cd tools && npm install (Playwright; uses an already-installed Chromium if Playwright's own build is missing).
 //   node tools/shots.mjs            both games
 //   node tools/shots.mjs match      only Sparkle Match (or: shelf)
+//   node tools/shots.mjs shelf space   only the screens whose name has 'space' in it
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-const ROOT = path.resolve(import.meta.dirname, '..'), OUT = path.join(ROOT, 'shots'), only = process.argv[2];
+const ROOT = path.resolve(import.meta.dirname, '..'), OUT = path.join(ROOT, 'shots'), only = process.argv[2], pick = process.argv[3];
 fs.mkdirSync(OUT, { recursive: true });
 
 /** Playwright's own Chromium if it is there, else any installed Playwright Chromium or headless shell, else Edge or Chrome */
@@ -42,6 +43,9 @@ const SHELF = [
   ['18-sticker-gameday-l1', 'book=sticker-gameday&n=1'], ['19-sticker-dinosaurs-l9', 'page=sticker:dinosaurs:9:5'], ['20-album', 'album=1'],
   ['21-score-l1', 'book=score-gameday&n=1'], ['22-score-l6', 'book=score-gameday&n=12'], ['23-score-l10', 'book=score-gameday&n=24'],
   ['24-jersey', 'book=sticker-gameday&n=4'], ['25-score-book', 'book=score-gameday'],
+  ['26-space-maze-l2', 'page=maze:space:2:22'], ['27-space-maze-l6', 'page=maze:space:6:66'], ['28-space-ispy-l4-color', 'page=ispy:space:4:44&look=color'],
+  ['29-space-ispy-l8-line', 'page=ispy:space:8:88&look=line'], ['30-space-sticker', 'book=sticker-space&n=1'],
+  ['31-grid-hex-l4', 'page=maze:gameday:4:2'], ['32-grid-round-l7', 'page=maze:gameday:7:10&debug=1'], ['33-grid-hex-l10-part', 'page=maze:gameday:10:2', 0.5], ['34-grid-round-l10', 'page=maze:gameday:10:10'],
 ];
 
 const server = await createServer({ root: ROOT, configFile: path.join(ROOT, 'vite.config.js'), server: { port: 5199, strictPort: false }, logLevel: 'error' });
@@ -68,7 +72,7 @@ try {
   }
   if (!only || only === 'match') for (const [name, q] of MATCH) for (const [sz, size] of Object.entries(MATCH_SIZES))
     await shoot(`match-${name}-${sz}.png`, `${base}/match.html?${q}`, size, () => document.body.dataset.screen !== 'loading' && (document.body.dataset.screen !== 'play' || !!window.match?.game));
-  if (!only || only === 'shelf') for (const [name, q, draw, then] of SHELF) for (const [sz, size] of Object.entries(SHELF_SIZES))
+  if (!only || only === 'shelf') for (const [name, q, draw, then] of SHELF.filter(([n]) => !pick || n.includes(pick))) for (const [sz, size] of Object.entries(SHELF_SIZES))
     await shoot(`shelf-${name}-${sz}.png`, `${base}/shelf.html${q ? '?' + q : ''}`, size, () => !!window.shelf?.route && (!location.search.includes('ispy') || !!window.__ispy || !!document.querySelector('.chooser use')), draw, then);
   console.log(`${n} screenshots in ${path.relative(process.cwd(), OUT) || OUT}`);
 } finally { await browser.close(); await server.close(); }

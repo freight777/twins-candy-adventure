@@ -2,6 +2,7 @@
 // is a plain rectangle drawn on a theme mat (a field, a road…) or cut to a shape, the maze itself, the stars and the decoration.
 // The result's `gen` is saved with the page, so the page stays exactly the same every time it is opened on this device.
 import { makeMaze, rng, LEVELS, flood } from './gen.js';
+import { soccerGrid, basketballGrid } from './grids.js';
 import SHAPES from '../shapes.js';
 import { THEMES, slug } from '../themes.js';
 
@@ -67,6 +68,12 @@ export function buildPage(spec, saved, box) {
       const order = theme.shapes.slice(), first = (rand() * order.length) | 0; order.push(...order.splice(0, first));
       for (const name of order) { const s = shapeGrid(name, fit, maxW, maxH); if (s && s.count >= 0.75 * fit.w * fit.h) { Object.assign(gen, { shape: name, w: s.w, h: s.h, choices: scaleBand(fit, s.count) }); break; } }
     }
+    const special = theme.grids || [], r2 = rng(spec.seed ^ 0x6e7a1d);  // Phase 6: a soccer-ball honeycomb or a basketball round maze
+    if (special.length && spec.level >= 4 && r2() < 0.3) {
+      const kind = special[(r2() * special.length) | 0], want = fit.w * fit.h;
+      if (kind === 'hex') { const g = soccerGrid(want, maxW, maxH); Object.assign(gen, { grid: 'hex', picture: 'Soccer ball', shape: null, w: g.cols, h: g.rows, r: g.r, choices: scaleBand(fit, g.grid.cells.length) }); }
+      else { const g = basketballGrid(want, maxW, maxH); Object.assign(gen, { grid: 'round', picture: 'Basketball', shape: null, rings: g.rings, w: 2 * g.rings, h: 2 * g.rings, choices: scaleBand(fit, g.grid.cells.length) }); }
+    }
   } else rand();                                                   // keep the random stream in step with a fresh build
   let maze = null, shape = null;
   if (gen.shape) {
@@ -74,11 +81,15 @@ export function buildPage(spec, saved, box) {
     try { maze = makeMaze(gen.level, spec.seed, shape.mask, gen); } catch { maze = null; }
     if (!maze) { const f = fitted(gen.level, gen.k, gen.w < gen.h ? false : gen.w > gen.h); gen = { ...gen, ...f, shape: null }; shape = null; }   // never a dead page: plain instead
   }
+  if (!maze && gen.grid) { try { maze = makeMaze(gen.level, spec.seed, undefined, gen); } catch { const f = fitted(gen.level, gen.k); gen = { ...gen, ...f, grid: null, picture: null }; } }
   if (!maze) maze = makeMaze(gen.level, spec.seed, undefined, gen);
   return { gen, maze, shape, theme, ...extras(maze, spec, gen) };
 }
 /** a shaped maze has fewer cells than its rectangle: scale the band of wrong turns with it */
 export function scaleBand(fit, count) { const r = count / (fit.w * fit.h); return [Math.max(1, Math.floor(fit.choices[0] * r * 0.8)), Math.max(3, Math.ceil(fit.choices[1] * r * 1.1))]; }
+
+/** a cell's centre on the page, whatever the grid */
+export const cellCentre = (maze, c) => (maze.grid.centre ? maze.grid.centre(c) : [(c % maze.grid.w) + 0.5, ((c / maze.grid.w) | 0) + 0.5]);
 
 /** stars (three on the solution, one or two in dead ends as bonuses) and where the decoration goes */
 function extras(maze, spec, gen) {
@@ -90,10 +101,10 @@ function extras(maze, spec, gen) {
   const bonus = ends.slice(0, Math.min(ends.length, spec.level >= 5 ? 2 : 1));
   const decor = [], n = 6 + ((rand() * 5) | 0), names = THEMES[spec.theme].decor.slice();
   for (let i = names.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; [names[i], names[j]] = [names[j], names[i]]; }
-  const W = gen.w, gates = [maze.start, maze.end].map((c) => [(c % W) + 0.5, ((c / W) | 0) + 0.5]), slots = n + 8;
+  const [GW, GH] = maze.grid.size, gates = [maze.start, maze.end].map((c) => cellCentre(maze, c)), slots = n + 8;
   for (let i = 0; i < slots && decor.length < n; i++) {        // around the edge of the page, spaced out, never near the start or the finish
-    const t = (i + 0.5 + (rand() - 0.5) * 0.5) / slots, per = 2 * (gen.w + gen.h); let d = t * per, x, y;
-    if (d < gen.w) { x = d; y = -0.6; } else if ((d -= gen.w) < gen.h) { x = gen.w + 0.6; y = d; } else if ((d -= gen.h) < gen.w) { x = gen.w - d; y = gen.h + 0.6; } else { x = -0.6; y = gen.h - (d - gen.w); }
+    const t = (i + 0.5 + (rand() - 0.5) * 0.5) / slots, per = 2 * (GW + GH); let d = t * per, x, y;
+    if (d < GW) { x = d; y = -0.6; } else if ((d -= GW) < GH) { x = GW + 0.6; y = d; } else if ((d -= GH) < GW) { x = GW - d; y = GH + 0.6; } else { x = -0.6; y = GH - (d - GW); }
     const size = 0.8 + rand() * 0.25, turn = (rand() - 0.5) * 30;
     if (gates.some(([ex, ey]) => Math.hypot(ex - x, ey - y) < 1.5)) continue;
     decor.push({ name: names[decor.length % names.length], x, y, size, turn });

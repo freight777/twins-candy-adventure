@@ -4,6 +4,8 @@
 import assert from 'node:assert/strict';
 import { makeScoreSpy, LEVELS } from '../../src/shelf/sports/scorespy.js';
 import { allTeams } from '../../src/shelf/sports/teams.js';
+import { clean, makeLastNight } from '../../src/shelf/sports/lastnight.js';
+import { rng } from '../../src/shelf/maze/gen.js';
 
 const N = +process.argv[2] || 500;
 const MINE = [{ nick: 'Wildcats', place: 'Home Town', mascot: '1F408', colors: ['#552583', '#fdb927'] }, { nick: 'Rovers', mascot: '1F415', colors: ['#00338d', '#c60c30'] }];
@@ -46,4 +48,36 @@ for (const mine of [[], MINE]) {
   }
 }
 assert.deepEqual(makeScoreSpy({ level: 6, seed: 42 }, allTeams()), makeScoreSpy({ level: 6, seed: 42 }, allTeams()), 'the same page every time');
-console.log(`scorespy ok (${pages} walls, ${clues} clues, every one with exactly one answer)`);
+// real scores (Phase 6): the feed is cleaned of anything odd, and a Last night page's clues have exactly one answer too — even with
+// two teams called the Giants, a team that played twice, ties, blowouts and very few games
+const PLACES = ['New York', 'San Francisco', 'Boston', 'Miami', 'Denver', 'Dallas', 'Seattle', 'Chicago'], NICKS = ['Giants', 'Kings', 'Hawks', 'Stars', 'Heat', 'Bears', 'Storm', 'Sky', 'Comets', 'Wings'];
+let nights = 0, realClues = 0;
+for (let s = 1; s <= N * 2; s++) {
+  const r = rng(s), n = 3 + ((r() * 18) | 0), sport = ['basketball', 'football', 'hockey', 'soccer', 'baseball'][s % 5];
+  const t = () => ({ place: PLACES[(r() * PLACES.length) | 0], nick: NICKS[(r() * NICKS.length) | 0], colors: ['#123456', 'zzz'] });
+  const top = sport === 'basketball' ? 130 : 8;
+  const feed = clean({ date: '2026-11-17', games: [...Array.from({ length: n }, () => ({ sport, home: t(), away: t(), homeScore: (r() * top) | 0, awayScore: (r() * top) | 0 })),
+    { sport: 'cricket', home: t(), away: t(), homeScore: 1, awayScore: 2 }, { sport, home: t(), away: t(), homeScore: -3, awayScore: 2 },
+    { sport, home: { nick: '<b>x</b>' }, away: t(), homeScore: '7', awayScore: 1.5 }, null] });
+  for (const g of feed.games) {
+    assert.ok(Number.isInteger(g.homeScore) && g.homeScore >= 0 && Number.isInteger(g.awayScore), 'scores are whole numbers');
+    assert.match(g.home.colors[1], /^#[0-9a-f]{6}$/, 'colours are colours'); assert.ok(!/[<>]/.test(g.home.nick + g.away.nick), 'no markup in names');
+  }
+  assert.ok(feed.games.length <= n, 'odd games dropped');
+  for (const level of [1, 3, 5, 7, 9]) {
+    const p = makeLastNight(feed, level, s); if (!p) continue;
+    assert.ok(p.clues.length >= 3, 'at least three clues');
+    assert.equal(new Set(p.clues.map((c) => c.answer.g)).size, p.clues.length, 'each clue on a different board');
+    for (const c of p.clues) {
+      const a = answers(c, p.wall, p.teams);
+      assert.equal(a.length, 1, `night ${s} L${level}: "${c.words.join(' ')}" has ${a.length} answers`);
+      assert.equal(a[0].g, c.answer.g); if (c.answer.side !== null) assert.equal(a[0].side, c.answer.side);
+      realClues++;
+    }
+    for (const tm of p.teams) assert.equal(tm.mascot, null, 'real teams have no mascot (and never a logo)');
+    nights++;
+  }
+}
+assert.ok(nights > N, `Last night pages get made (${nights})`);
+assert.equal(clean({ games: 'nope' }).games.length, 0); assert.equal(clean(null).games.length, 0);
+console.log(`scorespy ok (${pages} walls, ${clues} clues, ${nights} real-score pages with ${realClues} clues; every one with exactly one answer)`);

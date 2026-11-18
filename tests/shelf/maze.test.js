@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { makeMaze, flood, LEVELS } from '../../src/shelf/maze/gen.js';
 import { fitted, buildPage, shapeGrid, scaleBand } from '../../src/shelf/maze/page.js';
 import { THEMES } from '../../src/shelf/themes.js';
+import { hexCircle, roundGrid } from '../../src/shelf/maze/grids.js';
 import { pageId, parsePage, hash } from '../../src/shelf/engine/pageid.js';
 
 const SEEDS = +process.argv[2] || 1000, t0 = Date.now();
@@ -56,6 +57,27 @@ for (const theme of Object.keys(THEMES)) for (let L = 1; L <= 10; L++) for (let 
   for (const c of p.bonus) assert.ok(!on.has(c) && p.maze.links.get(c).size === 1, 'bonus stars in dead ends');
   assert.ok(p.decor.length >= 6 && p.decor.length <= 10, 'six to ten pictures around the page');
 }
+
+// Phase 6 grids: geometry that agrees with itself, and pages that make their mazes
+for (const g of [hexCircle(9, 10, 4.2), hexCircle(21, 24, 10.1), roundGrid(3), roundGrid(6), roundGrid(11)]) {
+  const tag = `${g.kind} ${g.cells.length} cells`;
+  for (const c of g.cells) {
+    const [x, y] = g.centre(c); assert.equal(g.cellAt(x, y), c, `${tag}: the centre of ${c} is in ${c}`);
+    assert.ok(x > 0 && y > 0 && x < g.size[0] && y < g.size[1], `${tag}: ${c} inside the drawing`);
+    for (const d of g.neighbours(c)) { assert.ok(g.neighbours(d).includes(c), `${tag}: neighbours both ways`); const [u, v] = g.centre(d), dist = Math.hypot(x - u, y - v); assert.ok(dist > 0.75 && dist < 2.4, `${tag}: ${c}–${d} ${dist.toFixed(2)} apart`); }
+  }
+  assert.ok(g.cells.some((c) => g.outside(c)), `${tag}: has an edge`);
+}
+let specials = 0;
+for (let L = 4; L <= 10; L++) for (let s = 1; s <= Math.ceil(SEEDS / 5); s++) {
+  const p = buildPage({ type: 'maze', theme: 'gameday', level: L, seed: s * 3301 + L }, null, { w: 1100, h: 760 });
+  if (!p.gen.grid) continue; specials++;
+  perfect(p.maze, p.gen, `${p.gen.grid} L${L} s${s}`);
+  const again = buildPage({ type: 'maze', theme: 'gameday', level: L, seed: s * 3301 + L }, JSON.parse(JSON.stringify(p.gen)));
+  assert.deepEqual(again.maze.path, p.maze.path, 'a saved honeycomb or round page comes back the same');
+  const [W, H] = p.maze.grid.size; assert.ok((W + 2.2) * 30 <= 1100 + 1 && (H + 2.2) * 30 <= 760 + 1, `${p.gen.grid} L${L}: fits at 30 px a corridor (${W}×${H})`);
+}
+assert.ok(specials > SEEDS / 5, `honeycomb and round pages turn up (${specials})`);
 
 assert.equal(pageId(parsePage('maze:gameday:5:1234')), 'maze:gameday:5:1234');
 assert.equal(hash('maze-gameday', 7), hash('maze-gameday', 7)); assert.notEqual(hash('maze-gameday', 7), hash('maze-gameday', 8));

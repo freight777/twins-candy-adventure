@@ -3,16 +3,17 @@
 // start and finish when they sit on the edge, with an arrow and a flag as in the book; the hero waits on the start, the goal sits
 // on the finish; stars; six to ten theme pictures around the edge. ?debug=1 adds the solution as a dotted line.
 import { artURL, MATS } from '../themes.js';
-import { MARGIN } from './page.js';
+import { MARGIN, cellCentre } from './page.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 export const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
-export const centre = (maze, c) => [(c % maze.grid.w) + 0.5, ((c / maze.grid.w) | 0) + 0.5];
+export const centre = cellCentre;
 /** a theme picture (Fluent Emoji 3D), centred on (cx, cy) */
 export const pic = (parent, name, cx, cy, size, cls = '') => el('image', { href: artURL(name), x: cx - size / 2, y: cy - size / 2, width: size, height: size, class: cls }, parent);
 
 /** which outer side of a cell is open to the outside, if any: [dx, dy] */
 function outside(maze, c) {
+  if (maze.grid.outside) return maze.grid.outside(c)?.d || null;
   const { w, h } = maze.grid, x = c % w, y = (c / w) | 0, live = new Set(maze.grid.cells);
   for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h || !live.has(ny * w + nx)) return [dx, dy]; }
   return null;
@@ -45,24 +46,29 @@ function drawMat(g, mat, w, h) {
   else if (M.lines === 'dashes') { el('rect', { ...s, x: -0.1, y: -0.1, width: w + 0.2, height: h + 0.2, rx: 0.3 }, g); el('line', { ...s, x1: w / 2, y1: 0.3, x2: w / 2, y2: h - 0.3, 'stroke-dasharray': '0.5 0.5', 'stroke-width': 0.14 }, g); }
   else if (M.lines === 'bays') for (let x = 1; x < w; x++) { el('line', { ...s, x1: x, y1: -0.2, x2: x, y2: 0.6 }, g); el('line', { ...s, x1: x, y1: h - 0.6, x2: x, y2: h + 0.2 }, g); }
   else if (M.lines === 'tracks') for (const f of [0.3, 0.7]) el('path', { ...s, d: `M-0.1 ${h * f} C${w * 0.3} ${h * f - 1} ${w * 0.6} ${h * f + 1} ${w + 0.1} ${h * f}`, 'stroke-dasharray': '0.12 0.3', 'stroke-width': 0.14 }, g);
+  else if (M.lines === 'stars') for (let y = 0.5; y < h; y += 1.7) for (let x = ((y * 7) % 1.9) + 0.3; x < w; x += 2.3) {   // little four-point twinkles
+    const r = 0.16 + ((x * 13 + y * 7) % 1) * 0.12; el('path', { d: `M${x} ${y - r}Q${x} ${y} ${x + r} ${y}Q${x} ${y} ${x} ${y + r}Q${x} ${y} ${x - r} ${y}Q${x} ${y} ${x} ${y - r}Z`, fill: M.mark, opacity: 0.85 }, g); }
+  else if (M.lines === 'craters') for (let y = 0.9; y < h; y += 2.6) for (let x = ((y * 5) % 2.2) + 0.6; x < w; x += 3.1) { const r = 0.35 + ((x * 11 + y * 3) % 1) * 0.4; el('ellipse', { ...s, cx: x, cy: y, rx: r, ry: r * 0.7, 'stroke-width': 0.1 }, g); }
   else if (M.lines === 'waves') for (let y = 1.5; y < h; y += 3) { let d = `M-0.1 ${y}`; for (let x = 0; x < w; x += 1) d += ` q0.5 -0.35 1 0`; el('path', { ...s, d }, g); }
 }
 
 /** draw the whole page into an <svg>; returns the layers play.js draws into */
 export function renderMaze(svg, page, { debug = false, mini = false, print = false } = {}) {
   svg.replaceChildren();
-  const { maze, gen, shape, theme } = page, { w, h } = maze.grid, M = mini ? 0.3 : MARGIN;
+  const { maze, gen, shape, theme } = page, [w, h] = maze.grid.size, M = mini ? 0.3 : MARGIN;
   svg.setAttribute('viewBox', `${-M} ${-M} ${w + 2 * M} ${h + 2 * M}`);
   const inS = outside(maze, maze.start), outE = outside(maze, maze.end);
-  const skip = [inS && { c: maze.start, d: inS }, outE && { c: maze.end, d: outE }].filter(Boolean);
+  const skip = [inS && { c: maze.start, d: inS, k: maze.grid.outside?.(maze.start)?.k }, outE && { c: maze.end, d: outE, k: maze.grid.outside?.(maze.end)?.k }].filter(Boolean);
   el('rect', { x: -M, y: -M, width: w + 2 * M, height: h + 2 * M, fill: 'transparent' }, svg);
   const ground = el('g', { class: 'ground' }, svg), decor = el('g', { class: 'decor' }, svg), solution = el('g', { class: 'solution' }, svg);
   const trail = el('g', { class: 'trail' }, svg), walls = el('g', {}, svg), stars = el('g', { class: 'stars' }, svg), marks = el('g', {}, svg), hints = el('g', { class: 'hints' }, svg), fx = el('g', {}, svg);
-  if (print) { /* black line art only */ } else if (shape && gen.shape) {                                       // the shape's own picture, faint, exactly behind its outline
+  if (print) { /* black line art only */ } else if (gen.grid && gen.picture) {                               // the ball itself, faint, under the honeycomb or rings
+    const pad = gen.grid === 'round' ? 0.15 : 0.5; el('image', { href: artURL(gen.picture), x: -pad, y: -pad, width: w + 2 * pad, height: h + 2 * pad, opacity: mini ? 0.3 : 0.35 }, ground);
+  } else if (shape && gen.shape) {                                       // the shape's own picture, faint, exactly behind its outline
     const [x0, y0, bw, bh] = shape.box, iw = w / bw, ih = h / bh;
     el('image', { href: artURL(gen.shape), x: -x0 * iw, y: -y0 * ih, width: iw, height: ih, preserveAspectRatio: 'none', opacity: mini ? 0.25 : 0.3 }, ground);
   } else drawMat(ground, gen.mat, w, h);
-  el('path', { d: wallPath(maze, skip), fill: 'none', stroke: '#222', 'stroke-width': 0.16, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, walls);
+  el('path', { d: maze.grid.walls ? maze.grid.walls(maze.links, skip) : wallPath(maze, skip), fill: 'none', stroke: '#222', 'stroke-width': 0.16, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, walls);
   if (debug) el('polyline', { points: maze.path.map((c) => centre(maze, c).join(',')).join(' '), fill: 'none', stroke: '#e0245e', 'stroke-width': 0.08, 'stroke-dasharray': '0.12 0.14', 'stroke-linecap': 'round' }, solution);
   if (print) {                                                    // printed: a circle on the start, a star on the finish
     const [sx, sy] = centre(maze, maze.start), [ex, ey] = centre(maze, maze.end);

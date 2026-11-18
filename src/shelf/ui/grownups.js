@@ -6,6 +6,7 @@ import { holdGate } from '../../engine/gate.js';
 import { MASCOTS, allTeams } from '../sports/teams.js';
 import { badgeSVG } from '../sports/badge.js';
 import { loadSprites } from '../ispy/render.js';
+import { refreshScores, forgetScores } from '../sports/lastnight.js';
 
 const PALETTE = ['#c8102e', '#ff7f00', '#ffcd00', '#2e7d32', '#00a6a6', '#1f6fb2', '#0d2c6c', '#552583', '#e05297', '#6d4c41', '#8d99ae', '#111111', '#ffffff', '#fdb927', '#a7c957', '#5bc0eb'];
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -29,6 +30,9 @@ export function showGrownups(root, { onChange, onPrintLast, onPrintBook }) {
         <small>Mascot</small><div class="mascots">${Object.entries(MASCOTS).map(([hex, n]) => `<button class="ms" data-m="${hex}" aria-label="${n}"><svg viewBox="0 0 72 72"><use href="#m${hex}"/></svg></button>`).join('')}</div>
         <div class="gu-row"><span class="t-preview"></span><button class="t-add">Add team</button></div></div></div>
     <label class="gu-field">Jersey number (on the number-jersey sticker pages)<input type="number" data-k="jersey" min="0" max="99" value="${esc(s.jersey ?? 7)}"></label>
+    <div class="gu-row gu-scores"><label class="gu-check"><input type="checkbox" data-k="realScores" ${s.realScores ? 'checked' : ''}> Real scores from last night <small>(optional, off)</small></label>
+      <input class="gu-url" type="url" placeholder="https://…  your scores Worker's address" value="${esc(s.scoresURL)}" autocomplete="off">
+      <small>Needs the small scores Worker in the project's workers/scores folder (its README says how to set it up). The game asks it once when it opens — nothing the child taps uses the network — and a "Last night" page appears in Score Spy. Real teams show their colours and initials only, never logos. If anything goes wrong it quietly uses the house league.</small></div>
     <div class="gu-row"><b>Print</b><button class="gu-print-last">This page</button><select class="gu-print-book">${BOOKS.filter((b) => b.type === 'maze' || b.type === 'ispy').map((b) => `<option value="${b.id}">${b.title}</option>`).join('')}</select><button class="gu-print-book-go">A 10-page book</button>
       <small>mazes and hidden pictures print as black line art, one per sheet; sticker pages do not print</small></div>
     <label class="gu-check"><input type="checkbox" data-k="sound" ${s.sound ? 'checked' : ''}> Sounds</label>
@@ -47,6 +51,9 @@ export function showGrownups(root, { onChange, onPrintLast, onPrintBook }) {
   el.querySelector('[data-k=jersey]').addEventListener('input', (e) => setSetting('jersey', Math.max(0, Math.min(99, e.target.value | 0))));
   el.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => { if (r.name === 'age') setStartAge(r.value); else setSetting(r.name, r.value); onChange?.(); }));
   el.querySelectorAll('input[type=checkbox]').forEach((c) => c.addEventListener('change', () => { setSetting(c.dataset.k, c.checked); onChange?.(); }));
+  const rescore = () => { forgetScores(); refreshScores().then(() => onChange?.()); };
+  el.querySelector('[data-k=realScores]').addEventListener('change', rescore);
+  el.querySelector('.gu-url').addEventListener('change', (e) => { setSetting('scoresURL', e.target.value.trim()); rescore(); });
   // My Teams
   const draft = { colors: ['#1f6fb2', '#ffffff'], mascot: '1F985' }, nickEl = el.querySelector('.t-nick'), placeEl = el.querySelector('.t-place');
   const drawTeams = () => {

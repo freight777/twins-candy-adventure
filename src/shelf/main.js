@@ -20,7 +20,7 @@ import { pageId, parsePage, hash, baseLevel } from './engine/pageid.js';
 import { save, commit, pageState, setPage, bookDone, markDone, setLast, skillOf, nudgeSkill, servedLevel, serveLevel } from './engine/save.js';
 import { artBox, regions } from './engine/layout.js';
 import { buildPage, fitLevel, MARGIN } from './maze/page.js';
-import { renderMaze, el } from './maze/render.js';
+import { renderMaze, el, centre } from './maze/render.js';
 import { playMaze } from './maze/play.js';
 import { showIspyPage, sceneFor } from './ispy/page.js';
 import { renderScene, loadSprites } from './ispy/render.js';
@@ -30,6 +30,7 @@ import { printSheets } from './ui/print.js';
 import { allTeams } from './sports/teams.js';
 import { makeJersey } from './sports/jersey.js';
 import { showScorePage } from './sports/page.js';
+import { refreshScores, lastNight, makeLastNight } from './sports/lastnight.js';
 import { LINES, storyId } from '../engine/lines.js';
 import MAP from './sfx.json';
 
@@ -67,11 +68,12 @@ function routeFrom(q) {
   if (q.get('page')) return { screen: 'page', id: q.get('page') };
   if (q.get('album')) return { screen: 'album' };
   const book = bookById(q.get('book'));
+  if (book?.type === 'score' && q.get('last')) return { screen: 'page', book: book.id, last: 1 };
   if (book && +q.get('n') >= 1) return { screen: 'page', book: book.id, n: Math.min(9999, +q.get('n') | 0) };
   if (book) return { screen: 'book', book: book.id };
   return { screen: 'shelf' };
 }
-const urlOf = (r) => '?' + new URLSearchParams({ ...(r.screen === 'album' ? { album: 1 } : {}), ...(r.screen === 'page' && r.id ? { page: r.id } : {}), ...(r.book ? { book: r.book } : {}), ...(r.n ? { n: r.n } : {}), ...(DEBUG ? { debug: 1 } : {}) });
+const urlOf = (r) => '?' + new URLSearchParams({ ...(r.screen === 'album' ? { album: 1 } : {}), ...(r.screen === 'page' && r.id ? { page: r.id } : {}), ...(r.book ? { book: r.book } : {}), ...(r.n ? { n: r.n } : {}), ...(r.last ? { last: 1 } : {}), ...(DEBUG ? { debug: 1 } : {}) });
 const seedOf = (b, n) => (n <= PAGES ? hash(b.id, n) : hash(b.id, 'endless', n));
 /** a book page's level: decided the first time it is opened (base level pulled halfway toward his skill; endless pages: his skill), then kept */
 function levelOf(b, n, assign = false) {
@@ -94,7 +96,7 @@ function go(r, sound = true) {
   current = r; document.body.dataset.screen = r.screen;
   history.replaceState(null, '', urlOf(r));
   if (sound) sfx.play(r.screen === 'page' ? 'turn' : r.screen === 'book' ? 'open' : 'tap', { vol: 0.8 });
-  if (r.screen === 'page') { setLast(r); cleanup = showPage(r); }
+  if (r.screen === 'page') { if (!r.last) setLast(r); cleanup = showPage(r); }
   else if (r.screen === 'book') cleanup = showBook(bookById(r.book));
   else if (r.screen === 'album') cleanup = showAlbum();
   else cleanup = showShelf();
@@ -153,8 +155,8 @@ function showShelf() {
       svg.setAttribute('viewBox', '0 0 1200 900');
       Promise.all([sceneFor(spec), loadSprites(spec.theme)]).then(([{ scene }]) => { if (svg.isConnected) renderScene(svg, scene, lookOf(last.book), { mini: true }); });
     } else {
-      const { id, page } = pageFor(spec), layers = renderMaze(svg, page, { mini: true }), st = pageState(id), w = page.maze.grid.w;
-      if (st?.trail?.length > 1) el('polyline', { points: st.trail.map((c) => `${(c % w) + 0.5},${((c / w) | 0) + 0.5}`).join(' '), fill: 'none', stroke: '#2f6fff', 'stroke-width': 0.42, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, layers.trail);
+      const { id, page } = pageFor(spec), layers = renderMaze(svg, page, { mini: true }), st = pageState(id);
+      if (st?.trail?.length > 1) el('polyline', { points: st.trail.map((c) => centre(page.maze, c).join(',')).join(' '), fill: 'none', stroke: '#2f6fff', 'stroke-width': 0.42, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, layers.trail);
     }
   }
   app.querySelectorAll('.book:not(.album)').forEach((b) => b.addEventListener('click', () => { talk(bookById(b.dataset.book).title, { priority: 0 }); go({ screen: 'book', book: b.dataset.book }); }));
@@ -173,6 +175,11 @@ function showBook(book) {
       <button class="pg endless" data-n="${endless}" aria-label="Endless pages"><b>&infin;</b></button></div>
   </div>`;
   app.querySelectorAll('.pg').forEach((b) => b.addEventListener('click', () => go({ screen: 'page', book: book.id, n: +b.dataset.n })));
+  if (book.type === 'score' && lastNight()) {                                   // real scores (Phase 6, a grown-up turned them on): a page before page 1
+    const b = document.createElement('button'); b.className = 'pg lastnight'; b.setAttribute('aria-label', 'Last night');
+    b.innerHTML = `<img src="${artURL('Crescent moon')}" alt="" draggable="false">`; app.querySelector('.pages').prepend(b);
+    b.addEventListener('click', () => { talk('Real games from last night!', { priority: 0 }); go({ screen: 'page', book: book.id, last: 1 }); });
+  }
   if (book.type === 'ispy') lookChooser(book);
   return null;
 }
@@ -194,6 +201,7 @@ function lookChooser(book) {
 // ------------------------------------------------------------------------------------------------ a page
 const FINISH = `<div class="finish hidden"><button class="big next" aria-label="Next page"><i></i></button><button class="big home" aria-label="Home"><img src="${import.meta.env.BASE_URL}emoji/1f3e0.webp" alt=""></button></div>`;
 function showPage(r) {
+  if (r.last) return showLastNight(r);
   const spec = specOf(r, true);
   if (spec?.type === 'ispy') return showIspy(r, spec);
   if (spec?.type === 'sticker') return showSticker(r, spec);
@@ -212,6 +220,7 @@ function wireFinish(r, spec) {
   finish.querySelector('.home').addEventListener('click', () => { firstTimes('spoken', 'home', 'Home'); go({ screen: 'shelf' }); });
   finish.querySelector('.next').addEventListener('click', () => {
     firstTimes('spoken', 'next', 'Next page');
+    if (r.last) { const done = bookDone(r.book); let n = 1; while (done[n] && n < PAGES) n++; return go({ screen: 'page', book: r.book, n }); }
     if (r.book) return go(nextPage(r));                                       // after page 24: endless pages, at his level
     go({ screen: 'page', id: pageId({ ...spec, seed: spec.seed + 1 }) });
   });
@@ -222,7 +231,7 @@ function showMaze(r, spec) {
   const { id, page } = pageFor(spec), { maze } = page;
   app.innerHTML = `<div class="page"><svg class="art" aria-label="Maze"></svg><button class="hint-btn" aria-label="Help">?</button>${FINISH}</div>`;
   const svg = app.querySelector('.art'), finish = app.querySelector('.finish');
-  const vb = { w: maze.grid.w + 2 * MARGIN, h: maze.grid.h + 2 * MARGIN };
+  const vb = { w: maze.grid.size[0] + 2 * MARGIN, h: maze.grid.size[1] + 2 * MARGIN };
   const place = () => { const b = artBox(vb.w / vb.h); Object.assign(svg.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' }); };
   place(); addEventListener('resize', place);
   const layers = renderMaze(svg, page, { debug: DEBUG }), st = pageState(id);
@@ -287,6 +296,23 @@ function sayClue(c, t) {
   const ids = c.words.map((w) => (t && w === t.nick && !t.house ? null : storyId('announcer', String(w))));
   if (ids.every((id) => id && LINES[id])) voice(ids, { priority: 1, gap: 0.05 }); else talk(text);
 }
+/** the "Last night" page: last night's real games on the wall, at his Score Spy level; it does not count toward the book */
+function showLastNight(r) {
+  const feed = lastNight(), page = feed && makeLastNight(feed, Math.max(1, Math.min(10, Math.round(skillOf('score')))), hash('lastnight', feed.date));
+  if (!page) { queueMicrotask(() => go({ screen: 'book', book: r.book }, false)); return null; }
+  const id = `score:lastnight:${feed.date}`, st = pageState(id);
+  const cleanup = showScorePage(app, {
+    spec: null, page, teams: page.teams, saved: st?.got || 0, sfx, sayClue, talk: (w) => talk(w), finishCard: FINISH,
+    onHintUsed: () => {}, onSave: (got) => setPage(id, { got }),
+    onDone: (fresh) => {
+      if (fresh) { setPage(id, { done: true }); sfx.play('done', { vary: false }); setTimeout(() => praise(), 1200); }
+      app.querySelector('.hint-btn')?.classList.add('hidden'); setTimeout(() => app.querySelector('.finish')?.classList.remove('hidden'), fresh ? 1400 : 0);
+    },
+  });
+  helpButton(() => {});
+  wireFinish(r, null);
+  return cleanup;
+}
 function showScore(r, spec) {
   const id = pageId(spec), st = pageState(id);
   let hints = st?.hints || 0;
@@ -342,4 +368,5 @@ function celebrate(layers, ctl) {
 }
 
 go(routeFrom(params), false);
+refreshScores().then(() => { if (current?.screen === 'book' && bookById(current.book)?.type === 'score' && !app.querySelector('.lastnight') && lastNight()) go(current, false); });
 window.shelf = { go, get route() { return current; }, save, printBook };                 // for tests and the screenshot tool

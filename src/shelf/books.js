@@ -1,8 +1,8 @@
 // The books on the shelf, one plank per kind: mazes, hidden pictures (black-and-white or colour, his choice) and sticker by letter,
-// four themes each, plus the Sticker Album at the end of the sticker plank.
+// five themes each, plus the Sticker Album at the end of the sticker plank.
 import { THEMES } from './themes.js';
 
-const THEME_IDS = ['gameday', 'cars', 'dinosaurs', 'ocean'];
+const THEME_IDS = ['gameday', 'cars', 'dinosaurs', 'ocean', 'space'];
 export const KINDS = [
   { type: 'maze', title: 'Mazes' },
   { type: 'ispy', title: 'Hidden Pictures' },

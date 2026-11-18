@@ -10,8 +10,8 @@ import { artURL } from '../themes.js';
 const SPORT_PIC = { soccer: 'Soccer ball', hockey: 'Ice hockey', football: 'American football', basketball: 'Basketball' };
 const IDLE = 25000;
 
-export function showScorePage(app, { spec, teams, saved, sfx, sayClue, talk, onSave, onHintUsed, onDone, finishCard }) {
-  const page = makeScoreSpy(spec, teams), team = (id) => teams.find((t) => t.id === id);
+export function showScorePage(app, { spec, teams, page: ready, saved, sfx, sayClue, talk, onSave, onHintUsed, onDone, finishCard }) {
+  const page = ready || makeScoreSpy(spec, teams), team = (id) => teams.find((t) => t.id === id);
   let at = Math.min(saved || 0, page.clues.length), idle = 0, alive = true;
   app.innerHTML = `<div class="page score-page"><div class="clue"><div class="clue-pic"></div><div class="clue-words readable"></div><button class="again" aria-label="Say it again"><i></i></button><span class="clue-dots">${page.clues.map(() => '<i></i>').join('')}</span></div>
     <div class="wall">${page.wall.map((b, g) => `<div class="board" data-g="${g}"><img class="sport" src="${artURL(SPORT_PIC[b.sport])}" alt="">

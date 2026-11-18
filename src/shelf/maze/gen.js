@@ -1,4 +1,5 @@
-// src/maze/gen.js — perfect-maze generator on any cell graph (square grid here; other grids only change `neighbours`).
+// src/maze/gen.js — perfect-maze generator on any cell graph (square grid here; honeycomb and round grids in grids.js).
+import { gridOf } from './grids.js';
 export const rng = (seed) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
 /** Square grid, optionally masked. mask(x, y) → false removes a cell (that is how shaped mazes are made). */
@@ -9,7 +10,7 @@ export function squareGrid(w, h, mask = () => true) {
   const neighbours = (c) => { const x = c % w, y = (c / w) | 0, out = [];
     if (x > 0 && live.has(c - 1)) out.push(c - 1); if (x < w - 1 && live.has(c + 1)) out.push(c + 1);
     if (y > 0 && live.has(c - w)) out.push(c - w); if (y < h - 1 && live.has(c + w)) out.push(c + w); return out; };
-  return { w, h, cells, neighbours };
+  return { kind: 'square', w, h, cells, neighbours, size: [w, h] };
 }
 
 /** Growing Tree. `twist` 0..1: 1 = always continue from the newest cell (long winding corridors, few junctions — easy to follow),
@@ -53,7 +54,7 @@ export function measure(links) {
 /** Make one maze for a level. Tries seeds until the numbers fall inside the level's band, so difficulty is consistent page to page. */
 export function makeMaze(level, seed, mask, L = LEVELS[level]) {        // L: the level's numbers, or fitted ones (maze/page.js)
   for (let k = 0; k < 200; k++) {
-    const rand = rng(seed + k * 7919), grid = squareGrid(L.w, L.h, mask), links = carve(grid, rand, L.twist);
+    const rand = rng(seed + k * 7919), grid = gridOf(L) || squareGrid(L.w, L.h, mask), links = carve(grid, rand, L.twist);
     if (!links) continue;
     const m = measure(links);
     if (m.choices >= L.choices[0] && m.choices <= L.choices[1] && m.longestTrap <= L.trap) return { grid, links, ...m, seed: seed + k * 7919, level };

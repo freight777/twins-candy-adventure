@@ -1,0 +1,12 @@
+# Puzzle Shelf scores Worker — deploy with:  npx wrangler deploy   (from this folder, signed in to your Cloudflare account)
+name = "puzzle-shelf-scores"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[vars]
+# the game's address (only this site may read the scores)
+ALLOW_ORIGIN = "https://freight777.github.io"
+# whose "yesterday"
+TIME_ZONE = "America/New_York"
+# sport/league paths on the ESPN scoreboard, comma-separated (see README for more)
+LEAGUES = "basketball/nba,basketball/wnba,basketball/womens-college-basketball,football/nfl,hockey/nhl,baseball/mlb,soccer/usa.1"

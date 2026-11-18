@@ -221,6 +221,8 @@ body:not([data-screen="shelf"]) :is(#leave, #clock) { display: none; }
 /* the endless pages ribbon at the end of a book */
 .pg.endless { background: linear-gradient(160deg, var(--c1), var(--c0)); color: #fff; font-size: 44px; box-shadow: 0 0 0 3px #222, 0 5px 0 3px #222; }
 .pg.endless b { text-shadow: 0 2px 0 #0003; }
+.pg.lastnight { background: linear-gradient(160deg, #7678ed, #26215c); display: flex; align-items: center; justify-content: center; }
+.pg.lastnight img { width: 64%; filter: drop-shadow(0 3px 2px #0005); }
 
 /* a page turn between screens */
 #app > .turn-in { animation: turn-in .42s cubic-bezier(.2, .8, .3, 1) both; transform-origin: 0 50%; }
@@ -326,3 +328,5 @@ body:not([data-screen="shelf"]) :is(#leave, #clock) { display: none; }
 .t-preview .badge { width: 64px; height: 72px; }
 .t-add, .gu-print-last, .gu-print-book-go { padding: 8px 14px; border-radius: 12px; background: #6b3b17; color: #fff; font-size: 15px; }
 .gu-print-book { font-size: 15px; padding: 6px; border-radius: 8px; }
+.gu-scores { padding: 12px; border-radius: 14px; background: #f1f4fb; }
+.gu-url { flex: 1 1 100%; font-size: 15px; padding: 7px 9px; border: 2px solid #ccc; border-radius: 10px; }

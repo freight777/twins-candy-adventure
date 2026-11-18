@@ -31,7 +31,7 @@ export function playMaze(layers, page, { trail: saved, got = [], onChange, onSta
   draw();
 
   const toPage = (e) => { const m = svg.getScreenCTM(); if (!m) return null; const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()); return [p.x, p.y]; };
-  const cellAt = ([x, y]) => { const cx = Math.floor(x), cy = Math.floor(y); if (cx < 0 || cy < 0 || cx >= w || cy >= maze.grid.h) return -1; const c = cy * w + cx; return live.has(c) ? c : -1; };
+  const cellAt = ([x, y]) => { if (maze.grid.cellAt) return maze.grid.cellAt(x, y); const cx = Math.floor(x), cy = Math.floor(y); if (cx < 0 || cy < 0 || cx >= w || cy >= maze.grid.h) return -1; const c = cy * w + cx; return live.has(c) ? c : -1; };
   const near = (p, c, r) => { const [x, y] = centre(maze, c); return Math.hypot(p[0] - x, p[1] - y) <= r; };
   const linked = (a, b) => maze.links.get(a)?.has(b);
 
@@ -41,6 +41,11 @@ export function playMaze(layers, page, { trail: saved, got = [], onChange, onSta
     if (c < 0 || c === head) return false;
     if (c === trail.at(-2)) { trail.pop(); return true; }                                   // back along the line rubs it out
     if (linked(head, c)) { trail.push(c); reached(c); return true; }
+    if (maze.grid.cellAt) {                                                                 // other grids: a corner cut is two links through a shared neighbour
+      if (trail.at(-3) === c && linked(trail.at(-2), c)) { trail.pop(); trail.pop(); return true; }
+      for (const mid of maze.links.get(head)) if (mid !== trail.at(-2) && linked(mid, c)) { trail.push(mid, c); reached(mid); reached(c); return true; }
+      return false;
+    }
     const dx = (c % w) - (head % w), dy = ((c / w) | 0) - ((head / w) | 0);
     if (Math.abs(dx) === 1 && Math.abs(dy) === 1) {                                         // a corner cut diagonally
       for (const mid of [head + dx, head + dy * w]) {

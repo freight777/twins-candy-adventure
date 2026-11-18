@@ -36,8 +36,8 @@ let checks = 0;
 async function progress(page, type, finish = false) {
   if (type === 'maze') {
     const pts = await page.evaluate((all) => { const { maze: m } = window.__maze, svg = document.querySelector('.art'), M = svg.getScreenCTM(), W = m.grid.w;
-      const cells = all ? m.path : m.path.slice(0, Math.ceil(m.path.length / 2));
-      return cells.map((c) => { const p = new DOMPoint((c % W) + 0.5, ((c / W) | 0) + 0.5).matrixTransform(M); return [p.x, p.y]; }); }, finish);
+      const cells = all ? m.path : m.path.slice(0, Math.ceil(m.path.length / 2)), at = (c) => (m.grid.centre ? m.grid.centre(c) : [(c % W) + 0.5, ((c / W) | 0) + 0.5]);
+      return cells.map((c) => { const p = new DOMPoint(...at(c)).matrixTransform(M); return [p.x, p.y]; }); }, finish);
     await page.mouse.move(...pts[0]); await page.mouse.down(); for (const p of pts.slice(1)) await page.mouse.move(...p, { steps: 2 }); await page.mouse.up();
   } else if (type === 'ispy') {
     const pts = await page.evaluate(async (all) => {                       // tap each thing on its picture (the point of it nearest its middle), as a child would
@@ -96,6 +96,18 @@ try {
       checks++;
       await ctx.close();
     }
+    // Phase 6 grids: draw the whole way through a honeycomb and a round maze with the mouse, through every cell's centre
+    for (const [q, kind] of [['page=maze:gameday:7:2', 'hex'], ['page=maze:gameday:7:10', 'round'], ['page=maze:gameday:10:2', 'hex'], ['page=maze:gameday:10:10', 'round']]) {
+      const tag = `${sz} ${kind} ${q}`, ctx = await browser.newContext({ viewport: size }), page = await ctx.newPage(), errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(`${base}/shelf.html?${q}`); await page.waitForFunction(() => window.__maze, null, { timeout: 20000 }); await page.waitForTimeout(300);
+      assert.equal(await page.evaluate(() => window.__maze.maze.grid.kind), kind, `${tag}: is a ${kind} maze`);
+      await progress(page, 'maze', true);
+      await page.waitForSelector('.finish:not(.hidden)', { timeout: 8000 });
+      assert.ok(await page.evaluate(() => window.__maze.ctl.finished), `${tag}: finished by drawing`);
+      assert.deepEqual(errors, [], `${tag}: no errors`);
+      checks++; await ctx.close();
+    }
     // the finish screen: exactly Next page and Home (one page of each kind)
     for (const type of [...TYPES, 'score']) {
       const tag = `${sz} ${type} finish`, ctx = await browser.newContext({ viewport: size }), page = await ctx.newPage();
@@ -112,5 +124,33 @@ try {
       await ctx.close();
     }
   }
-  console.log(`nav ok (${checks} checks: 13 pages × 2 sizes, Home ≤ 300 ms, Keep going, rotation, finish screens)`);
+  // real scores (Phase 6), with the feed faked inside the browser: off → no Last night page; on → the page appears before page 1 and
+  // plays to the end; a broken feed → nothing shows and nothing breaks
+  const FEED = { date: '2026-11-17', games: [['Boston', 'Comets', 'Miami', 'Heat', 101, 99], ['Denver', 'Stars', 'Dallas', 'Wings', 88, 72], ['Seattle', 'Storm', 'Chicago', 'Sky', 79, 81],
+    ['New York', 'Giants', 'San Francisco', 'Giants', 24, 17], ['Phoenix', 'Suns', 'Houston', 'Rockets', 110, 115], ['Portland', 'Thorns', 'Austin', 'Bats', 2, 2]].map(([p1, n1, p2, n2, a, b], i) =>
+    ({ sport: i === 3 ? 'football' : i === 5 ? 'soccer' : 'basketball', home: { place: p1, nick: n1, colors: ['#123456', '#ffffff'] }, away: { place: p2, nick: n2, colors: ['#aa3300', '#000000'] }, homeScore: a, awayScore: b })) };
+  for (const mode of ['off', 'on', 'broken']) {
+    const tag = `last night ${mode}`, ctx = await browser.newContext({ viewport: SIZES.tablet }), page = await ctx.newPage(), errors = []; let asked = 0;
+    page.on('pageerror', (e) => errors.push(e.message));
+    await ctx.route('https://scores.test/**', (route) => { asked++; return mode === 'broken' ? route.fulfill({ status: 200, contentType: 'application/json', body: '{"games": "nope"' }) : route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(FEED) }); });
+    await page.goto(`${base}/shelf.html`); await page.waitForFunction(() => window.shelf?.route);
+    await page.evaluate((on) => { const s = JSON.parse(localStorage.getItem('ps.v1') || '{}'); s.v = 1; s.settings = { ...(s.settings || {}), realScores: on, scoresURL: 'https://scores.test/' }; localStorage.setItem('ps.v1', JSON.stringify(s)); }, mode !== 'off');
+    await page.goto(`${base}/shelf.html?book=score-gameday`); await page.waitForSelector('.pages .pg'); await page.waitForTimeout(1200);
+    const tile = await page.$('.pg.lastnight');
+    if (mode !== 'on') { assert.equal(tile, null, `${tag}: no Last night page`); assert.equal(asked, mode === 'off' ? 0 : asked, `${tag}: off asks nothing`); if (mode === 'off') assert.equal(asked, 0, 'off: no network'); }
+    else {
+      assert.ok(tile, `${tag}: the Last night page is on the book`); assert.equal(asked, 1, `${tag}: asked once`);
+      await page.evaluate(() => document.querySelector('.pg.lastnight').click());
+      await page.waitForFunction(() => window.__score && document.querySelector('.wall .board'));
+      const names = await page.evaluate(() => [...document.querySelectorAll('.row .name b')].map((b) => b.textContent));
+      assert.ok(names.includes('Comets') && names.some((n) => n.includes('Giants')), `${tag}: real teams on the wall (${names})`);
+      assert.equal(await page.evaluate(() => document.querySelectorAll('.row .badge use').length), 0, `${tag}: no mascots on real teams`);
+      await progress(page, 'score', true);
+      await page.waitForSelector('.finish:not(.hidden)', { timeout: 8000 });
+      assert.ok(!(await page.evaluate(() => JSON.parse(localStorage.getItem('ps.v1')).last?.last)), `${tag}: Keep going is not this page`);
+    }
+    assert.deepEqual(errors, [], `${tag}: no errors`);
+    checks++; await ctx.close();
+  }
+  console.log(`nav ok (${checks} checks: real scores on, off and broken, 13 pages × 2 sizes, honeycomb and round mazes drawn through, Home ≤ 300 ms, Keep going, rotation, finish screens)`);
 } finally { await browser.close(); await server.close(); }

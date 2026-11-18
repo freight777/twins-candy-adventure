@@ -75,4 +75,24 @@ export const SETS = {
     zones: [{ kind: 'float', poly: box(40, 40, 1160, 330), depth: [0.3, 0.55], density: 0.6 }, { kind: 'shelf', y: 405, x0: 380, x1: 840, depth: 0.4 },
       { kind: 'ground', poly: box(40, 700, 1160, 880), depth: [0.6, 1] }, { kind: 'float', poly: box(40, 360, 300, 620), depth: 0.45, density: 0.5 }, { kind: 'float', poly: box(900, 340, 1160, 620), depth: 0.45, density: 0.5 }],
   },
+  moonbase: {                                                   // the moon's surface: a starry sky, the Earth, a dome base, craters
+    fills: F(rect(0, 0, 1200, 900), '#c9c6f5') + F('M0 520Q300 470 620 510T1200 500V900H0Z', '#e2e2ea') + F('M1040 140m-70 0a70 70 0 1 0 140 0a70 70 0 1 0-140 0', '#8fd0ff') +
+      F('M1010 110q30-20 40 10q20 30-10 40q-30 0-30-50ZM1060 170q20 0 20 20q-20 10-30-10Z', '#7cc576') + F('M70 520a150 130 0 0 1 300 0Z', '#ffffff'),
+    lines: L('M0 520Q300 470 620 510T1200 500') + L('M1040 140m-70 0a70 70 0 1 0 140 0a70 70 0 1 0-140 0') + L('M1010 110q30-20 40 10q20 30-10 40q-30 0-30-50ZM1060 170q20 0 20 20q-20 10-30-10Z', 3) +
+      L('M70 520a150 130 0 0 1 300 0') + L('M190 520v-60a30 30 0 0 1 60 0v60', 4) + L('M120 440a100 80 0 0 1 60-40', 3) +
+      [[520, 640, 70], [860, 600, 50], [700, 790, 90], [260, 780, 60], [1080, 770, 55]].map(([x, y, r]) => L(`M${x - r} ${y}a${r} ${r * 0.35} 0 1 0 ${2 * r} 0a${r} ${r * 0.35} 0 1 0 ${-2 * r} 0`, 4)).join('') +
+      [[120, 90], [330, 60], [560, 120], [760, 70], [440, 260], [880, 300], [180, 300]].map(([x, y]) => L(`M${x} ${y - 12}v24M${x - 12} ${y}h24`, 3)).join(''),
+    zones: [{ kind: 'float', poly: box(40, 40, 900, 420), depth: [0.3, 0.55], density: 0.65 }, { kind: 'ground', poly: box(420, 560, 1160, 880), depth: [0.45, 1] },
+      { kind: 'ground', poly: box(40, 620, 420, 880), depth: [0.6, 1] }],
+  },
+  spaceship: {                                                  // inside a spaceship: a round window on the stars, shelves, the control desk
+    fills: F(rect(0, 0, 1200, 900), '#e4e8f2') + F(rect(0, 690, 1200, 210), '#bfc6d6') + F('M700 250m-200 0a200 200 0 1 0 400 0a200 200 0 1 0-400 0', '#3d348b') +
+      F('M440 560h720v130H440Z', '#9aa6c0'),
+    lines: L('M700 250m-200 0a200 200 0 1 0 400 0a200 200 0 1 0-400 0') + L('M700 250m-222 0a222 222 0 1 0 444 0a222 222 0 1 0-444 0', 4) +
+      L('M0 690H1200') + L('M440 560h720M440 560v130M1160 560v130', 5) + L('M60 260H380M60 400H380', 6) + L('M80 260v24l24-24M360 260v24l-24-24M80 400v24l24-24M360 400v24l-24-24', 4) +
+      [480, 560, 640, 720, 800].map((x, i) => `<circle cx="${x + 20}" cy="620" r="13" fill="${['#ff5c5c', '#ffd23f', '#2dbb5a', '#3a86ff', '#ff8a3d'][i]}" stroke="#222" stroke-width="4"/>`).join('') +
+      L('M900 600h200v60H900Z', 4) + L('M920 640l30-20l30 25l30-30l30 20l30-10', 3) + L('M0 120h40v460H0', 4),
+    zones: [{ kind: 'float', poly: box(590, 120, 810, 380), depth: 0.22, density: 0.5 }, { kind: 'shelf', y: 260, x0: 70, x1: 370, depth: 0.25 }, { kind: 'shelf', y: 400, x0: 70, x1: 370, depth: 0.3 },
+      { kind: 'shelf', y: 560, x0: 450, x1: 1150, depth: 0.35 }, { kind: 'ground', poly: box(40, 720, 1160, 880), depth: [0.6, 1] }],
+  },
 };

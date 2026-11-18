@@ -9,6 +9,7 @@ export const THEMES = {
     decor: ['Soccer ball', 'Baseball', 'American football', 'Tennis', 'Volleyball', 'Trophy', 'Sports medal', 'Running shoe', 'Megaphone', 'Popcorn', 'Flying disc', 'Ice hockey'],
     mats: ['field', 'court', 'pitch', 'rink'],
     shapes: ['Basketball', 'Soccer ball', 'Trophy', 'American football', 'Running shirt', 'Sports medal'],
+    grids: ['hex', 'round'],                                         // Phase 6: some pages from level 4 are a soccer-ball honeycomb or a round basketball maze
     stickers: ['Soccer ball', 'Basketball', 'American football', 'Baseball', 'Trophy', 'Sports medal', 'Running shoe', 'Eagle', 'Tiger', 'Bear', 'Racing car', 'Ice hockey', 'Tennis', 'Volleyball', 'Boxing glove', 'Goal net'],          // sticker-by-letter pictures (tools/build-stickers.mjs)
     // hidden pictures: OpenMoji codes (tools/build-art.mjs), each with the word in the tray when the annotation needs shortening;
     // odd things in odd places are the point (a toothbrush in a stadium). sets = the backdrops in ispy/sets.js
@@ -45,6 +46,18 @@ export const THEMES = {
     ispy: '1F433:whale 1F42C:dolphin 1FACD:orca 1F9AD:seal 1F420:fish 1F421:puffer_fish 1F988:shark 1F419:octopus 1F41A:shell 1FAB8:coral 1FABC:jellyfish 1F980:crab 1F99E:lobster 1F990:shrimp 1F991:squid 1F9AA:oyster 1F422:turtle 1F427:penguin 1F9A6:otter 2693:anchor 1F6DF:life_ring 26F5:sailboat 1F6F6:canoe 1F6A4:speedboat 1F6E5:motor_boat 1F6A2:ship 1F6D9:lighthouse 1F93F:mask 1F3A3:fishing_rod 1F3D6:beach 1F3DD:island 1F48E:gem 1F451:crown 1F48D:ring 1FA99:coin 1F5DD:key 1F9ED:compass 1F52D:telescope 1F30A:wave 1F334:palm_tree 1FAA3:bucket 1F9FD:sponge 1FAA2:knot 1F9F2:magnet 1F381:present 1FAA5:toothbrush 1F355:pizza 1F34C:banana 1F9F8:teddy 1F45F:sneaker 1F3C0:basketball 1F388:balloon 1F9E6:socks 1F3B8:guitar 1F34E:apple 1F36D:lollipop 1F95A:egg 1F4A1:light_bulb 1FA81:kite 1F9E2:cap 1F4F7:camera 1F366:ice_cream 1F369:doughnut 1F3BA:trumpet 1F941:drum',
     sets: ['reef', 'shipwreck'],
   },
+  // Phase 6: the theme that tests the architecture (§8) — one entry here, two backdrops in ispy/sets.js, two mats below, then
+  // node tools/fetch-art.mjs, node tools/build-art.mjs and npm run stickers. No engine change.
+  space: {
+    id: 'space', title: 'Space', cover: ['#3d348b', '#7678ed'], line: 'Fly the rocket to the planet!',
+    hero: 'Rocket', goal: 'Ringed planet',
+    decor: ['Star', 'Glowing star', 'Comet', 'Full moon', 'Crescent moon', 'Satellite', 'Flying saucer', 'Alien', 'Shooting star', 'Sun', 'Telescope', 'Sparkles'],
+    mats: ['night', 'moon'],
+    shapes: ['Rocket', 'Ringed planet', 'Flying saucer', 'Full moon', 'Star', 'Alien'],
+    stickers: ['Rocket', 'Flying saucer', 'Ringed planet', 'Astronaut', 'Alien', 'Alien monster', 'Robot', 'Satellite', 'Telescope', 'Comet', 'Full moon', 'Sun', 'Glowing star', 'Globe showing americas', 'Shooting star', 'Crescent moon'],          // sticker-by-letter pictures (tools/build-stickers.mjs)
+    ispy: '1F680:rocket 1F6F8:UFO 1F6F0:satellite 1FA90:planet 1F315:full_moon 1F319:moon 2B50:star 1F320:shooting_star 2604:comet 2600:sun 1F52D:telescope 1F4E1:dish 1F47D:alien 1F47E:space_monster 1F916:robot 1F9D1-200D-1F680:astronaut 1F52C:microscope 1F9EA:test_tube 1F50B:battery 1F50C:plug 1F4BB:laptop 1F579:joystick 1F9F2:magnet 2699:gear 1F529:bolt 1F527:wrench 1F528:hammer 1FA9B:screwdriver 1F526:flashlight 1F4A1:light_bulb 1F9ED:compass 1F31E:sun_face 2601:cloud 1F308:rainbow 26A1:lightning 2744:snowflake 2728:sparkles 231B:hourglass 23F0:alarm_clock 1F4FB:radio 1F50D:magnifier 1FAA8:rock 1F30B:volcano 1F52E:crystal_ball 1F48E:gem 1F5DD:key 1FA9C:ladder 1F9F0:toolbox 1F6A9:flag 1FA82:parachute 2708:airplane 1F4E6:box 1F321:thermometer 1FAA5:toothbrush 1F355:pizza 1F34C:banana 1F9F8:teddy 1F45F:sneaker 1F9E2:cap 1F3C0:basketball 1F381:present 1FA81:kite 1F388:balloon 1F9E6:socks 1F3B8:guitar 1F34E:apple 1F36D:lollipop 1F95A:egg 1F369:doughnut 1F9C1:cupcake 1F451:crown 2602:umbrella 1F3BA:trumpet',
+    sets: ['moonbase', 'spaceship'],
+  },
 };
 
 /** the drawn ground under a plain maze: fill, the colour of its markings, and how they are laid out */
@@ -60,6 +73,8 @@ export const MATS = {
   sand: { fill: '#f3dfa8', mark: '#d8b468', lines: 'tracks' },
   sea: { fill: '#bfe9ff', mark: '#ffffff', lines: 'waves' },
   reef: { fill: '#ffd6c9', mark: '#ff9a8a', lines: 'waves' },
+  night: { fill: '#cfd3ff', mark: '#ffffff', lines: 'stars' },
+  moon: { fill: '#e2e2ea', mark: '#a9a9bd', lines: 'craters' },
 };
 
 export const slug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
