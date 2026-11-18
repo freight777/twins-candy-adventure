@@ -63,8 +63,10 @@ async function silhouette(name) {
 }
 
 const missing = [], made = [];
-for (const t of Object.values(MATCH)) {                    // pieces and friends at 192 px; map charms and map friends at 128 px
-  const big = new Set([...t.names, ...Object.values(t.art)]);
+// pieces and friends at 192 px; map charms and map friends at 128 px. The files are shared by both doors (a star is a unicorn piece
+// and a mermaid charm), so a picture either door draws big stays big.
+const big = new Set(Object.values(MATCH).flatMap((t) => [...t.names, ...Object.values(t.art)]));
+for (const t of Object.values(MATCH)) {
   for (const n of artNames(t)) (await webp(n, path.join(ROOT, 'public/assets/match'), big.has(n.split('|')[0]) ? SIZE : 128)) ? made.push(n) : missing.push(`match/${t.id}: ${n}`);
 }
 const shapes = {};
