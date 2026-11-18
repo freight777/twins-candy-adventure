@@ -68,11 +68,11 @@ export function buildPage(spec, saved, box) {
       const order = theme.shapes.slice(), first = (rand() * order.length) | 0; order.push(...order.splice(0, first));
       for (const name of order) { const s = shapeGrid(name, fit, maxW, maxH); if (s && s.count >= 0.75 * fit.w * fit.h) { Object.assign(gen, { shape: name, w: s.w, h: s.h, choices: scaleBand(fit, s.count) }); break; } }
     }
-    const special = theme.grids || [], r2 = rng(spec.seed ^ 0x6e7a1d);  // Phase 6: a soccer-ball honeycomb or a basketball round maze
+    const special = theme.grids || [], r2 = rng(spec.seed ^ 0x6e7a1d);  // Phase 6: a honeycomb or round maze, on the theme's picture
     if (special.length && spec.level >= 4 && r2() < 0.3) {
-      const kind = special[(r2() * special.length) | 0], want = fit.w * fit.h;
-      if (kind === 'hex') { const g = soccerGrid(want, maxW, maxH); Object.assign(gen, { grid: 'hex', picture: 'Soccer ball', shape: null, w: g.cols, h: g.rows, r: g.r, choices: scaleBand(fit, g.grid.cells.length) }); }
-      else { const g = basketballGrid(want, maxW, maxH); Object.assign(gen, { grid: 'round', picture: 'Basketball', shape: null, rings: g.rings, w: 2 * g.rings, h: 2 * g.rings, choices: scaleBand(fit, g.grid.cells.length) }); }
+      const [kind, picture] = special[(r2() * special.length) | 0], want = fit.w * fit.h;
+      if (kind === 'hex') { const g = soccerGrid(want, maxW, maxH); Object.assign(gen, { grid: 'hex', picture, shape: null, w: g.cols, h: g.rows, r: g.r, choices: scaleBand(fit, g.grid.cells.length) }); }
+      else { const g = basketballGrid(want, maxW, maxH); Object.assign(gen, { grid: 'round', picture, shape: null, rings: g.rings, w: 2 * g.rings, h: 2 * g.rings, choices: scaleBand(fit, g.grid.cells.length) }); }
     }
   } else rand();                                                   // keep the random stream in step with a fresh build
   let maze = null, shape = null;

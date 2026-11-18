@@ -69,11 +69,11 @@ for (const g of [hexCircle(9, 10, 4.2), hexCircle(21, 24, 10.1), roundGrid(3), r
   assert.ok(g.cells.some((c) => g.outside(c)), `${tag}: has an edge`);
 }
 let specials = 0;
-for (const box of [{ w: 1100, h: 760 }, { w: 350, h: 560 }, { w: 800, h: 300 }]) for (let L = 4; L <= 10; L++) for (let s = 1; s <= Math.ceil(SEEDS / 10); s++) {
-  const p = buildPage({ type: 'maze', theme: 'gameday', level: L, seed: s * 3301 + L }, null, box);
+for (const theme of ['gameday', 'space']) for (const box of [{ w: 1100, h: 760 }, { w: 350, h: 560 }, { w: 800, h: 300 }]) for (let L = 4; L <= 10; L++) for (let s = 1; s <= Math.ceil(SEEDS / 10); s++) {
+  const p = buildPage({ type: 'maze', theme, level: L, seed: s * 3301 + L }, null, box);
   if (!p.gen.grid) continue; specials++;
   perfect(p.maze, p.gen, `${p.gen.grid} L${L} s${s}`);
-  const again = buildPage({ type: 'maze', theme: 'gameday', level: L, seed: s * 3301 + L }, JSON.parse(JSON.stringify(p.gen)));
+  const again = buildPage({ type: 'maze', theme, level: L, seed: s * 3301 + L }, JSON.parse(JSON.stringify(p.gen)));
   assert.deepEqual(again.maze.path, p.maze.path, 'a saved honeycomb or round page comes back the same');
   const [W, H] = p.maze.grid.size; assert.ok((W + 2.2) * 30 <= box.w + 30 && (H + 2.2) * 30 <= box.h + 30, `${p.gen.grid} L${L}: fits at 30 px a corridor (${W}×${H})`);
 }

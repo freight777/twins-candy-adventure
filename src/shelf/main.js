@@ -31,6 +31,7 @@ import { allTeams } from './sports/teams.js';
 import { makeJersey } from './sports/jersey.js';
 import { showScorePage } from './sports/page.js';
 import { refreshScores, lastNight, makeLastNight } from './sports/lastnight.js';
+import { clueText } from './sports/scorespy.js';
 import { LINES, storyId } from '../engine/lines.js';
 import MAP from './sfx.json';
 
@@ -291,10 +292,13 @@ function showSticker(r, spec) {
   wireFinish(r, spec);
   return cleanup;
 }
+/** a clue out loud: the whole sentence's clip if it was recorded, else its parts' clips, else (his own or real teams) the device voice */
 function sayClue(c, t) {
-  const text = c.words.join(' ').replace(/[.!?]*$/, '') + (c.kind === 'beat' || c.kind === 'wonBy' ? '?' : '.');
-  const ids = c.words.map((w) => (t && w === t.nick && !t.house ? null : storyId('announcer', String(w))));
-  if (ids.every((id) => id && LINES[id])) voice(ids, { priority: 1, gap: 0.05 }); else talk(text);
+  const text = clueText(c), whole = storyId('announcer', text);
+  if (t && !t.house) return talk(text);
+  if (LINES[whole]) return voice([whole], { priority: 1 });
+  const ids = c.words.map((w) => storyId('announcer', String(w)));
+  if (ids.every((id) => LINES[id])) voice(ids, { priority: 1, gap: 0.05 }); else talk(text);
 }
 /** the "Last night" page: last night's real games on the wall, at his Score Spy level; it does not count toward the book */
 function showLastNight(r) {

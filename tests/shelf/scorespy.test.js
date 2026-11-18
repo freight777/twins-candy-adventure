@@ -2,7 +2,7 @@
 // scratch, not by the generator's own code), no two clues share a board, scores look real for their sport, and a page is the same
 // page every time. Run: node tests/shelf/scorespy.test.js [walls per level = 500]
 import assert from 'node:assert/strict';
-import { makeScoreSpy, LEVELS } from '../../src/shelf/sports/scorespy.js';
+import { makeScoreSpy, LEVELS, clueText } from '../../src/shelf/sports/scorespy.js';
 import { allTeams } from '../../src/shelf/sports/teams.js';
 import { clean, makeLastNight } from '../../src/shelf/sports/lastnight.js';
 import { rng } from '../../src/shelf/maze/gen.js';
@@ -38,6 +38,8 @@ for (const mine of [[], MINE]) {
     assert.equal(new Set(p.clues.map((c) => c.answer.g)).size, p.clues.length, `${tag}: each clue on a different board`);
     for (const c of p.clues) {
       assert.ok(LEVELS[level].kinds.includes(c.kind), `${tag}: ${c.kind} belongs to this level`);
+      const said = clueText(c);
+      assert.ok(!/Find a (8|11|18|8d)/.test(said) && !/Find an (?!8|11|18)/.test(said), `${tag}: "${said}" — a or an`);
       const a = answers(c, p.wall, teams);
       assert.equal(a.length, 1, `${tag}: "${c.words.join(' ')}" has ${a.length} answers`);
       assert.equal(a[0].g, c.answer.g, `${tag}: the answer is the right board`);

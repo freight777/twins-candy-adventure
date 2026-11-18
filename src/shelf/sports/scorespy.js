@@ -36,6 +36,12 @@ function makeWall(L, teams, r) {
   });
 }
 
+/** a clue as one spoken sentence: "Find the Otters." / "Which team beat the Bears?" / "Find a tie!" — the voice bank records
+ *  the common ones whole (src/engine/lines.js), so they sound like one sentence, not words stuck together */
+/** "Find a 7." but "Find an 8.", "an 11", "an 18", "an 80"… (the numbers said with a vowel sound first) */
+export const findA = (n) => (n === 8 || n === 11 || n === 18 || (n >= 80 && n <= 89) ? 'Find an' : 'Find a');
+export const clueText = (c) => { const s = c.words.join(' '); return /[.!?]$/.test(s) ? s : s + (c.kind === 'beat' || c.kind === 'wonBy' ? '?' : '.'); };
+
 /** all the clues of a kind that have exactly one answer on this wall. A clue: { kind, words: [...], answer: { g, side|null } } —
  *  side null means tapping anywhere on that board is right; a side means that team's row */
 export function cluesOf(kind, wall, teams) {
@@ -44,7 +50,7 @@ export function cluesOf(kind, wall, teams) {
   const allIds = [...new Set(wall.flatMap((b) => b.teams))];
   const scores = wall.flatMap((b, g) => b.scores.map((s, side) => ({ s, g, side })));
   if (kind === 'team') for (const id of allIds) { const at = where(id); if (at.length === 1) out.push({ kind, team: id, words: ['Find the', nick(id)], answer: { g: at[0].g, side: null } }); }
-  if (kind === 'number') for (const s of new Set(scores.map((x) => x.s))) { const at = scores.filter((x) => x.s === s); if (at.length === 1) out.push({ kind, n: s, words: ['Find a', s], answer: { g: at[0].g, side: null } }); }
+  if (kind === 'number') for (const s of new Set(scores.map((x) => x.s))) { const at = scores.filter((x) => x.s === s); if (at.length === 1) out.push({ kind, n: s, words: [findA(s), s], answer: { g: at[0].g, side: null } }); }
   if (kind === 'teamScored') for (const id of allIds) { const at = where(id); if (at.length === 1) out.push({ kind, team: id, n: wall[at[0].g].scores[at[0].side], words: ['Find the game where the', nick(id), 'scored', wall[at[0].g].scores[at[0].side]], answer: { g: at[0].g, side: null } }); }
   if (kind === 'beat') for (const id of allIds) {
     const at = where(id); if (at.length !== 1) continue; const b = wall[at[0].g], me = at[0].side, them = 1 - me;

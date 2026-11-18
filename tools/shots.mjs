@@ -45,7 +45,7 @@ const SHELF = [
   ['24-jersey', 'book=sticker-gameday&n=4'], ['25-score-book', 'book=score-gameday'],
   ['26-space-maze-l2', 'page=maze:space:2:22'], ['27-space-maze-l6', 'page=maze:space:6:66'], ['28-space-ispy-l4-color', 'page=ispy:space:4:44&look=color'],
   ['29-space-ispy-l8-line', 'page=ispy:space:8:88&look=line'], ['30-space-sticker', 'book=sticker-space&n=1'],
-  ['31-grid-hex-l4', 'page=maze:gameday:4:2'], ['32-grid-round-l7', 'page=maze:gameday:7:10&debug=1'], ['33-grid-hex-l10-part', 'page=maze:gameday:10:2', 0.5], ['34-grid-round-l10', 'page=maze:gameday:10:10'],
+  ['31-grid-hex-l4', 'page=maze:gameday:4:2'], ['32-grid-round-l7', 'page=maze:gameday:7:10&debug=1'], ['33-grid-hex-l10-part', 'page=maze:gameday:10:2', 0.5], ['34-grid-round-l10', 'page=maze:gameday:10:10'], ['35-grid-moon-l7', 'page=maze:space:7:2', 0.4], ['36-grid-sun-l7', 'page=maze:space:7:10'],
 ];
 
 const server = await createServer({ root: ROOT, configFile: path.join(ROOT, 'vite.config.js'), server: { port: 5199, strictPort: false }, logLevel: 'error' });

@@ -33,6 +33,8 @@ async function league(path, date) {
   return out;
 }
 
+export { league, yesterday };                                   // for tests (workers/scores/test.mjs)
+
 export default {
   async fetch(request, env, ctx) {
     const origin = env.ALLOW_ORIGIN || 'https://freight777.github.io', cors = { 'Access-Control-Allow-Origin': origin, 'Vary': 'Origin' };

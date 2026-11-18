@@ -154,6 +154,11 @@ import { THEMES as SHELF, ispyObjects, stickerWord } from '../shelf/themes.js';
 // part is a clip: the clue openings, the house league's team names and the numbers 0–120. His own teams' names are not here
 // (they stay on the iPad): a clue with one of them is said whole by the device voice.
 import { HOUSE } from '../shelf/sports/teams.js';
-story('announcer', 'Score Spy', 'Find the scores!', 'Real games from last night!', 'Find the', 'Find a', 'Find the game where the', 'scored', 'Which team beat the', 'Who won by', 'Find a tie!',
+import { clueText, findA } from '../shelf/sports/scorespy.js';
+story('announcer', 'Score Spy', 'Find the scores!', 'Real games from last night!', 'Find the', 'Find a', 'Find an', 'Find the game where the', 'scored', 'Which team beat the', 'Who won by', 'Find a tie!',
   'Find the highest score on the wall!', 'Find the lowest score on the wall!', 'Find the game with the most points altogether!',
   ...HOUSE.map((t) => t.nick), ...Array.from({ length: 121 }, (_, n) => String(n)));
+// …and the common clues whole, so they sound like one sentence: every house team's "Find the …" and "Which team beat the …?",
+// every number's "Find a …", every margin's "Who won by …?" (clueText in sports/scorespy.js writes them the same way)
+story('announcer', ...HOUSE.flatMap((t) => [clueText({ kind: 'team', words: ['Find the', t.nick] }), clueText({ kind: 'beat', words: ['Which team beat the', t.nick] })]),
+  ...Array.from({ length: 121 }, (_, n) => clueText({ kind: 'number', words: [findA(n), n] })), ...Array.from({ length: 30 }, (_, d) => clueText({ kind: 'wonBy', words: ['Who won by', d + 1] })));

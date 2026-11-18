@@ -20,6 +20,9 @@ What it does:
    and paste that address.
 4. Open Score Spy: a page with a moon on it appears before page 1 the next time the game opens.
 
+To check it before deploying, run `node workers/scores/test.mjs` from the project folder: it reads yesterday's real scoreboards with
+the same code and prints what the game would get (add a date like `20261117` to pick a day).
+
 ## Settings (`wrangler.toml` → `[vars]`)
 
 | Setting | What |
