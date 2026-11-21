@@ -1,13 +1,13 @@
 // Builds Sparkle Plinko's sound sprite (public/assets/plinko/sfx.mp3 + its cue map src/plinko/sfx.json) from Kenney's CC0 sound packs — the same
 // packs Wishwood uses (Interface Sounds, Impact Sounds, Casino Audio, Music Jingles). Run from the repo root:
-//   node tools/plinko-sfx.mjs [path to the unzipped kenney_* folders]   (default: ../Wishwood/art/audio/kenney)
+//   node tools/plinko-sfx.mjs [path to the unzipped kenney_* folders]   (default: raw-assets/kenney-audio, in this repo)
 // Needs ffmpeg (winget install Gyan.FFmpeg, or set FFMPEG). Swap a sound by changing its line in CUES.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const ROOT = path.resolve('.');
-const KENNEY = path.resolve(process.argv[2] || path.join(ROOT, '../Wishwood/art/audio/kenney'));
+const KENNEY = path.resolve(process.argv[2] || path.join(ROOT, 'raw-assets/kenney-audio'));
 const OUT = path.join(ROOT, 'public/assets/plinko'), TMP = path.join(ROOT, 'tools/.cache/plinko-sfx');
 const RATE = 44100, GAP = 0.2;
 

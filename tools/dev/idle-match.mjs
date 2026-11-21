@@ -1,0 +1,15 @@
+import path from 'node:path';
+import { createRequire } from 'node:module';
+const ROOT = path.resolve(import.meta.dirname, '../..'); const { chromium } = createRequire(path.join(ROOT, 'tools/package.json'))('playwright'); const { createServer } = await import('vite');
+const server = await createServer({ root: ROOT, configFile: path.join(ROOT, 'vite.config.js'), server: { port: 5191 }, logLevel: 'error' }); await server.listen();
+const browser = await chromium.launch({ executablePath: path.join(process.env.LOCALAPPDATA, 'ms-playwright/chromium_headless_shell-1254/chrome-headless-shell-win64/chrome-headless-shell.exe') });
+const page = await browser.newPage({ viewport: { width: 1024, height: 768 } }), errors = []; page.on('pageerror', (e) => errors.push(e.message));
+const base = server.resolvedUrls.local[0];
+await page.goto(base + 'match.html'); await page.waitForTimeout(8800);
+const doors = await page.evaluate(() => document.querySelectorAll('.door.nudge').length);
+await page.goto(base + 'match.html?door=unicorn'); await page.waitForFunction(() => window.match); await page.waitForTimeout(8800);
+const walker = await page.evaluate(() => document.querySelector('.walker').className);
+await page.$eval('.stone[data-n="1"]', (b) => b.click()); await page.waitForTimeout(2000);
+await page.$eval('.chip', (c) => c.click()); const chip = await page.evaluate(() => document.querySelector('.chip').className);
+console.log(JSON.stringify({ doorsNudged: doors, walker, chip, errors }));
+await browser.close(); await server.close();

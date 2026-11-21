@@ -1,6 +1,6 @@
 // Builds the sound sprites for Sparkle Match and Puzzle Shelf from Kenney's CC0 packs (Interface Sounds, Impact Sounds, Casino Audio,
 // Music Jingles, RPG Audio — the same packs as Sparkle Plinko): one mp3 per game plus its cue map.
-//   node tools/game-sfx.mjs [path to the unzipped kenney_* folders]     (default: ../Wishwood/art/audio/kenney)
+//   node tools/game-sfx.mjs [path to the unzipped kenney_* folders]     (default: raw-assets/kenney-audio, in this repo)
 // Needs ffmpeg (winget install Gyan.FFmpeg, or set FFMPEG). Swap a sound by changing its line below. The games play each cue at
 // three slightly different pitches, and Sparkle Match climbs a pentatonic scale on chain reactions, so tonal sounds work best.
 import fs from 'node:fs';
@@ -8,7 +8,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const KENNEY = path.resolve(process.argv[2] || path.join(ROOT, '../Wishwood/art/audio/kenney'));
+const KENNEY = path.resolve(process.argv[2] || path.join(ROOT, 'raw-assets/kenney-audio'));
 const RATE = 44100, GAP = 0.15;
 
 /** game → { out: [mp3, json], cues: { cue: [pack, file, loudness LUFS] } } — soft and short: a parent in the next room is not annoyed */

@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+import { createServer } from 'vite';
+import path from 'node:path';
+const ROOT = path.resolve(import.meta.dirname, '../..');
+const server = await createServer({ root: ROOT, configFile: path.join(ROOT, 'vite.config.js'), server: { port: 5196 }, logLevel: 'error' }); await server.listen();
+const browser = await chromium.launch({ executablePath: path.join(process.env.LOCALAPPDATA, 'ms-playwright/chromium_headless_shell-1254/chrome-headless-shell-win64/chrome-headless-shell.exe') });
+const page = await browser.newPage({ viewport: { width: 1024, height: 768 } }), errors = [];
+page.on('pageerror', (e) => errors.push(e.message));
+await page.goto(server.resolvedUrls.local[0] + 'match.html?door=unicorn&level=1&seed=1'); await page.waitForFunction(() => window.match?.soak, null, { timeout: 30000 });
+const levels = process.argv.slice(2).map(Number);
+const r = await page.evaluate((ls) => window.match.soak(ls, 13, 170000), levels.length ? levels : Array.from({ length: 100 }, (_, i) => i + 1));
+console.log(JSON.stringify({ ok: r.ok, problem: r.problem, done: r.out.length, stoppedAt: r.stoppedAt, errors }));
+await browser.close(); await server.close();

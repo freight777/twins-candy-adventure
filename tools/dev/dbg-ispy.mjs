@@ -1,0 +1,11 @@
+import path from 'node:path';
+import { createRequire } from 'node:module';
+const ROOT = path.resolve(import.meta.dirname, '../..'); const { chromium } = createRequire(path.join(ROOT, 'tools/package.json'))('playwright'); const { createServer } = await import('vite');
+const server = await createServer({ root: ROOT, configFile: path.join(ROOT, 'vite.config.js'), server: { port: 5192 }, logLevel: 'error' }); await server.listen();
+const browser = await chromium.launch({ executablePath: path.join(process.env.LOCALAPPDATA, 'ms-playwright/chromium_headless_shell-1254/chrome-headless-shell-win64/chrome-headless-shell.exe') });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+await page.goto(server.resolvedUrls.local[0] + 'shelf.html?book=ispy-dinosaurs&n=3'); await page.waitForFunction(() => window.__ispy); await page.evaluate(() => document.querySelector('.chooser')?.remove()); await page.waitForTimeout(300);
+const info = await page.evaluate(() => { const { scene, layers } = window.__ispy, M = layers.svg.getScreenCTM(); const it = scene.items.find((x) => x.target !== undefined); const p = new DOMPoint(it.x, it.y).matrixTransform(M); const hit = document.elementFromPoint(p.x, p.y); return { it: [it.id, Math.round(it.x), Math.round(it.y), Math.round(it.s)], p: [p.x | 0, p.y | 0], hit: hit && (hit.tagName + '.' + (hit.getAttribute('class') || '')), scene: layers.svg.getBoundingClientRect().toJSON() }; });
+await page.mouse.click(...info.p); await page.waitForTimeout(200);
+console.log(JSON.stringify({ ...info, found: await page.evaluate(() => window.__ispy.ctl.found) }));
+await browser.close(); await server.close();

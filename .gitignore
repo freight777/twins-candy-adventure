@@ -1,5 +1,7 @@
 ﻿node_modules
-raw-assets
+# raw-assets: the zips and the sound folders are kept; the unzipped 3D kits are copies of their zips
+raw-assets/kenney-food/
+raw-assets/kenney-nature/
 dist
 .DS_Store
 *.log

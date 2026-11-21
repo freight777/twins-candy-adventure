@@ -29,6 +29,11 @@
     .claw .art { background: linear-gradient(135deg, #2a1240, #ff7fd0 55%, #6fe3ff); }
     .princess .art { background: linear-gradient(135deg, #ffd6ea, #ffe9a0); }
     .plinko .art { background: linear-gradient(135deg, #ffc4e8, #c9b6ff 45%, #38c9e8); }
+    .wishwood .art { background: linear-gradient(135deg, #b8e986, #ffe08a 55%, #ffb38a); }
+    .pokemon .art { background: linear-gradient(135deg, #ffd54f, #c39bff 50%, #6fd3ff); }
+    /* games that live on their own site, behind their own grown-up password: a little lock in the corner */
+    .game.away .art { position: relative; }
+    .game.away .art::after { content: '🔒'; position: absolute; top: 10px; right: 14px; font-size: 26px; opacity: .85; }
     .match .art { background: linear-gradient(135deg, #ffd9f1, #c7b3ff 50%, #2a7fd0); }
     .shelf .art { background: linear-gradient(135deg, #f6e7c8, #d9a46a); }
     .label { padding: 14px 16px 18px; text-align: center; font-size: clamp(22px, 4vw, 32px); font-weight: 700; line-height: 1.1; }
@@ -90,6 +95,15 @@
       <a class="game jackson" href="./jackson/index.html">
         <div class="art">&#128658;&#128668;&#128642;</div>
         <div class="label">Jackson's Vehicles<small>Jackson &middot; beep beep!</small></div>
+      </a>
+      <!-- these two are separate sites with their own password; the tile just takes you there -->
+      <a class="game wishwood away" href="https://wishwood.tomquane.workers.dev/">
+        <div class="art">&#127795;&#10024;&#129689;</div>
+        <div class="label">Wishwood<small>Adalyn &amp; Esmae &middot; grown-up password</small></div>
+      </a>
+      <a class="game pokemon away" href="https://ae-adventure-4729.tomquane.workers.dev/">
+        <div class="art">&#129412;&#9889;&#129500;&#8205;&#9792;&#65039;</div>
+        <div class="label">Pok&eacute;mon Unicorn &amp; Mermaid<small>Adalyn &amp; Esmae &middot; grown-up password</small></div>
       </a>
     </div>
   </main>
